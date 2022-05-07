@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CompilerConfiguration">
+    <annotationProcessing>
+      <profile name="Maven default annotation processors profile" enabled="true">
+        <sourceOutputDir name="target/generated-sources/annotations" />
+        <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
+        <outputRelativeToContentRoot value="true" />
+        <module name="RealStart" />
+        <module name="CompactionTest2" />
+        <module name="CompactionTest1" />
+        <module name="Testing1" />
+        <module name="DataLayout1" />
+        <module name="DataLayout2" />
+        <module name="DataLayout3_with_if_for_binary" />
+        <module name="Testing" />
+      </profile>
+    </annotationProcessing>
+  </component>
+</project>
