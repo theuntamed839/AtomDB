@@ -8,7 +8,7 @@
 .idea/**/dictionaries
 .idea/**/shelf
 
-./AtomDB/.idea/
+./AtomDB/.idea/*
 
 # AWS User-specific
 .idea/**/aws.xml
