@@ -2,10 +2,19 @@ AtomDB
 
 
 Todo
-checksum
-bloom
+WAL --> Ganesh
+checksum --> Ganesh
+bloom filter
 compaction for update and delete
-cache
+table which holds all the files of all the level in a efficient manner
+cache of level 0 & 1
+try cache for keys in all levels and maybe try sparse cache
+crash recovery
+crash proof
+providing convinient api to convert from int,long,short to byte[]
+improving sst
+improving memtable
+improving overall code to fit multiple threads
 writing test
 benchmarking tests
 
