@@ -1,20 +1,28 @@
-AtomDB
+AtomDB is a key-value storage library that provides an mapping from string keys to string values
+
+Features
+Keys and values are arbitrary byte arrays.
+Data is stored sorted by key.
+Data is automatically compressed using the Snappy compression library.
 
 
-Todo
-WAL --> Ganesh
-checksum --> Ganesh
-bloom filter
-compaction for update and delete
-table which holds all the files of all the level in a efficient manner
-cache of level 0 & 1
-try cache for keys in all levels and maybe try sparse cache
-crash recovery
-crash proof
-providing convinient api to convert from int,long,short to byte[]
-improving sst
-improving memtable
-improving overall code to fit multiple threads
-writing test
-benchmarking tests
+Theory
 
+Data is first stored in a skip list which is a memtable. there will be threshold size once exceeded the memtable is flushed as the sst file, in level 0
+
+sst is a immutable file
+
+Deletion and updation are done using compaction
+since sst are immutable, we can't modify the files.
+instead we write a new entry of the key.
+if the key is deleted then key and a marker is placed in sst
+
+Compaction is a process where 2 or more sst files are combined, during this process if there are multiple similar keys then the latest value is taken. if the value is deleted then key and a marker is placed.
+
+Compaction leads to a bigger file.
+
+A compression library is used, since the disk io is expensive. and if we reduce the payload we have faster writes.
+
+checksum is used, Crc32c
+
+Basic operations put(key, value), get(key), delete(key);
