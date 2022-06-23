@@ -1,246 +1,130 @@
 package Compaction;
 
-import com.google.common.primitives.Longs;
-import static Constants.DBConstants.EOF;
-import java.io.EOFException;
+import db.DBComparator;
+import sst.Header;
+import sst.MiddleBlock;
+import sst.ValueUnit;
+import util.Util;
+
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
-import java.util.Arrays;
+import java.util.*;
 
-public class Helper implements Comparable<Helper>{
-    private long position;
-    private FileChannel channel;
-    private final static int LongLength = Longs.toByteArray(1L).length;
+public class Helper implements Comparable<Helper>, Iterator<Map.Entry<byte[], ValueUnit>>, AutoCloseable {
+    private final FileChannel channel;
+    private final ByteBuffer byteBuffer;
+    private final List<Long> pointers;
+    private final Header header;
+    private int pointerIndex;
+    private final long fileRankInLevel;
+    private final short fileLevel;
+    private boolean startedIter = false;
+    public Helper(String file) throws Exception {
+        this.channel = new FileInputStream(file).getChannel();
+        this.byteBuffer = ByteBuffer.allocate(4096);
+        System.out.printf("helper file="+file);
+        // file rank and level
+        String[] pieces = file.trim().split(File.separator);
+        pieces  = pieces[pieces.length - 1].trim().split("_");
+        this.fileLevel = Short.parseShort(pieces[0].trim());
+        this.fileRankInLevel = Long.parseLong(pieces[1].replace(".sst", ""));
 
-    // optimization oppu, no need of buffer for every helper
-    private static final ByteBuffer byteBuffer = ByteBuffer.allocate(4096);
-    private boolean isEndOfFile = false;
-    private long binarySearchPosition = -1;
-    private byte[] lowLimit, highLimit;
-    public boolean isEOF() {
-        return position == binarySearchPosition;
-    }
-    private long currentCountOfRetrivedKey = 0;
-    public Helper(FileChannel channel, String filename) throws IOException {
-        this.channel = channel;
-        this.position = 0;
-        // getting binary serch index
-        byteBuffer.clear();
-        byteBuffer.limit(LongLength);
-        channel.read(byteBuffer, position);
-        byteBuffer.flip();
-        binarySearchPosition = byteBuffer.getLong();
-        byteBuffer.clear();
-        position += LongLength;
+        this.header = Header.getHeader(file, channel, byteBuffer);
+        // todo can be retrived from cache
+        this.pointers = MiddleBlock.readPointers(channel,
+                byteBuffer,
+                header.getBinarySearchLocation(),
+                new ArrayList<>((int) header.getEntries()),
+                header.getEntries());
 
-        System.out.println("binary search position " + binarySearchPosition);
-        System.out.println("filename = "+ filename);
-        lowLimit = getKey();
-        highLimit = getKey();
+        Util.requireEquals(header.getEntries(), pointers.size(), "pointers and entries from header doesn't match");
     }
 
-    public byte[] getLowLimit() {
-        return lowLimit;
+    public long getEntries() {
+        return header.getEntries();
     }
 
-    public byte[] getHighLimit() {
-        return highLimit;
+    public byte[] getSmallestKey() {
+        return header.getSmallestKey();
     }
 
-    public long getPosition() {
-        return position;
+    public byte[] getlargestKey() {
+        return header.getLargestKey();
     }
 
-    public void setPosition(long position) {
-        this.position = position;
-    }
+    @Override
+    public int compareTo(Helper provided) {
+        if (provided.hasNext()) {
+            if (this.hasNext()) {
+                int val = 0;
 
-    public FileChannel getChannel() {
-        return channel;
-    }
+                try {
+                    val = DBComparator.byteArrayComparator.compare(
+                            this.peekKey(), provided.peekKey());
 
-    public void setChannel(FileChannel channel) {
-        this.channel = channel;
-    }
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
 
-    private byte[] getKey() throws IOException {
-        byteBuffer.clear();
-        byteBuffer.limit(LongLength);
-
-        int eof = channel.read(byteBuffer, position);
-        if (eof == -1) {
-            isEndOfFile = true;
-            return EOF;
+                if (val == 0) {
+                    if (this.fileLevel == provided.fileLevel) {
+                        // purposely
+                        return Long.compare(provided.fileRankInLevel, this.fileRankInLevel);
+                    }
+                    return Short.compare(this.fileLevel, provided.fileLevel);
+                }
+                return val;
+            } else {
+                return 1; // giving more value for provided
+            }
+        } else {
+            return this.hasNext() ? -1 : 0;
         }
-        position += LongLength;
-
-        byteBuffer.flip();
-        long keyLen = byteBuffer.getLong();
-        byteBuffer.clear();
-
-        byteBuffer.limit((int) keyLen);
-
-        channel.read(byteBuffer, position);
-        position += keyLen;
-
-        var keyOne = new byte[(int) keyLen];
-
-        byteBuffer.flip();
-        byteBuffer.get(keyOne);
-        byteBuffer.clear();
-        return keyOne;
     }
 
-    private byte[] getValue() throws IOException {
-        return getKey();
-    }
 
-    public byte[][] getKeyValue() throws IOException {
-        if (position == binarySearchPosition) {
-            throw new EOFException("currentCountOfRetrivedKey >= entriesInSST so the file is over");
-        }
-        currentCountOfRetrivedKey++;
-        return new byte[][]{
-            getKey(), getValue()
-        };
-    }
-
-    public boolean hasEntry() {
-        return position != binarySearchPosition;
+    public void iterate() {
+        Util.requireFalse(startedIter, "iterator started in between the current run");
+        startedIter = true;
+        pointerIndex = 0;
     }
 
     public byte[] peekKey() throws IOException {
-        if (isEOF()) {
-            return EOF;
-        }
-        byteBuffer.clear();
-        byteBuffer.limit(LongLength);
-
-        long startPosition = position;
-
-        int eof = channel.read(byteBuffer, position);
-        if (eof == -1) {
-            isEndOfFile = true;
-            return EOF;
-        }
-        position += LongLength;
-
-        byteBuffer.flip();
-        long keyLen = byteBuffer.getLong();
-        byteBuffer.clear();
-
-        byteBuffer.limit((int) keyLen);
-
-        channel.read(byteBuffer, position);
-        position += keyLen;
-
-        var keyOne = new byte[(int) keyLen];
-
-        byteBuffer.flip();
-        byteBuffer.get(keyOne);
-        byteBuffer.clear();
-
-        // moving to start of that key;
-        position = startPosition;
-        return keyOne;
-    }
-
-    private byte[] skipValue() throws IOException {
-        byteBuffer.clear();
-        byteBuffer.limit(LongLength);
-
-        int eof = channel.read(byteBuffer, position);
-        if (eof == -1) {
-            isEndOfFile = true;
-            return EOF;
-        }
-        position += LongLength;
-
-        byteBuffer.flip();
-        long valueLen = byteBuffer.getLong();
-        byteBuffer.clear();
-
-        position += valueLen;
+        if (hasNext())
+            return MiddleBlock.readKey(channel, byteBuffer, pointers.get(pointerIndex));
         return null;
     }
 
     @Override
-    public int compareTo(Helper o) {
-        byte[] providedKey ;
-        try {
-            if (!o.hasEntry()) {
-                if (!this.hasEntry()) {
-                    System.out.print("both empty".repeat(500));
-                    return 0;
-                } else {
-                    System.out.print("provided empty but this not empty".repeat(500));
-                    return 1;
-                }
-            }
-            providedKey = o.peekKey();
-        } catch (IOException e) {
-            e.printStackTrace();
-            System.out.print("exception for provided".repeat(500));
-            return 1;
-        }
-        byte[] thisKey ;
-        try {
-            thisKey = this.peekKey();
-        } catch (IOException e) {
-            e.printStackTrace();
-            System.out.print("exception for this".repeat(500));
-            return -1;
-        }
-        if (Arrays.compare(providedKey, EOF) == 0) {
-            if (Arrays.compare(thisKey, EOF) == 0) {
-                System.out.print("EOF".repeat(10));
-                System.out.println();
-                return 0;
-            } else{
-                System.out.print("provided key EOF".repeat(500));
-                return 1;
-            }
-        }
-
-        return Arrays.compare(thisKey, providedKey);
-    }
-    // helping metthod
-    public static long keyValueBlock(byte[][] keyValue, ByteBuffer byteBuffer) {
-        byte[] key = keyValue[0];
-        byte[] value = keyValue[1];
-        byteBuffer.clear();
-        byteBuffer.putLong(key.length);byteBuffer.put(key);
-        byteBuffer.putLong(value.length);byteBuffer.put(value);
-        byteBuffer.flip();
-        return (LongLength * 2L) + key.length + value.length;
+    public boolean hasNext() {
+        return pointerIndex < pointers.size();
     }
 
-    public byte[] getElement() throws IOException {
-        byteBuffer.clear();
-        byteBuffer.limit(LongLength);
+    @Override
+    public Map.Entry<byte[], ValueUnit> next() {
+        try {
+            long bloomLine = header.getBinarySearchLocation() + Long.BYTES * header.getEntries();
+            if (channel.position() == bloomLine) {
+                throw new RuntimeException("Bloom filter line access");
+            }
 
-        int eof = channel.read(byteBuffer, position);
-        if (eof == -1) {
-            isEndOfFile = true;
-            return EOF;
+            return MiddleBlock.readKeyValue(channel,
+                    byteBuffer,
+                    pointers.get(pointerIndex++));
+        } catch (Exception e) {
+            throw new RuntimeException(e);
         }
-        position += LongLength;
+    }
 
-        byteBuffer.flip();
-        long keyLen = byteBuffer.getLong();
-        byteBuffer.clear();
-
-        byteBuffer.limit((int) keyLen);
-
-        channel.read(byteBuffer, position);
-        position += keyLen;
-
-        var keyOne = new byte[(int) keyLen];
-
-        byteBuffer.flip();
-        byteBuffer.get(keyOne);
-        byteBuffer.clear();
-        return keyOne;
+    @Override
+    public void close() throws Exception {
+        channel.close();
+        header.close();
+        if (startedIter) {
+            Util.requireEquals(pointerIndex, pointers.size(), " iterator mistake");
+        }
     }
 }

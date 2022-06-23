@@ -1,171 +1,147 @@
 package Compaction;
 
-import Printer.Checker;
-import com.google.common.primitives.Longs;
+
+import Constants.DBConstant;
+import Level.Level;
+import com.google.common.hash.BloomFilter;
+import com.google.common.hash.Funnels;
+import db.DBComparator;
+import sst.Header;
+import sst.MiddleBlock;
+import sst.ValueUnit;
+import util.Util;
 
 import java.io.*;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.*;
-import static Constants.DBConstants.EOF;
+
+/**
+ * todo
+ * deletion is limited
+ * the key and the deletion marker doesn't get removed fully
+ *
+ * Solution
+ * will coming across a key which is deleted we can do a search in the down levels
+ * and level files in that same level and check if the key is present.
+ * if present then keep the marker and if not then delete it here
+ * further this can be improved with bloom
+ */
 
 public class Compactor {
-    private final static int LongLength = Longs.toByteArray(1L).length;
-    private final String folder;
-    private List<String> files;
-    private static final ByteBuffer byteBuffer = ByteBuffer.allocate(4096);
-    private long position = 0;
-    public Compactor(String folder, List<String> files) {
-        Objects.requireNonNull(files);
+    private final List<String> files;
+    private final ByteBuffer byteBuffer = ByteBuffer.allocateDirect(4096);
+    private final File compactionFile;
+    private final Level level;
+
+    public Compactor(List<String> files, File compactionFile, Level level) {
+        Objects.requireNonNull(files);Objects.requireNonNull(compactionFile);
+        this.level = level;
         this.files = files;
-        this.folder = folder;
+        this.compactionFile = compactionFile;
     }
 
-    public long compact(FileChannel channel) throws Exception {
-        position = 0;
-        List<Helper> helperList = getHelperList(files);
-        byte[][] firstAndLast = getFirstAndLast(helperList);
-        position += writeBinaryOffset(channel, 123L); // writing garbage at binarysearch offset position
-        writeKV(firstAndLast, channel);
-//        Deque<Helper> qu = new ArrayDeque<>(helperList);
-        PriorityQueue<Helper> qu = new PriorityQueue<>(helperList);
-        List<Long> keyOffsets = new ArrayList<>();
-        while (!qu.isEmpty()) {
-            Helper first = qu.remove();
-            if (!first.hasEntry()) {
-                continue;
-            }
-//            System.out.println("adding position" + position);
+    //todo breakDown compact method
+    public void compact() {
 
-            byte[][] keyValue = first.getKeyValue();
-            keyOffsets.add(position);
-            writeKV(keyValue, channel);
-            if (first.hasEntry()) {
-                qu.add(first);
+        // debug
+        long a, b;
+        a = System.nanoTime();
+
+        try(FileOutputStream outputStream = new FileOutputStream(compactionFile);
+            FileChannel channel = outputStream.getChannel();
+            ) {
+            List<Helper> helperList = getHelperList(files);
+            byte[][] firstAndLast = getSmallestANDLargest(helperList);
+            var header = new Header(DBConstant.SST_VERSION,
+                    firstAndLast[0],
+                    firstAndLast[1],
+                    level.next(),
+                    compactionFile.toPath().toString());
+            header.writeHeader(channel, byteBuffer);
+
+            PriorityQueue<Helper> qu = new PriorityQueue<>(helperList);
+            qu.forEach(Helper::iterate);
+
+            BloomFilter<byte[]> filter = BloomFilter.create(
+                    Funnels.byteArrayFunnel(),
+                    helperList.stream().mapToLong(e -> e.getEntries()).sum(),
+                    0.01);
+
+            List<Long> pointers = new ArrayList<>();
+            long numberOfEntries = 0;
+            byte[] previousKey = null;
+            while (!qu.isEmpty()) {
+                Helper helper = qu.remove();
+
+                Map.Entry<byte[], ValueUnit> next = helper.next();
+
+                if (Arrays.compare(previousKey, next.getKey()) != 0) {
+                    pointers.add(channel.position());
+
+                    // bloom
+                    filter.put(next.getKey());
+
+                    numberOfEntries++;
+                    MiddleBlock.writeBlock(channel, byteBuffer, next);
+                }
+
+                previousKey = next.getKey();
+
+                if (helper.hasNext()) {
+                    qu.add(helper);
+                } else {
+                    helper.close();
+                }
+            }
+            long bs = channel.position();
+
+            MiddleBlock.writePointers(channel, byteBuffer, pointers);
+
+            // bloom
+            MiddleBlock.writeBloom(outputStream, filter);
+
+            header.writeBS(channel, byteBuffer, bs);
+            Util.requireEquals(pointers.size(), numberOfEntries, "entry number misMatch with arrayList");
+            header.writeEntries(channel, byteBuffer, pointers.size());
+            header.close();
+        } catch (Exception e) {
+            throw new RuntimeException("while compacting_file=" + compactionFile, e);
+        }
+
+        // debug
+        b = System.nanoTime();
+        System.out.println("took ="+(b - a) + " nano for level="+level+" sst to create from compact");
+    }
+
+
+    private byte[][] getSmallestANDLargest(List<Helper> helperList) {
+        byte[] smallest = helperList.get(0).getSmallestKey();
+        byte[] largest = helperList.get(0).getlargestKey();
+
+        for (Helper helper : helperList) {
+            if (DBComparator.byteArrayComparator
+                    .compare(smallest, helper.getSmallestKey()) > 0) {
+                smallest = helper.getSmallestKey();
+            }
+            if (DBComparator.byteArrayComparator
+                    .compare(largest, helper.getlargestKey()) < 0) {
+                largest = helper.getlargestKey();
             }
         }
-        writeBinaryOffset(channel, position);
-//        System.out.println("writing offsets");
-//        System.out.println(keyOffsets);
-        writeKeyOffsets(channel, keyOffsets);
-//        System.out.println("comp: writing low " + new String(firstAndLast[0]) + " high " + new String(firstAndLast[1]));
-//        System.out.println("binayr = " + position);
-        channel.close();
-        return position;
-    }
 
-    private void writeKeyOffsets(FileChannel channel, List<Long> keyOffsets) throws IOException {
-        for (Long offset : keyOffsets) {
-//            if (offset == 67364 ) {
-//                throw  new EOFException("zero in offsets");
-//            }
-            if (offset == 0 ) {
-                throw  new EOFException("zero in offsets");
-            }
-            byteBuffer.clear();
-            byteBuffer.putLong(offset);
-            byteBuffer.flip();
-            position += channel.write(byteBuffer, position);
-        }
-    }
-
-    private long writeNumberOfEntries(FileChannel channel, long value) throws IOException {
-        byteBuffer.clear();
-        byteBuffer.putLong(value);
-        byteBuffer.flip();
-        channel.write(byteBuffer, LongLength);
-        return LongLength;
-    }
-
-    public long writeBinaryOffset(FileChannel channel, long value) throws IOException {
-        byteBuffer.clear();
-        byteBuffer.limit(LongLength);
-        byteBuffer.putLong(value);
-        byteBuffer.flip();
-        channel.write(byteBuffer, 0);
-        return LongLength;
-    }
-
-    private byte[][] getFirstAndLast(List<Helper> helperList) {
-        byte[] first = helperList.stream()
-                .map(Helper::getLowLimit)
-                .filter(each -> Arrays.compare(EOF, each) != 0)
-                .min(Arrays::compare)
-                .get();
-        byte[] second = helperList.stream()
-                .map(Helper::getHighLimit)
-                .filter(each -> Arrays.compare(EOF, each) != 0)
-                .max(Arrays::compare)
-                .get();
         return new byte[][] {
-                first, second
+                smallest, largest
         };
     }
 
-    private List<Helper> getHelperList(List<String> files) throws IOException {
-        String filename = "";
-        try{
+    private List<Helper> getHelperList(List<String> files) throws Exception {
             List<Helper> list = new ArrayList<>(files.size());
             for (String file : files) {
-//            Printer.SSTStructurePrinter.print(folder +
-//                    System.getProperty("file.separator")+ file);
-                filename = file;
                 list.add(
-                        new Helper(new FileInputStream(folder +
-                                System.getProperty("file.separator") + file).getChannel(), folder +
-                                System.getProperty("file.separator") + file)
+                        new Helper(file)
                 );
             }
             return list;
-        } catch (Exception e) {
-            System.out.println("exception for " + filename);
-            throw e;
-        }
-    }
-
-    private long writeKV(byte[][] keyValue, FileChannel channel) throws IOException {
-        long size = Helper.keyValueBlock(keyValue, byteBuffer);
-        channel.write(byteBuffer, position);
-        position += size;
-        byteBuffer.clear();
-        return size;
-    }
-
-
-    private Map<FileChannel, Integer> getFileChangePointerMap() throws Exception {
-        Map<FileChannel, Integer> channels = new HashMap<>(files.size());
-        for (String fileName : files) {
-            var channel = new RandomAccessFile(new File(fileName), "r")
-                    .getChannel();
-            int pointer = alignPointerToFirstValue(channel);
-            if (pointer == -1) {
-                throw new Exception("");
-            }
-            channels.put(channel, pointer);
-        }
-        return channels;
-    }
-
-    private int alignPointerToFirstValue(FileChannel channel) throws IOException {
-        byteBuffer.clear();
-        byteBuffer.limit(LongLength);
-        int position = 0;
-        int eof = channel.read(byteBuffer, position);
-        if (eof == -1) {
-            return eof;
-        }
-        position += LongLength;
-
-        byteBuffer.flip();
-        long keyLen = byteBuffer.getLong();
-        position += keyLen;
-        byteBuffer.clear();
-
-        channel.read(byteBuffer, position);
-
-        byteBuffer.flip();
-        keyLen = byteBuffer.getLong();
-        position += keyLen;
-        return position;
     }
 }

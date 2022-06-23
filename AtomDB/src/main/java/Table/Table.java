@@ -1,87 +1,100 @@
 package Table;
 
-import Compaction.Level;
+import Level.Level;
+import com.google.common.hash.BloomFilter;
+import db.DBOptions;
 
 import java.io.File;
+import java.nio.channels.FileChannel;
 import java.util.*;
 
 public class Table {
-    private Map<Integer, SortedSet<FileNameSizeHelper>> levels;
-    private int fileCount = 0;
-    private String folder;
-    private Comparator<String> treeComparator = (s1, s2) -> {
-        long s1L = Long.parseLong(s1.substring(0, s1.length() - 26));
-        long s2L = Long.parseLong(s2.substring(0, s1.length() - 26));
-        int compare = Long.compare(s1L, s2L);
-        if (compare == 0) {
-            return s1.compareTo(s2);
-        } else return compare;
-    };
+    private Map<Level, List<String>>  table;
+    private int currentFileName = 0;
+    private final DBOptions dbOptions;
 
-    public int getFileCount() {
-        return fileCount;
+    private Map<String, BloomFilter<byte[]>> bloomMap;
+    public Table(DBOptions dbOptions) {
+        this.dbOptions = dbOptions;
+        table = Map.of(Level.LEVEL_ZERO, createList(),
+                Level.LEVEL_ONE,         createList(),
+                Level.LEVEL_TWO,         createList(),
+                Level.LEVEL_THREE,       createList(),
+                Level.LEVEL_FOUR,        createList(),
+                Level.LEVEL_FIVE,        createList(),
+                Level.LEVEL_SIX,         createList(),
+                Level.LEVEL_SEVEN,       createList());
+        bloomMap = new HashMap<>();
+        fillLevels();
     }
 
-    private static Table table = null;
+    // todo can be made to read every file where inside there is level marked
+    private void fillLevels() {
+        String[] fileNames = new File(dbOptions.getDBfolder()).list();
 
-    public static Table getTable(String folder) {
-        if (table == null) {
-            table = new Table(folder);
+        if (fileNames.length == 0) return; // new db
+        int max = Integer.MIN_VALUE;
+        for (String fileName : fileNames) {
+            if (!fileName.contains(".sst")) continue;
+
+            // todo make it neat
+            int got = Integer.parseInt(fileName.trim().split("_")[1].trim().replace(".sst", ""));
+            max = Math.max(got, max);
+
+            Level level = Level.fromID(fileName.charAt(0) - 48);
+            String file = dbOptions.getDBfolder() + File.separator + fileName;
+            table.get(level).add(file);
+            bloomMap.put(file, FileHelper.readBloom(file));
         }
-        return table;
+        // todo same as above
+        currentFileName = max;
     }
 
-    private Table(String folder) {
-        this.folder = folder;
-        this.levels = new HashMap<>();
-        levels.put(0, new TreeSet<>());
-        levels.put(1, new TreeSet<>());
-        levels.put(2, new TreeSet<>());
-        levels.put(3, new TreeSet<>());
-        levels.put(4, new TreeSet<>());
-        levels.put(5, new TreeSet<>());
-        levels.put(6, new TreeSet<>());
-        levels.put(7, new TreeSet<>());
+    public String getNewSST(Level level) {
+        return dbOptions.getDBfolder() + File.separator +
+                level.value() + "_" + (++currentFileName) + ".sst";
     }
 
-    public void put(Level level, long fileSize, String fileName) {
-        levels.get(level.value())
-                .add(new FileNameSizeHelper(fileName, fileSize));
+    public void addSST(Level level, String sst) {
+        table.get(level).add(sst);
+        bloomMap.put(sst, FileHelper.readBloom(sst));
     }
 
-    public SortedSet<FileNameSizeHelper> getLevel(Level level) {
-        return levels.get(level.value());
+    public List<String> getLevelList(Level value) {
+        return List.copyOf(table.get(value));
     }
 
-    public void putInInitialLevel(long fileSize, String fileName) {
-        levels.get(Level.LEVEL_ZERO.value())
-                .add(new FileNameSizeHelper(fileName, fileSize));
+    private List<String> createList() {
+        // todo improve this
+        return new ArrayList<>() {
+            public boolean add(String mt) {
+                int index = Collections.binarySearch(this, mt, (s1, s2) -> {
+                    String[] pi = s1.trim().split(File.separator);
+                    var thisPi = pi[pi.length - 1].trim().split("_");
+
+                    pi = s2.trim().split(File.separator);
+                    var providedPi = pi[pi.length - 1].trim().split("_");
+
+                    if (!thisPi[0].equals(providedPi[0])) throw new RuntimeException("level mismatch");
+                    long a = Long.parseLong(providedPi[1].trim().replace(".sst", ""));
+                    long b = Long.parseLong(thisPi[1].trim().replace(".sst", ""));
+                    return Long.compare(a, b);
+                });
+                if (index < 0) index = ~index;
+                super.add(index, mt);
+                return true;
+            }
+        };
     }
 
-    public void removeFile(Level level, FileNameSizeHelper obj) {
-        levels.get(level.value()).remove(obj);
+    public void removeFiles(Level level, List<String> filesToCompact) {
+        table.get(level).removeAll(filesToCompact);
+        for (String s : filesToCompact) {
+            bloomMap.remove(s);
+        }
     }
 
-    public String getFolder() {
-        return folder;
-    }
-
-    public void removeFile(Level level, long fileSize, String fileName) {
-        levels.get(level.value())
-                .remove(new FileNameSizeHelper(fileName, fileSize));
-    }
-
-    public File getNewFile(Level level) {
-        fileCount++;
-        return new File(folder
-                + System.getProperty("file.separator") +
-                ("LEVEL-"+ level.value() +"-" + fileCount + ".sst"));
-    }
-
-    public Iterator<String> getFileIterator() {
-        return levels.values().stream()
-                .flatMap(Collection::stream)
-                .map(FileNameSizeHelper::getFileName)
-                .iterator();
+    public BloomFilter<byte[]> getBloom(String file){
+        return bloomMap.get(file);
     }
 }

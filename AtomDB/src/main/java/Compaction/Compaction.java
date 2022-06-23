@@ -14,162 +14,133 @@ package Compaction;
  *
  */
 
-import Printer.Checker;
+
 import Table.Table;
-import Table.FileNameSizeHelper;
+import Tools.Validate;
+import db.DBOptions;
+
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.nio.channels.FileChannel;
-import java.time.LocalDateTime;
-import java.util.*;
-import static Compaction.Level.*;
-import static Constants.DBConstants.EOF;
+import java.time.Instant;
+import java.util.List;
+
+import Level.Level;
+import util.Util;
+
+/**
+ *  todo
+ *  need to get the lowest rank sst file from the level to compact
+ *  otherwise some files doesnt get compacted
+ *
+ */
 
 public class Compaction {
-    private final String folder;
-//    private Map<Integer, SortedMap<String, String>> levels;
-//    private Comparator<String> treeComparator = (s1, s2) -> {
-//        long s1L = Long.parseLong(s1.substring(0, s1.length() - 26));
-//        long s2L = Long.parseLong(s2.substring(0, s1.length() - 26));
-//        int compare = Long.compare(s1L, s2L);
-//        if (compare == 0) {
-//            return s1.compareTo(s2);
-//        } else return compare;
-//    };
+    // todo find a optimized solution
+    private final static int[] LEVEL_FILES_TO_COMPACT = {
+            (int) (2),
+            (int) (3),
+            (int) (3),
+            (int) (3),
+            (int) (3),
+            (int) (3),
+            (int) (3),
+            (int) (3)
+    };
 
     private Table table;
-
-    public Compaction(Table table) {
+    private DBOptions dbOptions;
+    public Compaction(DBOptions dbOptions, Table table) {
         this.table = table;
-        this.folder = table.getFolder();
-//        this.levels = new HashMap<>();
-//        levels.put(0, new TreeMap<>(treeComparator));
-//        levels.put(1, new TreeMap<>(treeComparator));
-//        levels.put(2, new TreeMap<>(treeComparator));
-//        levels.put(3, new TreeMap<>(treeComparator));
-//        levels.put(4, new TreeMap<>(treeComparator));
-//        levels.put(5, new TreeMap<>(treeComparator));
-//        levels.put(6, new TreeMap<>(treeComparator));
-//        levels.put(7, new TreeMap<>(treeComparator));
+        this.dbOptions = dbOptions;
     }
 
-    public void compactionMaybe(Level level) throws Exception {
-        SortedSet<FileNameSizeHelper> levelFiles = table.getLevel(level);
+    private void compactionMaybe0(Level level) throws Exception {
+        List<String> levelFiles = table.getLevelList(level);
         switch (level) {
             case LEVEL_ZERO -> {
-                if (levelFiles.size() >= 10) { // normally 10
+                if (levelFiles.size() > 3) {
                     doCompaction(level, levelFiles);
-                    compactionMaybe(level.next(level));
+                    compactionMaybe0(level.next());
                 }
             }
             case LEVEL_ONE -> {
-//                int count = 0;
-//                for (FileNameSizeHelper levelFile : levelFiles) {
-//                    if (levelFile.getFileSize() < ) {
-//                        count++;
-//                    }
-//                }
                 if (levelFiles.size() >= 10/*count >= 10*/) { // normally 10
                     doCompaction(level, levelFiles);
-                    compactionMaybe(level.next(level));
+                    compactionMaybe0(level.next());
                 }
             }
             case LEVEL_TWO -> {
-//                int count = 0;
-//                for (FileNameSizeHelper levelFile : levelFiles) {
-//                    if (levelFile.getFileSize() < 60000) {
-//                        count++;
-//                    }
-//                }
                 if (levelFiles.size() >= 32/*count >= 10*/) {
                     doCompaction(level, levelFiles);
+                    compactionMaybe0(level.next());
                 }
             }
             case LEVEL_THREE -> {
-//                int count = 0;
-//                for (FileNameSizeHelper levelFile : levelFiles) {
-//                    if (levelFile.getFileSize() < 60000) {
-//                        count++;
-//                    }
-//                }
                 if (levelFiles.size() >= 52/*count >= 10*/) {
                     doCompaction(level, levelFiles);
+                    compactionMaybe0(level.next());
                 }
             }
         }
     }
 
     public void compactionMaybe() throws Exception {
-        compactionMaybe(LEVEL_ZERO);
+        compactionMaybe0(Level.LEVEL_ZERO);
     }
 
-    private String doCompaction(Level level, SortedSet<FileNameSizeHelper> levelFiles) throws Exception {
-        List<String> filesToCompact = getFilesToCompact(levelFiles, level.value() * 2 + 2);
+    // todo can be made good
+    private String doCompaction(Level level, List<String> levelFiles) throws Exception {
+        int numberOfFiles = LEVEL_FILES_TO_COMPACT[(int) Level.toID(level)];
+
+        // important because the list is in decreasing order
+        // eg 10, 7, 5, 4, 2, 1
+        // you need to compact the oldest to newest, so u need maybe 1, 2
+        // thats why this
+        List<String> filesToCompact = levelFiles.subList(
+                levelFiles.size() - numberOfFiles, levelFiles.size());
+
         String createdFileName = performCompaction(filesToCompact, level);
-        deleteCompactedFiles(levelFiles, level.value() * 2 + 2);
+
+
+
+        table.removeFiles(level, filesToCompact);
+        deleteCompactedFiles(filesToCompact);
         return createdFileName;
     }
 
-    private List<String> getFilesToCompact(SortedSet<FileNameSizeHelper> levelFiles,
-                                           int fileCount) {
-        List<String> list = new ArrayList<>(fileCount);
-        for (FileNameSizeHelper levelFile : levelFiles) {
-            list.add(levelFile.getFileName());
-        }
-        return list;
-    }
-
-    private void deleteCompactedFiles(SortedSet<FileNameSizeHelper> levelFiles,
-                                           int fileCount) {
-        List<FileNameSizeHelper> list = new ArrayList<>(fileCount);
-        list.addAll(levelFiles);
-        for (FileNameSizeHelper fileNameSizeHelper : list) {
-            boolean delete = new File(folder +
-                    System.getProperty("file.separator") + fileNameSizeHelper.getFileName()).delete();
-            if (delete) {
-                System.out.println("deleted " + fileNameSizeHelper.getFileName());
-                levelFiles.remove(fileNameSizeHelper);
-            } else  {
-                System.out.println("not deleted " + fileNameSizeHelper.getFileName());
-            }
-        }
-    }
-
-//    private void addToFirstLevel(String fileName, long fileSize) {
-//        fileCount += 1;
-//        String size = fileSize + LocalDateTime.now().toString();
-//        System.out.println(levels.getOrDefault(LEVEL_ZERO, new TreeMap<>()).keySet());
-//        levels.get(LEVEL_ZERO.value()).put(size, fileName);
-//        System.out.println(size);
-//    }
-
-    private String performCompaction(List<String> files,
-                                   Level level) throws Exception {
-        var compactor = new Compactor(folder , files);
-        var file = table.getNewFile(level.next(level));
-        System.out.println("running compaction and will be written on " + file.getName());
-        long createdFileSize = compactor.compact(
-                new FileOutputStream(file).getChannel());
-        System.out.println(file.getName() + " created " + createdFileSize);
-        table.put(level.next(level), createdFileSize, file.getName());
-
-//        FileChannel channel = new FileInputStream(file).getChannel();
-//        new Checker(channel);
-//        channel.close();
-
-        return file.getName();
-    }
-
-    private void deleteCompactedFiles(List<String> files) {
-        for (String file : files) {
-            boolean delete = new File(folder +
-                    System.getProperty("file.separator") + file).delete();
+    private void deleteCompactedFiles(List<String> levelFiles) {
+        for (String file : levelFiles) {
+            boolean delete = new File(file).delete();
             if (delete) {
                 System.out.println("deleted " + file);
             } else  {
                 System.out.println("not deleted " + file);
             }
         }
+    }
+
+
+    private String performCompaction(List<String> files,
+                                   Level level) throws Exception {
+
+        // need to be in sync with table creating file path
+        var file = new File(dbOptions.getDBfolder() + File.separator +
+                level.value() + "_" + (Instant.now().toString().replace(':', '_'))
+                + ".inMaking");
+
+        Util.requireTrue(file.createNewFile(), "unable to create file");
+
+        var compactor = new Compactor(files, file, level);
+//        System.out.println("running compaction and will be written on " + file);
+        compactor.compact();
+
+//        // debug
+//        var vali = new Validate(file);
+//        vali.isValid();
+
+        String newSST = table.getNewSST(level.next());
+        Util.requireTrue(file.renameTo(new File(newSST)), "unable to rename file");
+
+        table.addSST(level.next(), newSST);
+        return newSST;
     }
 }
