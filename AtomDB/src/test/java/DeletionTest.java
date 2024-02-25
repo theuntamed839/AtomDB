@@ -7,6 +7,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import sst.ValueUnit;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -23,15 +24,15 @@ public class DeletionTest {
 
     @BeforeEach
     public void init() throws Exception {
-        opt = new DBOptions(this.getClass().getName() + "DB");
-        db = new DBImpl(opt);
+        opt = new DBOptions();
+        db = new DBImpl(new File(this.getClass().getName() + "DB"), opt);
         VALUE = "value".repeat(50);
         TOTAL = 10000;
         N_TO_DELETE = 1;
     }
 
     @AfterEach
-    public void closingSession() throws IOException {
+    public void closingSession() throws Exception {
         db.close();db.destroy();
     }
 

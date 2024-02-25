@@ -15,7 +15,6 @@ public class LogBlock {
     private byte[] key, value;
     private Instant time;
     private Operations operations;
-
     private long checksum;
     public LogBlock(Instant time,  Operations operations, byte[] key, byte[] value) {
         this.time = time;

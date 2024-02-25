@@ -1,21 +1,22 @@
 package db;
 
 import java.io.File;
+import java.util.Comparator;
 
 public final class DBOptions {
-    private final String DBfolder;
     private boolean verifyChecksum;
-    private final boolean isDBNew;
-    public DBOptions(String DBfolder) {
-        this.DBfolder = DBfolder;
-        this.isDBNew = !new File(DBfolder).isDirectory();
+    private boolean disableCompression;
+    private Comparator<byte[]> comparator = DBComparator.byteArrayComparator;
+
+    public boolean isDisableCompression() {
+        return disableCompression;
     }
 
-    public String getDBfolder() {
-        return DBfolder;
+    public void disableCompression(boolean disableCompression) {
+        this.disableCompression = disableCompression;
     }
 
-    public boolean isNew() {
-        return isDBNew;
+    public void setComparator(Comparator<byte[]> comparator) {
+        this.comparator = comparator;
     }
 }

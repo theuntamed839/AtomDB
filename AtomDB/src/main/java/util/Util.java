@@ -1,7 +1,9 @@
 package util;
 
+import java.io.File;
 import java.nio.ByteBuffer;
 import java.time.Instant;
+import java.util.regex.Pattern;
 
 public class Util {
 
@@ -61,4 +63,6 @@ public class Util {
             throw new RuntimeException(errMsg);
         return true;
     }
+
+    public static String fileSeparatorForSplit = Pattern.quote(File.separator);
 }

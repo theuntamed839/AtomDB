@@ -45,12 +45,13 @@ public class Compaction {
             (int) (3),
             (int) (3)
     };
+    private final File dbFolder;
 
     private Table table;
     private DBOptions dbOptions;
-    public Compaction(DBOptions dbOptions, Table table) {
+    public Compaction(File dbFolder, Table table) {
         this.table = table;
-        this.dbOptions = dbOptions;
+        this.dbFolder = dbFolder;
     }
 
     private void compactionMaybe0(Level level) throws Exception {
@@ -123,7 +124,7 @@ public class Compaction {
                                    Level level) throws Exception {
 
         // need to be in sync with table creating file path
-        var file = new File(dbOptions.getDBfolder() + File.separator +
+        var file = new File(dbFolder.getAbsolutePath() + File.separator +
                 level.value() + "_" + (Instant.now().toString().replace(':', '_'))
                 + ".inMaking");
 

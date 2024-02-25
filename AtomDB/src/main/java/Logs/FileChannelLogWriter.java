@@ -2,7 +2,6 @@ package Logs;
 
 import Constants.DBConstant;
 import Constants.Operations;
-import db.DBOptions;
 import util.Util;
 
 import java.io.File;
@@ -11,75 +10,54 @@ import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.time.Instant;
-import java.time.LocalDateTime;
 
 import static util.BytesConverter.bytes;
 
 public class FileChannelLogWriter implements LogWriter {
     private FileChannel channel;
     private static String LOG = "LOG";
-    private String currentFileName;
+    private String logFileName;
     private ByteBuffer byteBuffer;
     private static final byte[] delimiter = bytes(System.lineSeparator());
-    private static final int DateTimeLength = 8 + 4;
-    private final DBOptions dbOptions;
+    private static final int InstantClassStorageLength = 8 + 4; // epoch second and milli.
+    private final String dbFolderPath;
 
-    public FileChannelLogWriter(DBOptions options) throws IOException {
-        byteBuffer = ByteBuffer.allocate(DBConstant.INITIAL_BUFFER_SIZE);
-        dbOptions = options;
+    public FileChannelLogWriter(String dbFolderPath) throws IOException {
+        this.byteBuffer = ByteBuffer.allocate(DBConstant.INITIAL_BUFFER_SIZE);
+        this.dbFolderPath = dbFolderPath;
         createLogFile();
-    }
-
-    public void deleteAndCreateNewLogFile() throws IOException {
-        deleteLogFile();
-        createLogFile();
-    }
-
-    private void deleteLogFile() throws IOException {
-        closeLogFile();
-        if (!new File(dbOptions.getDBfolder() +
-                File.separator + currentFileName).delete()) {
-            throw new IOException("Log file not deleted");
-        }
     }
 
     private void createLogFile() throws IOException {
-        currentFileName = LOG + "-" + Instant.now().toString()
+        //todo need to make this common somewhere else or make it static. think
+        logFileName = LOG + "-" + Instant.now().toString()
                 .replace(':', '_');
-
-        channel = new RandomAccessFile(dbOptions.getDBfolder() +
-                File.separator + currentFileName,
+        channel = new RandomAccessFile(dbFolderPath +
+                File.separator + logFileName,
                 "rw").getChannel();
-        channel.force(false);
-    }
-
-    @Override
-    public String getCurrentFileName() {
-        return currentFileName;
-    }
-
-    public void closeLogFile() throws IOException {
-        channel.close();
+        channel.force(true);
     }
 
     @Override
     public void logOP(byte[] key, byte[] value, Operations operations) throws Exception {
-        int length = key.length + value.length + delimiter.length * 2
-                + DateTimeLength + Operations.bytesLength() + Long.BYTES * 3;
-
-        byteBuffer = Util.getExtendedBufferIfNeeded(length, byteBuffer);
-        byteBuffer.clear();
-
-        LogBlock.write(channel, new LogBlock(
+        LogBlock block = new LogBlock(
                 Instant.now(),
                 operations,
                 key,
                 value
-        ), byteBuffer);
+        );
+        byteBuffer = Util.getExtendedBufferIfNeeded((int)block.totalBytesRead() + delimiter.length * 2, byteBuffer);
+        byteBuffer.clear();
+        LogBlock.write(channel, block, byteBuffer);
+    }
+
+    @Override
+    public String getLogFileName() {
+        return logFileName;
     }
 
     @Override
     public void close() throws IOException {
-        closeLogFile();
+        channel.close();
     }
 }

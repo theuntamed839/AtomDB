@@ -28,6 +28,7 @@ public class CheckSum {
         pureJavaCrc32C.reset();
 
         //Instant time storage
+        //todo directly take bytes instead of instant object
         pureJavaCrc32C.update(bytes(time.getEpochSecond()));
         pureJavaCrc32C.update(time.getNano());
 

@@ -47,7 +47,8 @@ import java.util.*;
  */
 
 public class SSTManager {
-//    private static final byte[] VersionIDBytes = bytes(VersionID);
+    private final File dbFolder;
+    //    private static final byte[] VersionIDBytes = bytes(VersionID);
     private DBOptions dbOptions;
     private ByteBuffer byteBuffer;
     private int currentBufferSize = 4096;
@@ -57,12 +58,12 @@ public class SSTManager {
 
     //todo need a better place for Compaction
     private Compaction compaction;
-    public SSTManager(DBOptions options, Table table) {
-        this.dbOptions = options;
+    public SSTManager(File dbFolder) {
+        this.dbFolder = dbFolder;
+        this.table = new Table(dbFolder);
         byteBuffer = ByteBuffer.allocateDirect(currentBufferSize);
-        this.table = table;
-        this.cache = new Cache(options);
-        this.compaction = new Compaction(dbOptions, table);
+        this.cache = new Cache();
+        this.compaction = new Compaction(dbFolder, table);
     }
 
 //|verID|BS|NKeys|L|Skey|L|LKey|L|1Key|L|Value|...|1Pointer|2Pointer|...
@@ -73,7 +74,7 @@ public class SSTManager {
         long a, b;
         a = System.nanoTime();
 
-        String tempFileName = dbOptions.getDBfolder() + File.separator +
+        String tempFileName = dbFolder.getAbsolutePath() + File.separator +
                 Instant.now().toString().replace(':', '_') + Level.LEVEL_ZERO;
 
         var header = new Header(map, DBConstant.SST_VERSION, Level.LEVEL_ZERO, tempFileName);

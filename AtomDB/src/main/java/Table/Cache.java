@@ -11,7 +11,6 @@ import java.util.Map;
 // this is very lose cache behaviour
 
 public class Cache {
-    private final DBOptions dbOptions;
     private int capacity;
     private Map<String, CacheValue> cache;
     private long currentSize = 0;
@@ -26,8 +25,7 @@ public class Cache {
         }
     };
 
-    public Cache(DBOptions dbOptions, int capacity) {
-        this.dbOptions = dbOptions;
+    public Cache(int capacity) {
         this.capacity = capacity;
         initCache();
     }
@@ -44,8 +42,7 @@ public class Cache {
         };
     }
 
-    public Cache(DBOptions dbOptions) {
-        this.dbOptions = dbOptions;
+    public Cache() {
         this.capacity = 100 * SizeOf.MBinBytes;
         initCache();
     }

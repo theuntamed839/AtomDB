@@ -6,16 +6,18 @@ import db.DBOptions;
 
 import java.io.File;
 import java.nio.channels.FileChannel;
+import java.nio.file.FileSystems;
 import java.util.*;
+import java.util.regex.Pattern;
 
 public class Table {
     private Map<Level, List<String>>  table;
     private int currentFileName = 0;
-    private final DBOptions dbOptions;
-
+    private final File dbFolder;
+    private final String fileSeparatorForSplit =  Pattern.quote(File.separator);
     private Map<String, BloomFilter<byte[]>> bloomMap;
-    public Table(DBOptions dbOptions) {
-        this.dbOptions = dbOptions;
+    public Table(File dbFolder) {
+        this.dbFolder = dbFolder;
         table = Map.of(Level.LEVEL_ZERO, createList(),
                 Level.LEVEL_ONE,         createList(),
                 Level.LEVEL_TWO,         createList(),
@@ -30,7 +32,7 @@ public class Table {
 
     // todo can be made to read every file where inside there is level marked
     private void fillLevels() {
-        String[] fileNames = new File(dbOptions.getDBfolder()).list();
+        String[] fileNames = dbFolder.list();
 
         if (fileNames.length == 0) return; // new db
         int max = Integer.MIN_VALUE;
@@ -42,7 +44,7 @@ public class Table {
             max = Math.max(got, max);
 
             Level level = Level.fromID(fileName.charAt(0) - 48);
-            String file = dbOptions.getDBfolder() + File.separator + fileName;
+            String file = dbFolder + File.separator + fileName;
             table.get(level).add(file);
             bloomMap.put(file, FileHelper.readBloom(file));
         }
@@ -51,7 +53,7 @@ public class Table {
     }
 
     public String getNewSST(Level level) {
-        return dbOptions.getDBfolder() + File.separator +
+        return dbFolder.getAbsolutePath() + File.separator +
                 level.value() + "_" + (++currentFileName) + ".sst";
     }
 
@@ -69,10 +71,10 @@ public class Table {
         return new ArrayList<>() {
             public boolean add(String mt) {
                 int index = Collections.binarySearch(this, mt, (s1, s2) -> {
-                    String[] pi = s1.trim().split(File.separator);
+                    String[] pi = s1.trim().split(fileSeparatorForSplit);
                     var thisPi = pi[pi.length - 1].trim().split("_");
 
-                    pi = s2.trim().split(File.separator);
+                    pi = s2.trim().split(fileSeparatorForSplit);
                     var providedPi = pi[pi.length - 1].trim().split("_");
 
                     if (!thisPi[0].equals(providedPi[0])) throw new RuntimeException("level mismatch");
