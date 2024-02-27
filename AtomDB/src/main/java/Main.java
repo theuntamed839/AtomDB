@@ -12,7 +12,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import static util.BytesConverter.bytes;
-
+// todo, think/idea what if we store all the keys in memory, key -> file
 public class Main {
 //    public static void main1(String[] args) throws Exception {
 //        int total = 10;
@@ -308,3 +308,6 @@ public class Main {
 //https://www.reddit.com/r/developersIndia/comments/1aj1s2d/i_built_fireflydb_a_fast_keyvalue_storage_engine/
 //https://github.com/godcrampy/fireflydb
 
+
+// todo ideas
+// instead of compressing key and value seperately, can directly compress key value while storing

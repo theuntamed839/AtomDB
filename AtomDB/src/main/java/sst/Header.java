@@ -40,11 +40,11 @@ public class Header implements AutoCloseable{
      *  to which a exception is thrown
      */
     private boolean isWritten = false;
-    public Header(SortedMap<byte[], ValueUnit> map, long verID, Level level, String fileName) {
-        this.entries = map.size();
+    public Header(byte[] firstKey, byte[] lastKey, long numberOfEntries, long verID, Level level, String fileName) {
+        this.entries = numberOfEntries;
         this.versionId = verID;
-        sKey = map.firstKey();
-        lKey = map.lastKey();
+        sKey = firstKey;
+        lKey = lastKey;
         this.level = level;
         this.fileName = fileName;
         validation();
@@ -181,11 +181,11 @@ public class Header implements AutoCloseable{
                 .put(lKey)
                 .putLong(CheckSum.compute(lKey))
                 .flip();
-        channel.position(HEADER_POSITION); // moved to 0 position
+        if (channel.position() != HEADER_POSITION) {
+            channel.position(HEADER_POSITION); // moved to 0 position
+        }
         channel.write(byteBuffer);
         isWritten = true;
-        System.out.println(this);
-        System.out.println("written header");
     }
 
     public void writeBS(FileChannel channel, ByteBuffer byteBuffer, long binarySearchLocation) throws IOException {
@@ -195,7 +195,6 @@ public class Header implements AutoCloseable{
         byteBuffer.putLong(binarySearchLocation)
                   .flip();
         channel.write(byteBuffer, BS_POSITION);
-//        System.out.println("bs="+binarySearchLocation);
     }
 
     public void writeEntries(FileChannel channel, ByteBuffer byteBuffer, long numberOfEntries) throws IOException {

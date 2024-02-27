@@ -44,7 +44,7 @@ public class TestOfChannels {
     public static void createSST(SortedMap<byte[], ValueUnit> map, ByteBuffer byteBuffer) throws Exception {
         String tempFileName = Instant.now().toString().replace(':', '_') + Level.LEVEL_ZERO;
 
-        var header = new Header(map, DBConstant.SST_VERSION, Level.LEVEL_ZERO, tempFileName);
+        var header = new Header(map.firstKey(), map.lastKey(), map.size(), DBConstant.SST_VERSION, Level.LEVEL_ZERO, tempFileName);
 
         try(FileOutputStream outputStream = new FileOutputStream(tempFileName);
             FileChannel channel = outputStream.getChannel();) {
@@ -72,7 +72,7 @@ public class TestOfChannels {
     public static void createSSTRand(SortedMap<byte[], ValueUnit> map) throws Exception {
         String tempFileName = Instant.now().toString().replace(':', '_') + Level.LEVEL_ZERO;
 
-        var header = new Header(map, DBConstant.SST_VERSION, Level.LEVEL_ZERO, tempFileName);
+        var header = new Header(map.firstKey(), map.lastKey(), map.size(), DBConstant.SST_VERSION, Level.LEVEL_ZERO, tempFileName);
 
         try(RandomAccessFile channel = new RandomAccessFile(
                 tempFileName, "rw")) {

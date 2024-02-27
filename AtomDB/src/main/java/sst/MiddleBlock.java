@@ -13,6 +13,9 @@ import java.util.List;
 import java.util.Map;
 
 public class MiddleBlock {
+    private static final int KEY_LEN_MAKER_CHECKSUM = SizeOf.LongLength + SizeOf.ShortLength + SizeOf.LongLength;
+    // K_len | key | marker | V_len | value | Checksum
+    private static final int KEY_LEN_MAKER_VALUE_LEN_CHECKSUM= SizeOf.LongLength + SizeOf.ShortLength + SizeOf.LongLength + SizeOf.LongLength;
     public static void writeBlock(FileChannel channel, ByteBuffer byteBuffer, Map.Entry<byte[], ValueUnit> entry) throws IOException {
         byteBuffer.clear();
         byteBuffer.putLong(entry.getKey().length)
@@ -29,33 +32,52 @@ public class MiddleBlock {
         channel.write(byteBuffer);
     }
 
+    public static boolean fillMiddleBlockInBuffer(ByteBuffer byteBuffer, byte[] key, ValueUnit value) {
+        if (value.getIsDelete() == ValueUnit.DELETE) {
+            if ((KEY_LEN_MAKER_CHECKSUM + key.length) > byteBuffer.remaining()) {
+                return false;
+            } else {
+                byteBuffer.putLong(key.length)
+                        .put(key)
+                        .putShort(value.getIsDelete())
+                        .putLong(CheckSum.compute(key));
+                return true;
+            }
+        }else {
+            if ((KEY_LEN_MAKER_VALUE_LEN_CHECKSUM + key.length + value.getValue().length) > byteBuffer.remaining()) {
+                return false;
+            } else {
+                byteBuffer.putLong(key.length)
+                        .put(key)
+                        .putShort(value.getIsDelete())
+                        .putLong(value.getValue().length)
+                        .put(value.getValue())
+                        .putLong(CheckSum.compute(key, value.getValue()));
+                return true;
+            }
+        }
+    }
+
     public static void writePointers(FileChannel channel, ByteBuffer byteBuffer, List<Long> pointers) throws Exception {
         byteBuffer.clear();
-        int limit = byteBuffer.limit();
-        limit = (limit / SizeOf.LongLength) - 1;
-
-        for(int i = 0; i < pointers.size(); ) {
-            for (int j = 0; j < limit &&
-                    i < pointers.size() &&
-                    byteBuffer.remaining() > SizeOf.LongLength; j++, i++) {
-
-                byteBuffer.putLong(pointers.get(i));
+        for (Long pointer : pointers) {
+            if (byteBuffer.remaining() >= SizeOf.LongLength) {
+                byteBuffer.putLong(pointer);
+            } else {
+                byteBuffer.flip();
+                channel.write(byteBuffer);
+                byteBuffer.clear();
+                byteBuffer.putLong(pointer);
             }
-            byteBuffer.flip();
-            channel.write(byteBuffer);
-            byteBuffer.compact();
+            //instead of compact, clear can be used. or we can check for remaining() if > 0 then compact else clear()
         }
+        byteBuffer.flip();
+        channel.write(byteBuffer);
+        byteBuffer.clear();
+
         if (byteBuffer.position() != 0) {
             throw new Exception("pointers not written fully");
         }
-        // sure code that works
-//        byteBuffer.clear();
-//        for (Long pointer : pointers) {
-//            byteBuffer.clear()
-//                    .putLong(pointer)
-//                    .flip();
-//            channel.write(byteBuffer);
-//        }
     }
 
     /**

@@ -19,11 +19,40 @@ public class Benchmark {
     public static void main(String[] args) throws Exception {
         var inputString = "qwertyuiopasdfghjklzxcvbnm<>?:}{+_)(*&^%$#@!)}1234567890`~".repeat(5);
         System.out.println("Warm Up with 50k");
-        benchmark(inputString, 50000);
-        benchmark(inputString, 1000);
-        benchmark(inputString, 10000);
-        benchmark(inputString, 100000);
-        benchmark(inputString, 1000000);
+//        benchmark(inputString, 50000);
+//        benchmark(inputString, 1000);
+//        benchmark(inputString, 10000);
+//        benchmark(inputString, 100000);
+        //benchmark(inputString, 1000000);
+        benchmarkWriting(inputString, 1000000);
+    }
+
+    public static void benchmarkWriting(String inputString, long totalEntryCount) throws Exception {
+        System.out.println("Number of threads: " + Thread.activeCount());
+        long beforeUsedMem = Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
+        var opt = new DBOptions();
+        var db = new DBImpl(new File(Benchmark.class.getName() + "DB"), opt);
+        long startTime , endTime, readingTime, writingTime;
+        try {
+            System.out.println("Writing... " + totalEntryCount);
+            startTime = System.nanoTime();
+            for (int i = 0; i < totalEntryCount; i++) {
+                db.put(bytes(i + ""), bytes(i + "_" + inputString));
+            }
+            endTime = System.nanoTime();
+
+            writingTime = endTime - startTime;
+            System.out.println("writing time=" + writingTime);
+            long afterUsedMem=Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
+            long actualMemUsed=afterUsedMem-beforeUsedMem;
+            System.out.println("memory utilised="+actualMemUsed);
+            System.out.println("Number of threads: " + Thread.activeCount());
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            db.close();
+            db.destroy();
+        }
     }
 
     public static void benchmark(String inputString, long totalEntryCount) throws Exception {
@@ -41,7 +70,7 @@ public class Benchmark {
             endTime = System.nanoTime();
 
             writingTime = endTime - startTime;
-
+            System.out.println("Writing ="+ writingTime);
             System.out.println("Reading... ");
             startTime = System.nanoTime();
             for (int i = 0; i < totalEntryCount; i++) {

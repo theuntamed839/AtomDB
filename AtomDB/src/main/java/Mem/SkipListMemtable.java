@@ -43,18 +43,16 @@ public class SkipListMemtable implements Memtable{
     }
 
     private void tryMakingSST() throws Exception {
-        if (currentSize > sizeLimit) {
+        if (currentSize >= sizeLimit) {
             sstManager.createSST(Collections.unmodifiableSortedMap(memtable));
-            fresh();
             wal.deleteOldLogAndCreateNewLog();
+            fresh();
         }
     }
 
     //todo improve
     @Override
     public void put(byte[] key, byte[] value) throws Exception {
-        Objects.requireNonNull(key, "null not allowed");
-        Objects.requireNonNull(value, "null not allowed");
         memtable.put(key, new ValueUnit(value, ValueUnit.ADDED));
         currentSize += key.length + value.length;
         tryMakingSST();

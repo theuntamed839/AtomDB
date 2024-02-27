@@ -16,6 +16,10 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
+import java.nio.channels.FileLock;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.time.Instant;
 import java.util.*;
 /**
@@ -41,7 +45,8 @@ import java.util.*;
  * [ {VID | LEV | BS | EN | SK_LEN | SK | SK_CH | LK_LEN | LK | LK_CH}=header
  *   {K_LEN | K | MAR | V_LEN | V | CH}=middleBlock ideally, btw this will be multiple
  *   {K_LEN | K | MAR | CH}=middleBlock when key is deleted
- *   {P1,P2,P3.....}=End
+ *   {P1,P2,P3.....}
+ *   {bloom} ]=End
  *
  *
  */
@@ -69,7 +74,6 @@ public class SSTManager {
 //|verID|BS|NKeys|L|Skey|L|LKey|L|1Key|L|Value|...|1Pointer|2Pointer|...
 
     public void createSST(SortedMap<byte[], ValueUnit> map) throws Exception {
-
         // debug
         long a, b;
         a = System.nanoTime();
@@ -77,7 +81,8 @@ public class SSTManager {
         String tempFileName = dbFolder.getAbsolutePath() + File.separator +
                 Instant.now().toString().replace(':', '_') + Level.LEVEL_ZERO;
 
-        var header = new Header(map, DBConstant.SST_VERSION, Level.LEVEL_ZERO, tempFileName);
+        var header = new Header(map.firstKey(), map.lastKey(), map.size(),
+                DBConstant.SST_VERSION, Level.LEVEL_ZERO, tempFileName);
 
         BloomFilter<byte[]> filter = BloomFilter.create(
                 Funnels.byteArrayFunnel(),
@@ -98,6 +103,74 @@ public class SSTManager {
 
                 MiddleBlock.writeBlock(channel, byteBuffer, entry);
             }
+
+            long bs = channel.position();
+            MiddleBlock.writePointers(channel, byteBuffer, pointers);
+            System.out.println("bloom writing position" + channel.position() + " bs position=" + bs);
+            MiddleBlock.writeBloom(outputStream, filter);
+
+            header.writeBS(channel, byteBuffer, bs);
+            header.close(); // important to close
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+
+        String realFileName = table.getNewSST(Level.LEVEL_ZERO);
+        Util.requireTrue(new File(tempFileName).renameTo(new File(realFileName)), "unable to rename files");
+        table.addSST(Level.LEVEL_ZERO, realFileName);
+
+        // debug
+//        var vali = new Validate(new File(realFileName));
+//        vali.isValid();
+
+        // debug
+        b = System.nanoTime();
+        System.out.println("took ="+(b - a) + " nano for level="+Level.LEVEL_ZERO+" sst to write");
+
+        compaction.compactionMaybe();
+    }
+
+    public void createSSTPerformant(SortedMap<byte[], ValueUnit> map) throws Exception {
+        // debug
+        long a, b;
+        a = System.nanoTime();
+
+        String tempFileName = dbFolder.getAbsolutePath() + File.separator +
+                Instant.now().toString().replace(':', '_') + Level.LEVEL_ZERO;
+
+        var header = new Header(map.firstKey(), map.lastKey(), map.size(),
+                DBConstant.SST_VERSION, Level.LEVEL_ZERO, tempFileName);
+
+        BloomFilter<byte[]> filter = BloomFilter.create(
+                Funnels.byteArrayFunnel(),
+                map.size(),
+                0.01);
+
+        try(FileOutputStream outputStream = new FileOutputStream(tempFileName);
+            FileChannel channel = outputStream.getChannel();
+            FileLock lock = channel.lock()) {
+            channel.force(true);
+
+            header.writeHeader(channel, byteBuffer);
+
+            List<Long> pointers = new ArrayList<>(map.size());
+            byteBuffer.clear();
+            for (Map.Entry<byte[], ValueUnit> entry : map.entrySet()) {
+                pointers.add(channel.position() + byteBuffer.position());
+
+                // bloom
+                filter.put(entry.getKey());
+
+                if (!MiddleBlock.fillMiddleBlockInBuffer(byteBuffer, entry.getKey(), entry.getValue())) {
+                    byteBuffer.flip();
+                    channel.write(byteBuffer);
+                    byteBuffer.clear();
+                    MiddleBlock.fillMiddleBlockInBuffer(byteBuffer, entry.getKey(), entry.getValue());
+                }
+            }
+            byteBuffer.flip();
+            channel.write(byteBuffer);
+            byteBuffer.clear();
 
             long bs = channel.position();
             MiddleBlock.writePointers(channel, byteBuffer, pointers);
@@ -128,8 +201,6 @@ public class SSTManager {
     public byte[] search(byte[] key) throws Exception {
         for (Level value : Level.values()) {
             List<String> list = table.getLevelList(value);
-            // debug
-//            System.out.println(list);
             for (String file : list) {
 
                 // bloom
@@ -181,9 +252,8 @@ public class SSTManager {
         long a, b;
         a = System.nanoTime();
 
-        try(FileInputStream inputStream = new FileInputStream(file);
-            FileChannel channel = inputStream.getChannel();
-        ) {
+        Path filePath = Paths.get(file);
+        try (FileChannel channel = FileChannel.open(filePath, StandardOpenOption.READ)) {
             Header header = Header.getHeader(file, channel, byteBuffer);
 
             // bound check
@@ -208,8 +278,12 @@ public class SSTManager {
 
             header.close();
 
+            long c,d;
+            c = System.nanoTime();
             Map.Entry<byte[], ValueUnit> entry = performBinarySearch(channel,
                     pointers, key);
+            d = System.nanoTime();
+            System.out.println("took ="+(d - c) + " nano for performing binary search a level="+header.getLevel()+" sst");
 
             // debug
             b = System.nanoTime();
@@ -244,3 +318,9 @@ public class SSTManager {
         return null;
     }
 }
+
+
+// todo
+// change the file naming for sst, too much computation for Instant.now()......
+//todo
+// writing to a file in a batch, rather then every kv write multiple kv at a time.

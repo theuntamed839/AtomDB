@@ -21,7 +21,7 @@ public class Test_10_000_0{
         opt = new DBOptions();
         db = new DBImpl(new File(this.getClass().getName() + "DB"), opt);
         VALUE = "value".repeat(50);
-        TOTAL = 10_000_0;
+        TOTAL = 10_000_00;
     }
 
     @AfterEach

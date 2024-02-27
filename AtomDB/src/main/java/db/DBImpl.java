@@ -68,12 +68,15 @@ public class DBImpl implements DB{
 
     @Override
     public void put(byte[] key, byte[] value) throws Exception {
+        Objects.requireNonNull(key, "null not allowed");
+        Objects.requireNonNull(value, "null not allowed");
         walManager.logOP(key, value, Operations.WRITE);
         memtable.put(compression.compress(key), compression.compress(value));
     }
 
     @Override
     public byte[] get(byte[] key) throws Exception {
+        Objects.requireNonNull(key, "null not allowed");
         byte[] bytes = this.memtable.get(compression.compress(key));
         return compression.decompress(bytes);
     }
