@@ -324,3 +324,18 @@ public class SSTManager {
 // change the file naming for sst, too much computation for Instant.now()......
 //todo
 // writing to a file in a batch, rather then every kv write multiple kv at a time.
+
+// todo
+//check what if the sst only has one kv which is big, will all algo work fine?
+
+// todo |  performance improvement -> we can store BS at the end and if we want to retrieve then (Size - long.bytes) and read the bs.
+// but for this to work we need to check if bloom filter only reads specific bytes, if yes then great else what will happen is that
+// while reading bloom filter it will read the BS as well.
+
+
+/**
+ * Todo Performance improvement
+ * File a bloom filter library which can be managed by us. so the we can store it effeciently as well as we know what we are storing
+ * not only we will be able to remove outputStream but also get to have more control over where we store and when to retrieve
+ * Find library and compare the performance
+ */

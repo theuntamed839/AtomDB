@@ -188,6 +188,20 @@ public class Header implements AutoCloseable{
         isWritten = true;
     }
 
+    public void fillBufferWithHeaderData(ByteBuffer byteBuffer) {
+        // todo working with assumption that buffer has enough space for these data to be filled.
+        byteBuffer.putLong(versionId)
+                .putLong(Level.toID(level))
+                .putLong(binarySearchLocation)
+                .putLong(entries)
+                .putLong(sKey.length)
+                .put(sKey)
+                .putLong(CheckSum.compute(sKey))
+                .putLong(lKey.length)
+                .put(lKey)
+                .putLong(CheckSum.compute(lKey));
+    }
+
     public void writeBS(FileChannel channel, ByteBuffer byteBuffer, long binarySearchLocation) throws IOException {
         Util.requireEquals(this.binarySearchLocation, Long.MIN_VALUE, "overwriting of binary search position, file="+ fileName);
         this.binarySearchLocation = binarySearchLocation;

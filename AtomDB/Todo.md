@@ -59,6 +59,7 @@ New
 1. Allow Key value to be of any variable size or at least some big number like 100mb.
 2. Find bloom filter whose storage and retrieval is in our hand
 3. Value and Key together overflowing from 4096bytes byteBuffer.
+4. More information(Metadata) should be included in the SST.
 
 # Think tank
 1. we have wal, and then we have level one sst. Basically writing of same data twice. can we improve
