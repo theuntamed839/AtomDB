@@ -1,6 +1,5 @@
 package Table;
 
-import db.DBOptions;
 import util.SizeOf;
 
 import java.util.LinkedHashMap;
@@ -43,7 +42,7 @@ public class Cache {
     }
 
     public Cache() {
-        this.capacity = 100 * SizeOf.MBinBytes;
+        this.capacity = 100 * SizeOf.MB;
         initCache();
     }
 

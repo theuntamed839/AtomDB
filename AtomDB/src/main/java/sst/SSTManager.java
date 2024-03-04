@@ -4,11 +4,11 @@ import Compaction.Compaction;
 import Constants.DBConstant;
 import Level.Level;
 import Table.Table;
-import Tools.Validate;
 import com.google.common.hash.BloomFilter;
 import com.google.common.hash.Funnels;
 import db.DBComparator;
 import db.DBOptions;
+import util.SizeOf;
 import util.Util;
 import Table.Cache;
 import java.io.File;
@@ -23,11 +23,6 @@ import java.nio.file.StandardOpenOption;
 import java.time.Instant;
 import java.util.*;
 /**
- *  todo
- *  use compact() instead of clear()l
- */
-
-/**
  * current SST Structure
  * BS-> Binary Search position pointer
  * CH-> checksum
@@ -41,13 +36,36 @@ import java.util.*;
  * V-> value
  * MAR-> MARKER
  * P->pointer to key
+ * Block_LEN -> we going to write a big block so its size
+ * VB_LEN -> value block length
+ * KB_LEN -> Key block length
  *
+ * blocks should be compressed.
  * [ {VID | LEV | BS | EN | SK_LEN | SK | SK_CH | LK_LEN | LK | LK_CH}=header
  *   {K_LEN | K | MAR | V_LEN | V | CH}=middleBlock ideally, btw this will be multiple
  *   {K_LEN | K | MAR | CH}=middleBlock when key is deleted
  *   {P1,P2,P3.....}
  *   {bloom} ]=End
  *
+ *
+ * NEW
+ * [
+ *  Header [
+ *              VID | LEV | BS | EN | Block_LEN | [ SK_LEN | SK | LK_LEN | LK | CH ]
+ *         ]
+ *  Body  [
+ *              { VB_LEN | V | V_CH | K_Checksum } * N times
+ *        ]
+ *        [
+ *              { KB_LEN | K | K_Checksum | MAR } * N times
+ *        ]
+ *        [
+ *              { P1, P2, P3 ....} * N times
+ *        ]
+ *  Bloom [
+ *              Bloom
+ *        ]
+ * ]
  *
  */
 
@@ -56,7 +74,7 @@ public class SSTManager {
     //    private static final byte[] VersionIDBytes = bytes(VersionID);
     private DBOptions dbOptions;
     private ByteBuffer byteBuffer;
-    private int currentBufferSize = 4096;
+    private int currentBufferSize = 4 * SizeOf.MB;
     private Table table;
     // todo need to move cache to somewhere, maybe in table
     private Cache cache;

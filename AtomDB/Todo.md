@@ -28,10 +28,13 @@
 
 # Branch Optimization Roadmap
 1. Batch write
-2. Batch Read of header (2 times read will retrieve the whole header). Adding of a long 
-3. Replace Long with Int
-4. Performing partial binary search
-5. Increase ByteBuffer size (400KB is max item size in dynamoDB)
+2. Increase size of bytebuffer
+3. Use of MappedByteBuffer
+4. Batch Read of header (2 times read will retrieve the whole header). Adding of a long 
+5. Replace Long with Int
+6. Performing partial binary search 
+7. Increase ByteBuffer size (400KB is max item size in dynamoDB)
+8. use a single byte for Marker.
 
 ## Elaboration of features used in Optimization Roadmap
 ### 1. Performing partial binary search
@@ -60,6 +63,7 @@ New
 2. Find bloom filter whose storage and retrieval is in our hand
 3. Value and Key together overflowing from 4096bytes byteBuffer.
 4. More information(Metadata) should be included in the SST.
+5. we can make block of 4-5 keys or values depending upon bytebuffer size and mmap. so that we bulk retrieve
 
 # Think tank
 1. we have wal, and then we have level one sst. Basically writing of same data twice. can we improve

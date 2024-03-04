@@ -1,23 +1,13 @@
 package Mem;
 
-import Constants.Operations;
 import Logs.*;
-import db.DB;
-import db.DBComparator;
-import db.DBOptions;
 import sst.SSTManager;
 import sst.ValueUnit;
-import util.BytesConverter;
 import util.SizeOf;
 
 import java.io.File;
-import java.io.IOException;
-import java.nio.channels.FileChannel;
-import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.Objects;
 import java.util.concurrent.ConcurrentSkipListMap;
 
 public class SkipListMemtable implements Memtable{
@@ -25,7 +15,7 @@ public class SkipListMemtable implements Memtable{
     private final File dbFolder;
     private final WALManager wal;
     private ConcurrentSkipListMap<byte[], ValueUnit> memtable;
-    private final int sizeLimit = 4 * SizeOf.MBinBytes;//4096 *4;
+    private final int sizeLimit = 4 * SizeOf.MB;//4096 *4;
     private int currentSize = 0;
     // todo need to remove
     private SSTManager sstManager;
