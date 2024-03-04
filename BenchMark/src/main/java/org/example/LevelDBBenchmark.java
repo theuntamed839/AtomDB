@@ -1,17 +1,14 @@
 package org.example;
-
-import com.sahilbondre.firefly.FireflyDB;
-
-import java.io.File;
+import org.fusesource.leveldbjni.JniDBFactory;
+import org.iq80.leveldb.*;
+import static org.fusesource.leveldbjni.JniDBFactory.*;
+import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Comparator;
 
-import static org.fusesource.leveldbjni.JniDBFactory.bytes;
-
-public class FireFlyDBBenchmark {
-
+public class LevelDBBenchmark {
     public static void main(String[] args) throws Exception {
         var inputString = "qwertyuiopasdfghjklzxcvbnm<>?:}{+_)(*&^%$#@!)}1234567890`~".repeat(5);
         System.out.println("Warm Up with 50k");
@@ -24,17 +21,18 @@ public class FireFlyDBBenchmark {
 
     public static void benchmark(String inputString, long totalEntryCount, String dbName) throws Exception {
         System.out.println("Number of threads: " + Thread.activeCount());
-        long beforeUsedMem = Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
-        dbName = dbName + "_fireflyDB";
-        Files.createDirectories(Paths.get(dbName));
-        FireflyDB db =FireflyDB.getInstance(dbName);
-        db.start();
+        long beforeUsedMem=Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
+        Options options = new Options();
+        options.createIfMissing(true);
+        DB db = factory.open(new File(dbName + "_db"), options);
+        JniDBFactory.pushMemoryPool(1024 * 512);
+
         long startTime , endTime, readingTime, writingTime;
         try {
             System.out.println("Writing... " + totalEntryCount);
             startTime = System.nanoTime();
             for (int i = 0; i < totalEntryCount; i++) {
-                db.set(bytes(i + ""), bytes(i + "_" + inputString));
+                db.put(bytes(i + ""), bytes(i + "_" + inputString));
             }
             endTime = System.nanoTime();
 
@@ -56,8 +54,9 @@ public class FireFlyDBBenchmark {
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
-            db.stop();
-            Files.walk(Paths.get(dbName))
+            db.close();
+            JniDBFactory.popMemoryPool();
+            Files.walk(Path.of(dbName + "_db"))
                     .sorted(Comparator.reverseOrder())
                     .map(Path::toFile)
                     .forEach(File::delete);
