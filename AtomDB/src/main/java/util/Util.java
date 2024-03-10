@@ -64,5 +64,11 @@ public class Util {
         return true;
     }
 
+    public static boolean requiresNull(Object obj, String errMsg) {
+        if (obj != null)
+            throw new RuntimeException(errMsg);
+        return true;
+    }
+
     public static String fileSeparatorForSplit = Pattern.quote(File.separator);
 }

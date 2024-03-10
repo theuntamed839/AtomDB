@@ -24,6 +24,8 @@ public class LevelDBBenchmark {
         long beforeUsedMem=Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
         Options options = new Options();
         options.createIfMissing(true);
+        options.cacheSize(0);
+
         DB db = factory.open(new File(dbName + "_db"), options);
         JniDBFactory.pushMemoryPool(1024 * 512);
 
@@ -38,10 +40,13 @@ public class LevelDBBenchmark {
 
             writingTime = endTime - startTime;
 
+            ReadOptions readOptions = new ReadOptions();
+            readOptions.fillCache(false);
+
             System.out.println("Reading... ");
             startTime = System.nanoTime();
             for (int i = 0; i < totalEntryCount; i++) {
-                db.get(bytes(i + ""));
+                db.get(bytes(i + ""), readOptions);
             }
             endTime = System.nanoTime();
 
@@ -63,3 +68,5 @@ public class LevelDBBenchmark {
         }
     }
 }
+
+// 1000000 disabled cache write 7 sec and read 5 sec

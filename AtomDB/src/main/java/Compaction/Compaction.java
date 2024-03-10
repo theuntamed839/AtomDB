@@ -16,7 +16,6 @@ package Compaction;
 
 
 import Table.Table;
-import Tools.Validate;
 import db.DBOptions;
 
 import java.io.File;
@@ -55,7 +54,7 @@ public class Compaction {
     }
 
     private void compactionMaybe0(Level level) throws Exception {
-        List<String> levelFiles = table.getLevelList(level);
+        List<String> levelFiles = table.getLevelFileList(level);
         switch (level) {
             case LEVEL_ZERO -> {
                 if (levelFiles.size() > 3) {
@@ -141,7 +140,7 @@ public class Compaction {
         String newSST = table.getNewSST(level.next());
         Util.requireTrue(file.renameTo(new File(newSST)), "unable to rename file");
 
-        table.addSST(level.next(), newSST);
+        table.addSST(level.next(), newSST, filter);
         return newSST;
     }
 }

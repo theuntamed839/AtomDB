@@ -31,15 +31,19 @@ public enum Level {
         };
     }
 
-    public Integer value() {
-        return this.ordinal();
+    public Byte value() {
+        return (byte) this.ordinal();
+    }
+
+    public static Level fromID(byte id) {
+        return levels[id];
     }
 
     public static Level fromID(int id) {
         return levels[id];
     }
 
-    public static long toID(Level level) {
+    public static byte toID(Level level) {
         return level.value();
     }
 }

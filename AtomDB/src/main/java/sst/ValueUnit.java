@@ -3,11 +3,15 @@ package sst;
 import java.util.Arrays;
 import java.util.Objects;
 
+/**
+ *  TODO
+ *  can be improved to take byte array directly and make valueUnit out of it
+ */
 public class ValueUnit {
-    public static final short DELETE = 1;
-    public static final short ADDED = 0;
+    public static final byte DELETE = 1;
+    public static final byte ADDED = 0;
     private byte[] value;
-    private short isDelete;
+    private byte isDelete;
 
     @Override
     public String toString() {
@@ -21,17 +25,17 @@ public class ValueUnit {
         return value;
     }
 
-    public short getIsDelete() {
+    public byte getIsDelete() {
         return isDelete;
     }
 
-    public ValueUnit(byte[] value, short isDelete) {
+    public ValueUnit(byte[] value, byte isDelete) {
         Objects.requireNonNull(value);
         this.value = value;
         this.isDelete = isDelete;
     }
 
-    public ValueUnit(short isDelete) {
+    public ValueUnit(byte isDelete) {
         this.isDelete = isDelete;
     }
 }

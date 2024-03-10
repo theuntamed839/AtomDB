@@ -2,6 +2,8 @@ package sst;
 
 import Checksum.CheckSum;
 import com.google.common.hash.BloomFilter;
+import sstIo.Reader;
+import sstIo.SSTWriter;
 import util.SizeOf;
 
 import java.io.EOFException;
@@ -13,9 +15,6 @@ import java.util.List;
 import java.util.Map;
 
 public class MiddleBlock {
-    private static final int KEY_LEN_MAKER_CHECKSUM = SizeOf.LongLength + SizeOf.ShortLength + SizeOf.LongLength;
-    // K_len | key | marker | V_len | value | Checksum
-    private static final int KEY_LEN_MAKER_VALUE_LEN_CHECKSUM= SizeOf.LongLength + SizeOf.ShortLength + SizeOf.LongLength + SizeOf.LongLength;
     public static void writeBlock(FileChannel channel, ByteBuffer byteBuffer, Map.Entry<byte[], ValueUnit> entry) throws IOException {
         byteBuffer.clear();
         byteBuffer.putLong(entry.getKey().length)
@@ -32,29 +31,20 @@ public class MiddleBlock {
         channel.write(byteBuffer);
     }
 
-    public static boolean fillMiddleBlockInBuffer(ByteBuffer byteBuffer, byte[] key, ValueUnit value) {
+    public static void writeMiddleBlock(SSTWriter writer, byte[] key, ValueUnit value) {
         if (value.getIsDelete() == ValueUnit.DELETE) {
-            if ((KEY_LEN_MAKER_CHECKSUM + key.length) > byteBuffer.remaining()) {
-                return false;
-            } else {
-                byteBuffer.putLong(key.length)
-                        .put(key)
-                        .putShort(value.getIsDelete())
-                        .putLong(CheckSum.compute(key));
-                return true;
-            }
-        }else {
-            if ((KEY_LEN_MAKER_VALUE_LEN_CHECKSUM + key.length + value.getValue().length) > byteBuffer.remaining()) {
-                return false;
-            } else {
-                byteBuffer.putLong(key.length)
-                        .put(key)
-                        .putShort(value.getIsDelete())
-                        .putLong(value.getValue().length)
-                        .put(value.getValue())
-                        .putLong(CheckSum.compute(key, value.getValue()));
-                return true;
-            }
+            writer.putInt(key.length)
+                    .putBytes(key)
+                    .putLong(CheckSum.compute(key))
+                    .putByte(value.getIsDelete());
+        } else {
+            writer.putInt(key.length)
+                    .putBytes(key)
+                    .putLong(CheckSum.compute(key))
+                    .putByte(value.getIsDelete())
+                    .putInt(value.getValue().length)
+                    .putBytes(value.getValue())
+                    .putLong(CheckSum.compute(key, value.getValue()));
         }
     }
 
@@ -77,6 +67,13 @@ public class MiddleBlock {
 
         if (byteBuffer.position() != 0) {
             throw new Exception("pointers not written fully");
+        }
+    }
+
+    public static void writePointers(SSTWriter writer, List<Long> pointers) {
+        // todo can be improved.
+        for (Long pointer : pointers) {
+            writer.putLong(pointer);
         }
     }
 
@@ -218,5 +215,20 @@ public class MiddleBlock {
 
     public static void writeBloom(FileOutputStream outputStream, BloomFilter<byte[]> filter) throws IOException {
         filter.writeTo(outputStream);
+    }
+
+    public static KeyUnit getKeyUnit(Reader reader, long position) {
+        ByteBuffer byteBuffer = reader.readSize(new byte[SizeOf.IntLength], position, SizeOf.IntLength);
+        int keySize = byteBuffer.getInt();
+        int readSize = keySize + SizeOf.LongLength +  Byte.BYTES + SizeOf.IntLength;
+        byteBuffer = reader.readSize(new byte[readSize], readSize);
+        byte[] key = new byte[keySize];
+        byteBuffer.get(key);
+        long checkSum = byteBuffer.getLong();
+        byte isDelete = byteBuffer.get();
+        if (isDelete != KeyUnit.DELETE) {
+            return new KeyUnit(key, isDelete, byteBuffer.getInt());
+        }
+        return new KeyUnit(key, isDelete, -1);
     }
 }

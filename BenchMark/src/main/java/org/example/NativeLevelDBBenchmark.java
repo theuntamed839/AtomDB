@@ -23,6 +23,7 @@ public class NativeLevelDBBenchmark {
         long beforeUsedMem=Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
         Options options = new Options();
         options.createIfMissing(true);
+        options.cacheSize(0);
         DB db = factory.open(new File(dbName + "_db"), options);
         long startTime , endTime, readingTime, writingTime;
         try {
@@ -34,11 +35,12 @@ public class NativeLevelDBBenchmark {
             endTime = System.nanoTime();
 
             writingTime = endTime - startTime;
-
+            ReadOptions readOptions = new ReadOptions();
+            readOptions.fillCache(false);
             System.out.println("Reading... ");
             startTime = System.nanoTime();
             for (int i = 0; i < totalEntryCount; i++) {
-                db.get(bytes(i + ""));
+                db.get(bytes(i + ""), readOptions);
             }
             endTime = System.nanoTime();
 
@@ -59,3 +61,5 @@ public class NativeLevelDBBenchmark {
         }
     }
 }
+
+// 1000000 disabled cache write 22 sec and read 3
