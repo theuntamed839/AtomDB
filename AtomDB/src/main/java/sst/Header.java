@@ -22,6 +22,7 @@ public class Header implements AutoCloseable{
     private static final int ENTRIES_POSITION = 10;
     private static final int HEADER_POSITION = 0;
     private final byte versionId;
+    private String fileName;
     private int entries = Integer.MIN_VALUE;
     private final byte[] sKey;
     private final byte[] lKey;
@@ -42,24 +43,6 @@ public class Header implements AutoCloseable{
      */
     private boolean isWritten = false;
 
-    private Header(byte versionId,
-                  int entries,
-                  byte[] sKey,
-                  byte[] lKey,
-                  long binarySearchLocation,
-                  Level level,
-                  String fileName) {
-        this.versionId = versionId;
-        this.entries = entries;
-        this.sKey = sKey;
-        this.lKey = lKey;
-        this.binarySearchLocation = binarySearchLocation;
-        this.level = level;
-        this.fileName = fileName;
-        this.isWritten = true; // this is used for safety of writing, since this constructor is used by reading there is writing required. that's why this is set to true
-        validation();
-    }
-
     public Header(byte versionId, Level level, long bs, int entries, byte[] sKey, byte[] lKey, long checksum) {
         this.versionId = versionId;
         this.level = level;
@@ -68,6 +51,16 @@ public class Header implements AutoCloseable{
         this.sKey = sKey;
         this.lKey = lKey;
         validation(checksum);
+    }
+
+    public Header(byte[] firstKey, byte[] lastKey, int size, byte sstVersion, Level levelZero, String tempFileName) {
+        this.versionId = sstVersion;
+        this.entries = size;
+        this.sKey = firstKey;
+        this.lKey = lastKey;
+        this.level = levelZero;
+        this.fileName = tempFileName;
+        this.isWritten = true; // this is used for safety of writing, since this constructor is used by reading there is writing required. that's why this is set to true
     }
 
     private void validation(long checksum) {
@@ -174,15 +167,6 @@ public class Header implements AutoCloseable{
         Util.requireEquals(this.binarySearchLocation, Long.MIN_VALUE, "overwriting of binary search position, file="+ fileName);
         this.binarySearchLocation = binarySearchLocation;
         writer.writeAtPositionInIsolation(BS_POSITION, binarySearchLocation);
-    }
-
-    public void writeEntries(FileChannel channel, ByteBuffer byteBuffer, long numberOfEntries) throws IOException {
-        Util.requireEquals(this.entries,  Long.MIN_VALUE, "overwriting of entries, file=" + fileName);
-        this.entries = numberOfEntries;
-        byteBuffer.clear();
-        byteBuffer.putLong(numberOfEntries)
-                .flip();
-        channel.write(byteBuffer, ENTRIES_POSITION);
     }
 
 

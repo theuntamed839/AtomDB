@@ -1,6 +1,7 @@
 import db.DB;
 import db.DBImpl;
 import db.DBOptions;
+import org.xerial.snappy.Snappy;
 
 import java.io.File;
 import java.io.IOException;
@@ -19,12 +20,45 @@ public class Benchmark {
     public static void main(String[] args) throws Exception {
         var inputString = "qwertyuiopasdfghjklzxcvbnm<>?:}{+_)(*&^%$#@!)}1234567890`~".repeat(5);
         System.out.println("Warm Up with 50k");
-//        benchmark(inputString, 50000);
+        benchmark(inputString, 50000);
 //        benchmark(inputString, 1000);
 //        benchmark(inputString, 10000);
 //        benchmark(inputString, 100000);
         //benchmark(inputString, 1000000);
-        benchmarkWriting(inputString, 1000000);
+//        benchmarkWriting(inputString, 1000000);
+//        initialTest(inputString, 50000);
+    }
+
+    public static void initialTest(String inputString, long totalEntryCount) throws Exception {
+        var opt = new DBOptions();
+        var db = new DBImpl(new File(Benchmark.class.getName() + "DB"), opt);
+        var key = "somegood things";
+        System.out.println("compressed keysize around ="+Snappy.compress(bytes(key)).length);
+        System.out.println("compressed valueSize ="+Snappy.compress(bytes(inputString)).length);
+
+        try {
+            for (int i = 0; i < totalEntryCount; i++) {
+                if (i % 17 == 0 ) {
+                    db.put(bytes(key + i), bytes(inputString));
+                    continue;
+                }
+                db.put(bytes(i + ""), bytes(i + "_" + inputString));
+            }
+            for (int i = 0; i < totalEntryCount; i++) {
+                if (i % 17 == 0 ) {
+                    byte[] bytes = db.get(bytes(key + i));
+                    byte[] bytes1 = bytes(inputString);
+                    if (Arrays.compare(bytes, bytes1) != 0) {
+                        System.out.println("moye moye");
+                    }
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            db.close();
+            db.destroy();
+        }
     }
 
     public static void benchmarkWriting(String inputString, long totalEntryCount) throws Exception {

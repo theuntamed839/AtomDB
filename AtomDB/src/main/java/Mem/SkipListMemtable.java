@@ -9,6 +9,7 @@ import java.io.File;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.PriorityBlockingQueue;
 
 public class SkipListMemtable implements Memtable{
     public final Comparator<byte[]> comparator;

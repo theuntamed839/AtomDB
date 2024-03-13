@@ -55,12 +55,12 @@ public class Table {
                 level.value() + "_" + (++currentFileName) + ".sst";
     }
 
-    public void addSST(Level level, String sst, BloomFilter<byte[]> filter) {
-        table.get(level).add(sst);
-        bloomMap.put(sst, filter);
+    public void addSST(Level level, SSTInfo sstInfo) {
+        table.get(level).add(sstInfo);
+        bloomMap.put(sstInfo.getFileName(), sstInfo.getBloomFilter());
     }
 
-    public List<String> getLevelFileList(Level value) {
+    public List<SSTInfo> getLevelFileList(Level value) {
         return List.copyOf(table.get(value));
     }
 

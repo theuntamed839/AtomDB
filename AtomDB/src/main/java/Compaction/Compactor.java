@@ -53,12 +53,12 @@ public class Compactor {
             ) {
             List<Helper> helperList = getHelperList(files);
             byte[][] firstAndLast = getSmallestANDLargest(helperList);
-            var header = new Header(DBConstant.SST_VERSION,
-                    firstAndLast[0],
-                    firstAndLast[1],
-                    level.next(),
-                    compactionFile.toPath().toString());
-            header.writeHeader(channel, byteBuffer);
+//            var header = new Header(
+//                    firstAndLast[0],
+//                    firstAndLast[1],
+//                    level.next(),
+//                    compactionFile.toPath().toString());
+//            header.writeHeader(channel, byteBuffer);
 
             PriorityQueue<Helper> qu = new PriorityQueue<>(helperList);
             qu.forEach(Helper::iterate);
@@ -101,10 +101,10 @@ public class Compactor {
             // bloom
             MiddleBlock.writeBloom(outputStream, filter);
 
-            header.writeBS(channel, byteBuffer, bs);
+            //header.writeBS(channel, byteBuffer, bs);
             Util.requireEquals(pointers.size(), numberOfEntries, "entry number misMatch with arrayList");
-            header.writeEntries(channel, byteBuffer, pointers.size());
-            header.close();
+//            header.writeEntries(channel, byteBuffer, pointers.size());
+//            header.close();
         } catch (Exception e) {
             throw new RuntimeException("while compacting_file=" + compactionFile, e);
         }

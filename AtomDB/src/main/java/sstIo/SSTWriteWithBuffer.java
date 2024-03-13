@@ -98,6 +98,5 @@ public class SSTWriteWithBuffer extends Writer{
             writeContents();
         }
         unmap(map);
-        channel.close();
     }
 }

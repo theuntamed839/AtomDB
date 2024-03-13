@@ -34,7 +34,7 @@ public class Helper implements Comparable<Helper>, Iterator<Map.Entry<byte[], Va
         this.fileLevel = Short.parseShort(pieces[0].trim());
         this.fileRankInLevel = Long.parseLong(pieces[1].replace(".sst", ""));
 
-        this.header = Header.getHeader(file, channel, byteBuffer);
+        this.header = null; //Header.getHeader(file, channel, byteBuffer);
         // todo can be retrived from cache
         this.pointers = MiddleBlock.readPointers(channel,
                 byteBuffer,

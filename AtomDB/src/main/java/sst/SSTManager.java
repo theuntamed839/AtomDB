@@ -3,25 +3,33 @@ package sst;
 import Compaction.Compaction;
 import Constants.DBConstant;
 import Level.Level;
+import Table.Cache;
+import Table.SSTFileHelper;
+import Table.SSTInfo;
 import Table.Table;
 import com.google.common.hash.BloomFilter;
 import com.google.common.hash.Funnels;
 import db.DBComparator;
 import db.DBOptions;
+import org.xerial.snappy.Snappy;
+import sstIo.Reader;
+import sstIo.SSTReaderWithBuffer;
 import sstIo.SSTWriteWithBuffer;
 import sstIo.Writer;
 import util.Util;
-import Table.Cache;
+
 import java.io.File;
-import java.io.FileInputStream;
+import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
 import java.time.Instant;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.SortedMap;
+import java.util.function.BiFunction;
+import java.util.function.Function;
 
 /**
  * current SST Structure
@@ -102,15 +110,17 @@ public class SSTManager {
                 Funnels.byteArrayFunnel(),
                 map.size(),
                 0.01);
+        List<Long> pointers = new ArrayList<>(map.size());
         try(
-                RandomAccessFile file = new RandomAccessFile(tempFileName, "w");
+                RandomAccessFile file = new RandomAccessFile(tempFileName, "rw");
                 FileChannel channel = file.getChannel();
                 FileLock lock = channel.lock();
                 Writer writer = new SSTWriteWithBuffer(channel);
         ) {
+            System.out.println("commence");
 //            channel.force(true);
             header.write(writer);
-            List<Long> pointers = new ArrayList<>(map.size());
+            System.out.println("written header");
             for (Map.Entry<byte[], ValueUnit> entry : map.entrySet()) {
                 pointers.add(writer.position());
 
@@ -120,16 +130,20 @@ public class SSTManager {
             }
             long bs = channel.position();
             MiddleBlock.writePointers(writer, pointers);
+            System.out.println("written pointers");
             filter.writeTo(writer);
             header.writeBS(writer, bs);
             header.close(); // important to close
+            System.out.println("finish written");
         } catch (Exception e) {
+            e.printStackTrace();
             throw new RuntimeException(e);
         }
 
         String realFileName = table.getNewSST(Level.LEVEL_ZERO);
         Util.requireTrue(new File(tempFileName).renameTo(new File(realFileName)), "unable to rename files");
-        table.addSST(Level.LEVEL_ZERO, realFileName, filter);
+        var sstInfo = new SSTInfo(realFileName, header, pointers, filter, SSTFileHelper.getSparseBinarySearch(pointers, map));
+        table.addSST(Level.LEVEL_ZERO, sstInfo);
         // debug
         b = System.nanoTime();
         System.out.println("took ="+(b - a) + " nano for level="+Level.LEVEL_ZERO+" sst to write");
@@ -138,27 +152,18 @@ public class SSTManager {
 
     public byte[] search(byte[] key) throws Exception {
         for (Level value : Level.values()) {
-            List<String> levelFileList = table.getLevelFileList(value);
-            for (String file : levelFileList) {
+            List<SSTInfo> SSTInfoList = table.getLevelFileList(value);
+            for (SSTInfo sstInfo : SSTInfoList) {
 
-                // bloom
-                if (!table.getBloom(file).mightContain(key)) {
-                    continue;
-                }
-
-                Cache.CacheValue cacheValue = cache.get(file);
-                ValueUnit found = null;
-                if (cacheValue != null) {
-                    found = tryBinarySearch(cacheValue, key, file);
-                    // todo need to remove, strictly
-//                    if (bytes != null) System.out.println("from cache sst");
-                }else {
-                    found = trySearch(file, key);
-                }
+                long c,d;
+                c = System.nanoTime();
+                ValueUnit found = findValue(sstInfo, key);
+                d = System.nanoTime();
                 if (found != null) {
                     if (found.getIsDelete() == ValueUnit.DELETE){
                         return null;
                     }
+                    System.out.println("took " + ((d-c)/1000_000_000.0));
                     return found.getValue();
                 }
             }
@@ -166,92 +171,68 @@ public class SSTManager {
         return null;
     }
 
-    private ValueUnit tryBinarySearch(Cache.CacheValue cacheValue, byte[] key, String file) throws Exception {
+    private ValueUnit findValue(SSTInfo sstInfo, byte[] key) {
+        if (!sstInfo.getBloomFilter().mightContain(key)) {
+            return null;
+        }
         // bound check
-        if (Arrays.compare(key, cacheValue.smallKey()) < 0) {
+        if (DBComparator.byteArrayComparator.compare(key, sstInfo.getHeader().getSmallestKey()) < 0) {
             return null;
         }
-        if (Arrays.compare(key, cacheValue.largeKey()) > 0) {
+        if (DBComparator.byteArrayComparator.compare(key, sstInfo.getHeader().getLargestKey()) > 0) {
             return null;
         }
-
-        try(FileInputStream inputStream = new FileInputStream(file);
-            FileChannel channel = inputStream.getChannel();
+        try(
+                RandomAccessFile randomAccessFile = new RandomAccessFile(sstInfo.getFileName(), "r");
+                FileChannel channel = randomAccessFile.getChannel();
+                Reader reader = new SSTReaderWithBuffer(channel);
         ) {
-            Map.Entry<byte[], ValueUnit> entry = performBinarySearch(channel,
-                    cacheValue.pointers(), key);
-            if (entry == null) return null;
-            else return entry.getValue();
+            Function<Long, KeyUnit> keyRetriever = position -> {
+                System.out.println("position="+position);
+                KeyUnit keyUnit = sstInfo.getSparseBinarySearch().get(position);
+                if (keyUnit == null) {
+                    System.out.println("reading key from file");
+                    keyUnit = MiddleBlock.getKeyUnit(reader, position);
+                } else {
+                    System.out.println("reading key sparse");
+                }
+                return keyUnit;
+            };
+            BiFunction<Long, KeyUnit, ValueUnit> valueRetriever = (position, keyUnit) -> {
+                if (keyUnit.getIsDelete() == KeyUnit.DELETE) {
+                    return null;
+                }
+                try {
+                    System.out.println("find key, key string=" + new String(Snappy.uncompress(keyUnit.getKey())));
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+                byte[] valueUnit = MiddleBlock.getValueUnit(reader, position, keyUnit);
+                return new ValueUnit(valueUnit, keyUnit.getIsDelete());
+            };
+            return binarySearch(sstInfo, keyRetriever, key, valueRetriever);
+        } catch (Exception e) {
+            System.out.println("Moye moye while searching");
+            throw new RuntimeException(e);
         }
     }
 
-    private ValueUnit trySearch(String file, byte[] key) throws Exception {
-        // debug
-        long a, b;
-        a = System.nanoTime();
-
-        Path filePath = Paths.get(file);
-        try (FileChannel channel = FileChannel.open(filePath, StandardOpenOption.READ)) {
-            Header header = Header.getHeader(file, channel, byteBuffer);
-
-            // bound check
-            if (Arrays.compare(key, header.getSmallestKey()) < 0) {
-                return null;
-            }
-            if (Arrays.compare(key, header.getLargestKey()) > 0) {
-                return null;
-            }
-
-            // debug
-            System.out.println(header);
-
-            List<Long> pointers = MiddleBlock.readPointers(channel,
-                    byteBuffer,
-                    header.getBinarySearchLocation(),
-                    new ArrayList<>((int) header.getEntries()),
-                    header.getEntries());
-
-            // todo need to remove, and place it neat fashion
-            cache.put(file, header.getSmallestKey(), header.getLargestKey(), pointers);
-
-            header.close();
-
-            long c,d;
-            c = System.nanoTime();
-            Map.Entry<byte[], ValueUnit> entry = performBinarySearch(channel,
-                    pointers, key);
-            d = System.nanoTime();
-            System.out.println("took ="+(d - c) + " nano for performing binary search a level="+header.getLevel()+" sst");
-
-            // debug
-            b = System.nanoTime();
-            System.out.println("took ="+(b - a) + " nano for searching a level="+header.getLevel()+" sst");
-
-            if (entry == null) {
-                return null;
-            } else {
-                return entry.getValue();
-            }
-        }catch (Exception e) {
-            throw new RuntimeException("while accessing file=" + file, e);
-        }
-    }
-
-    // todo Map.Entry<byte[], ValueUnit> can be made in class
-    private Map.Entry<byte[], ValueUnit> performBinarySearch(FileChannel channel, List<Long> pointers, byte[] key) throws Exception {
-        int l = 0, h = pointers.size() -1;
+    private ValueUnit binarySearch(SSTInfo sstInfo, Function<Long, KeyUnit> keyRetriever, byte[] key, BiFunction<Long, KeyUnit, ValueUnit> valueRetriever) {
+        int l = 0, h = sstInfo.getPointers().size() -1;
         while(l <= h) {
             int mid = (l + h) >>> 1;
-            Long offset = pointers.get(mid);
-            byte[] foundKey = MiddleBlock.readKey(channel, byteBuffer, offset);
-            int compare = DBComparator.byteArrayComparator.compare(foundKey, key);
-            if (compare < 0)
+            long position = sstInfo.getPointers().get(mid);
+            KeyUnit keyUnit = keyRetriever.apply(position);
+            int compare = DBComparator.byteArrayComparator.compare(keyUnit.getKey(), key);
+            if (compare < 0){
                 l = mid + 1;
-            else if (compare > 0)
+            }
+            else if (compare > 0) {
                 h = mid - 1;
-            else
-                //todo can be improved
-                return MiddleBlock.readKeyValue(channel, byteBuffer, offset);
+            }
+            else {
+                return valueRetriever.apply(position, keyUnit);
+            }
         }
         return null;
     }

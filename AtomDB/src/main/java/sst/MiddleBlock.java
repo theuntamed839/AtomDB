@@ -2,6 +2,7 @@ package sst;
 
 import Checksum.CheckSum;
 import com.google.common.hash.BloomFilter;
+import org.xerial.snappy.Snappy;
 import sstIo.Reader;
 import sstIo.SSTWriter;
 import util.SizeOf;
@@ -188,7 +189,7 @@ public class MiddleBlock {
         long checksumPosition = offset + Long.BYTES + key.length + Short.BYTES + Long.BYTES + value.length;
         verifyChecksum(byteBuffer, channel, checksumPosition, key, value);
 
-        return Map.entry(key, new ValueUnit(value, isDelete));
+        return Map.entry(key, new ValueUnit(value, (byte) isDelete));
     }
 
     private static void verifyChecksum(ByteBuffer byteBuffer, FileChannel channel,long position, byte[] key, byte[] value) throws Exception {
@@ -220,6 +221,7 @@ public class MiddleBlock {
     public static KeyUnit getKeyUnit(Reader reader, long position) {
         ByteBuffer byteBuffer = reader.readSize(new byte[SizeOf.IntLength], position, SizeOf.IntLength);
         int keySize = byteBuffer.getInt();
+        System.out.println("key is of size=" + keySize);
         int readSize = keySize + SizeOf.LongLength +  Byte.BYTES + SizeOf.IntLength;
         byteBuffer = reader.readSize(new byte[readSize], readSize);
         byte[] key = new byte[keySize];
@@ -227,8 +229,33 @@ public class MiddleBlock {
         long checkSum = byteBuffer.getLong();
         byte isDelete = byteBuffer.get();
         if (isDelete != KeyUnit.DELETE) {
-            return new KeyUnit(key, isDelete, byteBuffer.getInt());
+            return new KeyUnit(key, checkSum, isDelete, byteBuffer.getInt());
         }
-        return new KeyUnit(key, isDelete, -1);
+        return new KeyUnit(key, checkSum, isDelete, -1);
+    }
+
+    public static byte[] getValueUnit(Reader reader, long position, KeyUnit keyUnit) {
+        int valueSize = keyUnit.getValueSize();
+        System.out.println("given valuesize="+valueSize);
+        ByteBuffer byteBuffer = reader.readSize(new byte[valueSize + SizeOf.LongLength],
+                position + SizeOf.IntLength + keyUnit.getKey().length + SizeOf.LongLength + Byte.BYTES + SizeOf.IntLength,
+                valueSize + SizeOf.LongLength);
+        byte[] value = new byte[valueSize];
+        byteBuffer.get(value);
+        try {
+            System.out.println("found value " + new String(Snappy.uncompress(value)));
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        long checkSum = byteBuffer.getLong();
+        if (CheckSum.compute(keyUnit.getKey(), value) != checkSum) {
+            throw new RuntimeException("Checksum mismatch");
+        }
+        return value;
+    }
+
+    public static KeyUnit getKeyUnit(byte[] bytes, ValueUnit valueUnit) {
+        return new KeyUnit(bytes, CheckSum.compute(bytes), valueUnit.getIsDelete(),
+                valueUnit.getIsDelete() != ValueUnit.DELETE ? valueUnit.getValue().length : -1);
     }
 }
