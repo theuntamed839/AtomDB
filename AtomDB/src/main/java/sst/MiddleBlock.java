@@ -221,7 +221,6 @@ public class MiddleBlock {
     public static KeyUnit getKeyUnit(Reader reader, long position) {
         ByteBuffer byteBuffer = reader.readSize(new byte[SizeOf.IntLength], position, SizeOf.IntLength);
         int keySize = byteBuffer.getInt();
-        System.out.println("key is of size=" + keySize);
         int readSize = keySize + SizeOf.LongLength +  Byte.BYTES + SizeOf.IntLength;
         byteBuffer = reader.readSize(new byte[readSize], readSize);
         byte[] key = new byte[keySize];
@@ -236,17 +235,11 @@ public class MiddleBlock {
 
     public static byte[] getValueUnit(Reader reader, long position, KeyUnit keyUnit) {
         int valueSize = keyUnit.getValueSize();
-        System.out.println("given valuesize="+valueSize);
         ByteBuffer byteBuffer = reader.readSize(new byte[valueSize + SizeOf.LongLength],
                 position + SizeOf.IntLength + keyUnit.getKey().length + SizeOf.LongLength + Byte.BYTES + SizeOf.IntLength,
                 valueSize + SizeOf.LongLength);
         byte[] value = new byte[valueSize];
         byteBuffer.get(value);
-        try {
-            System.out.println("found value " + new String(Snappy.uncompress(value)));
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
         long checkSum = byteBuffer.getLong();
         if (CheckSum.compute(keyUnit.getKey(), value) != checkSum) {
             throw new RuntimeException("Checksum mismatch");

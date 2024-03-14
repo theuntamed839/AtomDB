@@ -64,7 +64,7 @@ public class DeletionTest {
     private static boolean exitsValueInSSTFiles(List<Integer> toBeDeleted, Table table) throws Exception {
         boolean result = false;
         for (int i = 0; i < 7; i++) {
-            List<String> levelList = table.getLevelFileList(Level.fromID(i));
+            List<String> levelList = null;//table.getLevelFileList(Level.fromID(i));
             System.out.println("level=" + i);
             for (String file : levelList) {
                 for (Integer key : toBeDeleted) {

@@ -96,10 +96,9 @@ public class SSTManager {
     }
 
     public void createSST(SortedMap<byte[], ValueUnit> map) throws Exception {
-        // debug
+        // todo compress blocks.
         long a, b;
         a = System.nanoTime();
-
         String tempFileName = dbFolder.getAbsolutePath() + File.separator +
                 Instant.now().toString().replace(':', '_') + Level.LEVEL_ZERO;
 
@@ -117,10 +116,7 @@ public class SSTManager {
                 FileLock lock = channel.lock();
                 Writer writer = new SSTWriteWithBuffer(channel);
         ) {
-            System.out.println("commence");
-//            channel.force(true);
             header.write(writer);
-            System.out.println("written header");
             for (Map.Entry<byte[], ValueUnit> entry : map.entrySet()) {
                 pointers.add(writer.position());
 
@@ -130,11 +126,9 @@ public class SSTManager {
             }
             long bs = channel.position();
             MiddleBlock.writePointers(writer, pointers);
-            System.out.println("written pointers");
             filter.writeTo(writer);
             header.writeBS(writer, bs);
             header.close(); // important to close
-            System.out.println("finish written");
         } catch (Exception e) {
             e.printStackTrace();
             throw new RuntimeException(e);
@@ -150,20 +144,15 @@ public class SSTManager {
         //compaction.compactionMaybe();
     }
 
-    public byte[] search(byte[] key) throws Exception {
+    public byte[] search(byte[] key) {
         for (Level value : Level.values()) {
             List<SSTInfo> SSTInfoList = table.getLevelFileList(value);
             for (SSTInfo sstInfo : SSTInfoList) {
-
-                long c,d;
-                c = System.nanoTime();
                 ValueUnit found = findValue(sstInfo, key);
-                d = System.nanoTime();
                 if (found != null) {
                     if (found.getIsDelete() == ValueUnit.DELETE){
                         return null;
                     }
-                    System.out.println("took " + ((d-c)/1000_000_000.0));
                     return found.getValue();
                 }
             }
@@ -188,24 +177,15 @@ public class SSTManager {
                 Reader reader = new SSTReaderWithBuffer(channel);
         ) {
             Function<Long, KeyUnit> keyRetriever = position -> {
-                System.out.println("position="+position);
                 KeyUnit keyUnit = sstInfo.getSparseBinarySearch().get(position);
                 if (keyUnit == null) {
-                    System.out.println("reading key from file");
                     keyUnit = MiddleBlock.getKeyUnit(reader, position);
-                } else {
-                    System.out.println("reading key sparse");
                 }
                 return keyUnit;
             };
             BiFunction<Long, KeyUnit, ValueUnit> valueRetriever = (position, keyUnit) -> {
                 if (keyUnit.getIsDelete() == KeyUnit.DELETE) {
                     return null;
-                }
-                try {
-                    System.out.println("find key, key string=" + new String(Snappy.uncompress(keyUnit.getKey())));
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
                 }
                 byte[] valueUnit = MiddleBlock.getValueUnit(reader, position, keyUnit);
                 return new ValueUnit(valueUnit, keyUnit.getIsDelete());

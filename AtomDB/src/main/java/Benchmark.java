@@ -163,6 +163,7 @@ public class Benchmark {
 //Writing... 1000000
 //Reading...
 //writing time=10130438600 , reading time=2697346200
+// 10 sec and 2.69 sec
 
 //atomDB
 //Warm Up with 50k

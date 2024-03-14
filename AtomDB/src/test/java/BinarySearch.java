@@ -17,7 +17,7 @@ public class BinarySearch {
         try(FileInputStream inputStream = new FileInputStream(file);
             FileChannel channel = inputStream.getChannel();
         ) {
-            Header header = Header.getHeader(file, channel, byteBuffer);
+            Header header = null; //Header.getHeader(file, channel, byteBuffer);
 
             // bound check
             if (Arrays.compare(key, header.getSmallestKey()) < 0) {
