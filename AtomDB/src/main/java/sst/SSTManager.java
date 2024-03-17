@@ -171,30 +171,23 @@ public class SSTManager {
         if (DBComparator.byteArrayComparator.compare(key, sstInfo.getHeader().getLargestKey()) > 0) {
             return null;
         }
-        try(
-                RandomAccessFile randomAccessFile = new RandomAccessFile(sstInfo.getFileName(), "r");
-                FileChannel channel = randomAccessFile.getChannel();
-                Reader reader = new SSTReaderWithBuffer(channel);
-        ) {
-            Function<Long, KeyUnit> keyRetriever = position -> {
-                KeyUnit keyUnit = sstInfo.getSparseBinarySearch().get(position);
-                if (keyUnit == null) {
-                    keyUnit = MiddleBlock.getKeyUnit(reader, position);
-                }
-                return keyUnit;
-            };
-            BiFunction<Long, KeyUnit, ValueUnit> valueRetriever = (position, keyUnit) -> {
-                if (keyUnit.getIsDelete() == KeyUnit.DELETE) {
-                    return null;
-                }
-                byte[] valueUnit = MiddleBlock.getValueUnit(reader, position, keyUnit);
-                return new ValueUnit(valueUnit, keyUnit.getIsDelete());
-            };
-            return binarySearch(sstInfo, keyRetriever, key, valueRetriever);
-        } catch (Exception e) {
-            System.out.println("Moye moye while searching");
-            throw new RuntimeException(e);
-        }
+
+        Reader reader = sstInfo.getSSTReader();
+        Function<Long, KeyUnit> keyRetriever = position -> {
+            KeyUnit keyUnit = sstInfo.getSparseBinarySearch().get(position);
+            if (keyUnit == null) {
+                keyUnit = MiddleBlock.getKeyUnit(reader, position);
+            }
+            return keyUnit;
+        };
+        BiFunction<Long, KeyUnit, ValueUnit> valueRetriever = (position, keyUnit) -> {
+            if (keyUnit.getIsDelete() == KeyUnit.DELETE) {
+                return null;
+            }
+            byte[] valueUnit = MiddleBlock.getValueUnit(reader, position, keyUnit);
+            return new ValueUnit(valueUnit, keyUnit.getIsDelete());
+        };
+        return binarySearch(sstInfo, keyRetriever, key, valueRetriever);
     }
 
     private ValueUnit binarySearch(SSTInfo sstInfo, Function<Long, KeyUnit> keyRetriever, byte[] key, BiFunction<Long, KeyUnit, ValueUnit> valueRetriever) {

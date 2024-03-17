@@ -1,5 +1,6 @@
 package sstIo;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 
 public interface SSTReader extends AutoCloseable{

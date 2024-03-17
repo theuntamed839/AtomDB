@@ -9,9 +9,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Instant;
-import java.util.Arrays;
-import java.util.Comparator;
-import java.util.Scanner;
+import java.util.*;
+import java.util.stream.IntStream;
 
 import static util.BytesConverter.bytes;
 
@@ -20,13 +19,56 @@ public class Benchmark {
     public static void main(String[] args) throws Exception {
         var inputString = "qwertyuiopasdfghjklzxcvbnm<>?:}{+_)(*&^%$#@!)}1234567890`~".repeat(5);
         System.out.println("Warm Up with 50k");
-        benchmark(inputString, 50000);
+        //benchmark(inputString, 500000);
 //        benchmark(inputString, 1000);
 //        benchmark(inputString, 10000);
 //        benchmark(inputString, 100000);
-        //benchmark(inputString, 1000000);
+        benchmark(inputString, 1000000);
 //        benchmarkWriting(inputString, 1000000);
 //        initialTest(inputString, 50000);
+//        benchmarkRandomRead(inputString, 1000000, "asd");
+    }
+
+    private static void benchmarkRandomRead(String inputString, long totalEntryCount, String dbName) throws Exception {
+        System.out.println("Number of threads: " + Thread.activeCount());
+        long beforeUsedMem = Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
+        var opt = new DBOptions();
+        var db = new DBImpl(new File(Benchmark.class.getName() + "DB"), opt);
+        long startTime , endTime, readingTime, writingTime;
+        try {
+            System.out.println("Writing... " + totalEntryCount);
+            startTime = System.nanoTime();
+            for (int i = 0; i < totalEntryCount; i++) {
+                db.put(bytes(i + ""), bytes(i + "_" + inputString));
+            }
+            endTime = System.nanoTime();
+
+            writingTime = endTime - startTime;
+            System.out.println("Reading... ");
+            startTime = System.nanoTime();
+            List<Integer> integers = new ArrayList<>(IntStream.range(0, (int) totalEntryCount).boxed().toList());
+            Collections.shuffle(integers);
+            Collections.shuffle(integers);
+            for (int i : integers) {
+                db.get(bytes(i + ""));
+            }
+            endTime = System.nanoTime();
+
+            readingTime = endTime - startTime;
+            System.out.println("writing time=" + writingTime + " , reading time=" + readingTime);
+            long afterUsedMem=Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
+            long actualMemUsed=afterUsedMem-beforeUsedMem;
+            System.out.println("memory utilised="+actualMemUsed);
+            System.out.println("Number of threads: " + Thread.activeCount());
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            db.close();
+            Files.walk(Path.of(dbName + "_db"))
+                    .sorted(Comparator.reverseOrder())
+                    .map(Path::toFile)
+                    .forEach(File::delete);
+        }
     }
 
     public static void initialTest(String inputString, long totalEntryCount) throws Exception {
@@ -188,8 +230,14 @@ public class Benchmark {
 // 75 sec and 2.65 minutes with snappy
 
 // levelDB writing 10.13 sec and 2.69 sec reading
+// 15 and 22 firefly
 
 //writing time=93463754000 , reading time=167366800200 without snappy
 // 93 sec and 167
 //writing time=54990968100 , reading time=162650142200 with snappy
 //54 sec and 162 secs
+
+// levelDB writing 10.13 sec and 2.69 sec reading
+// 15 and 22 firefly
+
+// optimize branch write=8.7 secs and read=2mins, all files in level0 and sparse 0.80

@@ -35,6 +35,9 @@
 6. Performing partial binary search 
 7. Increase ByteBuffer size (400KB is max item size in dynamoDB)
 8. use a single byte for Marker.
+9. We keep a extra memtable in memory since recently written data is frequenctly used.
+10. utlising threads to create compaction.
+11. can use binary search to find in level files.
 
 ## Elaboration of features used in Optimization Roadmap
 ### 1. Performing partial binary search

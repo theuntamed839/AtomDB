@@ -101,7 +101,7 @@ public class DBImpl implements DB{
         Util.requireTrue(dbFolder.isDirectory(), "file="+dbFolder.toPath()+" is not a folder");
 
         for (File listFile : dbFolder.listFiles()) {
-            Util.requireTrue(listFile.delete(), "unable to delete file="+listFile.toPath());
+            Util.requireTrue(listFile.delete(), "unable to delete file="+listFile.getAbsolutePath());
         }
         Util.requireTrue(dbFolder.delete(), "unable to delete folder="+dbFolder.toPath());
     }

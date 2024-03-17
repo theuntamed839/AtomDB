@@ -1,6 +1,7 @@
 package Table;
 
 import Checksum.CheckSum;
+import Constants.DBConstant;
 import com.google.common.hash.BloomFilter;
 import com.google.common.hash.Funnels;
 import sst.Header;
@@ -61,8 +62,13 @@ public class SSTFileHelper {
     private static SparseBinarySearch sparseBinarySearch(List<Long> pointers, Function<Integer, KeyUnit> keyRetriever) {
         int iterations = (int) Math.ceil(Math.log(pointers.size())/Math.log(2));
         var sparse = new SparseBinarySearch(pointers.size());
-        getFrequentlyUsedValues(keyRetriever, pointers, 0, pointers.size() - 1, sparse, (int) Math.ceil(iterations * 0.5));
+        getFrequentlyUsedValues(keyRetriever, pointers, 0, pointers.size() - 1, sparse, (int) Math.ceil(iterations * DBConstant.SPARSE_BINARY_KEY_PERCENTAGE));
         return sparse;
+
+//        int iterations = (int) Math.floor(Math.log(pointers.size())/Math.log(2));
+//        var sparse = new SparseBinarySearch(pointers.size());
+//        getFrequentlyUsedValues(keyRetriever, pointers, 0, pointers.size() - 1, sparse, iterations);
+//        return sparse;
     }
 
     private static void getFrequentlyUsedValues (Function<Integer, KeyUnit> keyRetriever, List<Long> pointers,

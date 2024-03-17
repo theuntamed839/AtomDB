@@ -13,7 +13,7 @@ import java.util.stream.IntStream;
 
 public class NativeLevelDBBenchmark {
     public static void main(String[] args) throws Exception {
-        var inputString = "qwertyuiopasdfghjklzxcvbnm<>?:}{+_)(*&^%$#@!)}1234567890`~".repeat(5);
+        var inputString = "qwertyuiopasdfghjklzxcvbnm<>?:}{+_)(*&^%$#@!)}1234567890`~".repeat(1000000);
         System.out.println("Warm Up with 50k");
         benchmark(inputString, 50000, "12");
         benchmark(inputString, 1000, "213");
