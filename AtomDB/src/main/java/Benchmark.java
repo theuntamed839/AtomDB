@@ -19,21 +19,21 @@ public class Benchmark {
     public static void main(String[] args) throws Exception {
         var inputString = "qwertyuiopasdfghjklzxcvbnm<>?:}{+_)(*&^%$#@!)}1234567890`~".repeat(5);
         System.out.println("Warm Up with 50k");
-        //benchmark(inputString, 500000);
-//        benchmark(inputString, 1000);
-//        benchmark(inputString, 10000);
-//        benchmark(inputString, 100000);
+        benchmark(inputString, 500000);
+        benchmark(inputString, 1000);
+        benchmark(inputString, 10000);
+        benchmark(inputString, 100000);
         benchmark(inputString, 1000000);
-//        benchmarkWriting(inputString, 1000000);
+        //benchmarkWriting(inputString, 1000000);
 //        initialTest(inputString, 50000);
-//        benchmarkRandomRead(inputString, 1000000, "asd");
+        benchmarkRandomRead(inputString, 1000000, "asd");
     }
 
     private static void benchmarkRandomRead(String inputString, long totalEntryCount, String dbName) throws Exception {
         System.out.println("Number of threads: " + Thread.activeCount());
         long beforeUsedMem = Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
         var opt = new DBOptions();
-        var db = new DBImpl(new File(Benchmark.class.getName() + "DB"), opt);
+        var db = new DBImpl(new File(dbName), opt);
         long startTime , endTime, readingTime, writingTime;
         try {
             System.out.println("Writing... " + totalEntryCount);
@@ -64,7 +64,7 @@ public class Benchmark {
             e.printStackTrace();
         } finally {
             db.close();
-            Files.walk(Path.of(dbName + "_db"))
+            Files.walk(Path.of(dbName ))
                     .sorted(Comparator.reverseOrder())
                     .map(Path::toFile)
                     .forEach(File::delete);
@@ -240,4 +240,51 @@ public class Benchmark {
 // levelDB writing 10.13 sec and 2.69 sec reading
 // 15 and 22 firefly
 
-// optimize branch write=8.7 secs and read=2mins, all files in level0 and sparse 0.80
+// optimized Champion, without compaction and 0.8 sparse binary search
+// basically we have 2^(log(n) * 0.8) keys in memory.
+// writing ~5sec for all cases and reading ~2sec and for random reading ~23
+// need to work on random searches as this is the real world scenario.
+//    Warm Up with 50k
+//        Number of threads: 2
+//        Writing... 500000
+//        Writing =3381345200
+//        Reading...
+//        writing time=3381345200 , reading time=1014120400
+//        memory utilised=181201096
+//        Number of threads: 2
+//        Number of threads: 2
+//        Writing... 1000
+//        Writing =19922100
+//        Reading...
+//        writing time=19922100 , reading time=751600
+//        memory utilised=8125712
+//        Number of threads: 2
+//        Number of threads: 2
+//        Writing... 10000
+//        Writing =48545900
+//        Reading...
+//        writing time=48545900 , reading time=7901400
+//        memory utilised=25168168
+//        Number of threads: 2
+//        Number of threads: 2
+//        Writing... 100000
+//        Writing =776112400
+//        Reading...
+//        writing time=776112400 , reading time=133118300
+//        memory utilised=36181552
+//        Number of threads: 2
+//        Number of threads: 2
+//        Writing... 1000000
+//        Writing =5863752200
+//        Reading...
+//        writing time=5863752200 , reading time=2089110800
+//        memory utilised=415614712
+//        Number of threads: 2
+//        Number of threads: 2
+//        Writing... 1000000
+//        Reading...
+//        writing time=5419208300 , reading time=23297950100
+//        memory utilised=196422816
+//        Number of threads: 2
+
+

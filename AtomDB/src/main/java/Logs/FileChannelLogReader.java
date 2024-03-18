@@ -80,7 +80,7 @@ public class FileChannelLogReader implements LogReader{
         try (RandomAccessFile reader =
                      new RandomAccessFile(logFile, READ_MODE);
              FileChannel channel = reader.getChannel();
-             FileLock lock = channel.lock()
+             //FileLock lock = channel.lock()
         ) {
             LogBlock block = null;
             for (long i = 0; i < channel.size(); i += block.totalBytesRead()) {

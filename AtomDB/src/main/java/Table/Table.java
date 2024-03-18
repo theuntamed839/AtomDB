@@ -7,7 +7,7 @@ import java.io.File;
 import java.util.*;
 import java.util.regex.Pattern;
 
-public class Table {
+public class Table implements AutoCloseable {
     private Map<Level, List<SSTInfo>>  table;
     private int currentFileName = 0;
     private final File dbFolder;
@@ -96,5 +96,16 @@ public class Table {
 
     public BloomFilter<byte[]> getBloom(String file){
         return bloomMap.get(file);
+    }
+
+    @Override
+    public void close() throws Exception {
+        table.values().stream().flatMap(Collection::stream).forEach(each -> {
+            try {
+                each.close();
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        });
     }
 }

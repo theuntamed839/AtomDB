@@ -93,6 +93,8 @@ public class DBImpl implements DB{
     @Override
     public void close() throws Exception {
         walManager.close();
+        sstManager.close();
+        System.gc();
     }
 
     @Override

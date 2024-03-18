@@ -39,6 +39,21 @@
 10. utlising threads to create compaction.
 11. can use binary search to find in level files.
 
+# Think tank for this for **Branch Optimization RoadMap**
+1. fast key search in the segment. segment is the block divided by 10. 10% rule.
+   1. LevelDB use restart points in the SST file.
+   2. Cache Obvious data structures
+   3. Fractal tree
+2. best way to do compaction, how many files to take, which files to take, when to trigger, how to reduce the cost.
+3. better caching mechanism
+   1. loadingCache of guava
+   2. LRU
+   3. Linux caching mechanism can be seen
+4. better and faster compression.
+5. lock free database.
+6. lots of abstractions 
+7. design patterns to be used.
+
 ## Elaboration of features used in Optimization Roadmap
 ### 1. Performing partial binary search
 First we calculate how many reads will be required to fully retrieve the pointers.

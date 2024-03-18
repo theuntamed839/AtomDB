@@ -23,7 +23,7 @@ public class SSTFileHelper {
         try(
                 RandomAccessFile randomAccessFile = new RandomAccessFile(file, "r");
                 FileChannel channel = randomAccessFile.getChannel();
-                FileLock lock = channel.lock();
+                //FileLock lock = channel.lock();
                 Reader reader = new SSTReaderWithBuffer(channel);
         ) {
             Header header = Header.getHeader(reader);
