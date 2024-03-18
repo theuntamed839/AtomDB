@@ -51,6 +51,7 @@
    3. Linux caching mechanism can be seen
 4. better and faster compression.
 5. lock free database.
+   1. can look at gauva algos
 6. lots of abstractions 
 7. design patterns to be used.
 

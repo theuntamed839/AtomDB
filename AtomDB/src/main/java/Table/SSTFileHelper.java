@@ -64,6 +64,13 @@ public class SSTFileHelper {
         var sparse = new SparseBinarySearch(pointers.size());
         getFrequentlyUsedValues(keyRetriever, pointers, 0, pointers.size() - 1, sparse, (int) Math.ceil(iterations * DBConstant.SPARSE_BINARY_KEY_PERCENTAGE));
         return sparse;
+//
+//        // whole pointer set in memory
+//        var sparse = new SparseBinarySearch(pointers.size());
+//        for (int i = 0; i < pointers.size(); i++) {
+//            sparse.put(pointers.get(i), keyRetriever.apply(i));
+//        }
+//        return sparse;
 
 //        int iterations = (int) Math.floor(Math.log(pointers.size())/Math.log(2));
 //        var sparse = new SparseBinarySearch(pointers.size());
