@@ -19,11 +19,11 @@ public class Benchmark {
     public static void main(String[] args) throws Exception {
         var inputString = "qwertyuiopasdfghjklzxcvbnm<>?:}{+_)(*&^%$#@!)}1234567890`~".repeat(5);
         System.out.println("Warm Up with 50k");
-        benchmark(inputString, 500000);
-        benchmark(inputString, 1000);
-        benchmark(inputString, 10000);
-        benchmark(inputString, 100000);
-        benchmark(inputString, 1000000);
+//        benchmark(inputString, 500000);
+//        benchmark(inputString, 1000);
+//        benchmark(inputString, 10000);
+//        benchmark(inputString, 100000);
+//        benchmark(inputString, 1000000);
         //benchmarkWriting(inputString, 1000000);
 //        initialTest(inputString, 50000);
         benchmarkRandomRead(inputString, 1000000, "asd");

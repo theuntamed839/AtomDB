@@ -28,7 +28,8 @@ public class SparseBinarySearch {
     }
 
     public void put(long pointer, KeyUnit keyUnit) {
-        Util.requiresNull(map.put(pointer, keyUnit), "Moye Moye ho gaya");
+        //Util.requiresNull(map.put(pointer, keyUnit), "Moye Moye ho gaya");
+        map.put(pointer, keyUnit);
     }
 
     public KeyUnit get(long pointer) {

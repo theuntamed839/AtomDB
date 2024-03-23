@@ -97,8 +97,8 @@ public class SSTManager implements AutoCloseable{
 
     public void createSST(SortedMap<byte[], ValueUnit> map) throws Exception {
         // todo compress blocks.
-//        long a, b;
-//        a = System.nanoTime();
+        long a, b;
+        a = System.nanoTime();
         String tempFileName = dbFolder.getAbsolutePath() + File.separator +
                 Instant.now().toString().replace(':', '_') + Level.LEVEL_ZERO;
 
@@ -139,8 +139,8 @@ public class SSTManager implements AutoCloseable{
         var sstInfo = new SSTInfo(realFileName, header, pointers, filter, SSTFileHelper.getSparseBinarySearch(pointers, map));
         table.addSST(Level.LEVEL_ZERO, sstInfo);
         // debug
-//        b = System.nanoTime();
-//        System.out.println("took ="+(b - a) + " nano for level="+Level.LEVEL_ZERO+" sst to write");
+        b = System.nanoTime();
+        System.out.println("took ="+(b - a) + " nano for level="+Level.LEVEL_ZERO+" sst to write");
         //compaction.compactionMaybe();
     }
 

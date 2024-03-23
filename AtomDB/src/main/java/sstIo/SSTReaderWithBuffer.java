@@ -59,13 +59,21 @@ public class SSTReaderWithBuffer extends Reader{
         if (mapOffset != -1 && mapOffset <= position && mapOffset + PAGE_SIZE >= position + length) {
             return;
         }
-        if (PAGE_SIZE < length) throw new RuntimeException("pagesize=" + PAGE_SIZE + "trying to retrive length="+ length + "We are not prepared for this, trying to access data which is beyond the page size limit we need to improve the system");
+        var SIZE = PAGE_SIZE;
+        if (PAGE_SIZE < length) {
+            SIZE = length;
+            //throw new RuntimeException("pagesize=" + PAGE_SIZE + "trying to retrive length="+ length + "We are not prepared for this, trying to access data which is beyond the page size limit we need to improve the system");
+        }
         mapOffset = (int) position;
         try {
-            map = channel.map(FileChannel.MapMode.READ_ONLY, mapOffset, PAGE_SIZE);
+            if (map != null) {
+                unmap(map);
+            }
+            map = channel.map(FileChannel.MapMode.READ_ONLY, mapOffset, SIZE);
 //            System.out.println("mapped file from the position=" + mapOffset);
 //            System.out.println("map position="+map.position());
         } catch (IOException e) {
+            //System.out.println("SIZW="+SIZE);
             throw new RuntimeException(e);
         }
     }

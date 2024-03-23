@@ -16,7 +16,7 @@ public class SkipListMemtable implements Memtable{
     private final File dbFolder;
     private final WALManager wal;
     private ConcurrentSkipListMap<byte[], ValueUnit> memtable;
-    private final int sizeLimit = 4 * SizeOf.MB;//4096 *4;
+    private final int sizeLimit = 4 * SizeOf.MB;
     private int currentSize = 0;
     // todo need to remove
     private SSTManager sstManager;

@@ -54,6 +54,10 @@
    1. can look at gauva algos
 6. lots of abstractions 
 7. design patterns to be used.
+8. can utilise fork and join for reads.
+9. Using Java 21 virtual threads.
+10. Using of herustics, basically creating a tree and guessing where the items might exists. need to do the math for this. and cost estimation.
+
 
 ## Elaboration of features used in Optimization Roadmap
 ### 1. Performing partial binary search
