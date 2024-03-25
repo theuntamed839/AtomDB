@@ -1,14 +1,10 @@
-import db.DB;
 import db.DBImpl;
 import db.DBOptions;
 import org.xerial.snappy.Snappy;
 
 import java.io.File;
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.time.Instant;
 import java.util.*;
 import java.util.stream.IntStream;
 
@@ -26,7 +22,7 @@ public class Benchmark {
 //        benchmark(inputString, 1000000);
         //benchmarkWriting(inputString, 1000000);
 //        initialTest(inputString, 50000);
-        benchmarkRandomRead(inputString, 1000000, "asd");
+        benchmarkRandomRead(inputString, 10_000_000, "asd"); //1000000
     }
 
     private static void benchmarkRandomRead(String inputString, long totalEntryCount, String dbName) throws Exception {
