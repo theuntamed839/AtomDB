@@ -1,7 +1,7 @@
 package org.example.comparators;
 
 import com.google.common.primitives.UnsignedBytes;
-
+import java.lang.annotation.Native;
 import java.util.*;
 
 public class main {
@@ -22,14 +22,13 @@ public class main {
         Random rand = new Random();
         List<byte[]> list = new ArrayList<>();
         for (int i = 0; i < 1000_0000; i++) {
-            byte[] array = new byte[1024];
+            byte[] array = new byte[128];
             rand.nextBytes(array);
             list.add(array);
         }
-        benchMark(javasComparator, list, "java");
         benchMark(atomDBCurrentComparator, list, "atom");
-        benchMark(guavaComparator, list, "guava");
-
+        benchMark(javasComparator, list, "java");
+        benchMark(guavaComparator, list, "guav");
     }
 
     private static void benchMark(Comparator<byte[]> comparator, List<byte[]> arr,String name) {

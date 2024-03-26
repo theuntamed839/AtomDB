@@ -20,10 +20,19 @@ AtomDB Release 1.0
 7. improvement of compaction
 8. Making two sst in memory to write as one.
 9. Let's implement the WAL, MEM, SST, TABLE, COMPACTION, CACHE correctly and then add on with multithreading, lock free, virtual thread, SIMD, etc.
+10. can use treeset to find the overlapping intervals. and use posix_fadvise for compaction.
+11. can use posix_fadvise for writing sst.
+12. can use posix_fadvise for sequential reads.
+13. for random reads use mmap.
+14. Implement Manifest file https://github.com/google/leveldb/blob/main/doc/impl.md#manifest
+15. We will be having 3 caches.
+    1. first the primary cache which will cache k-v directly.
+    2. File blocks
+    3. File descriptor, which will be evicted based on the avaliable descriptors.
 
 # Bottlenecks
-1. multiple sst reads.
-2. No compaction or heavy compaction.
+1. multiple sst reads. (Partially solved by Objective->3)
+2. heavy compaction.
 3. No proper caching for recently retrieved block, k-v,
 4. multiple disk seeks and reads for single request. **(Many sst)**
 5. multiple jumps in a **single SST**
@@ -35,6 +44,18 @@ AtomDB Release 1.0
 
 
 ### TODO:
+- [ ] **IMP** we can implement the shared keys in sst block down the list but need to understand the cost to write sst and also compaction cost and also does it help in reading.
+  - basically when we have n keys in a sorted order, some keys will have thier prefix similar which can taken common out.
+  - we need not store the prefix since we already have the first key in the memory, we just need to prefix length.
+  - this will help in comparing as well as storing, since we will store less now.
+  - before we implement we need to find the cost.
+  - writing computation cost.
+  - compaction reading and writing cost. (Very important)
+  - reading cost, how many disk seeks and reads.
+  - Put this in chatGPT "i have a list of strings i want to take its prefix common out."
+- [ ] Thoughts on this,
+  - If a file doesn't generate positive results for reads then it can be taken for compaction.
+    this file has very sparse data, for reading efficiency we need concentrated data.
 - [ ] Read, Write improvement.
 - [ ] Compaction Improvement.
 - [ ] Cache.
@@ -76,6 +97,10 @@ AtomDB Release 1.0
   - https://source.wiredtiger.com/develop/arch-index.html
 - [ ] posix_fadvise seems viable option for compaction, where we give hint to the OS that we will read the ssts in sequential manner.
   - search on chatgpt, database basic channel "posix_fadvise vs mmap" 
+- [ ] before writing the new sst, just check if there is a need for compaction and see if the file overlaps with other. so that directly compacted these files.
+- [ ] need to add magic number at the end of the sst. to mark the end of sst.
+- [ ] Think on what we can cache.
+
 
 #### Information links
 * LZ4
@@ -88,8 +113,9 @@ AtomDB Release 1.0
 * Vector in java
   * https://jbaker.io/2022/06/09/vectors-in-java/
   * https://www.youtube.com/watch?v=ZQFzMfHIxng
-* JMH Java Microbenchmark Harnees
+* JMH Java Microbenchmark Harnees & other benchmark
   * https://jenkov.com/tutorials/java-performance/jmh.html
+  * https://github.com/OpenHFT/JLBH?tab=readme-ov-file
 * Lock-free Programming
   * https://preshing.com/20120612/an-introduction-to-lock-free-programming/
   * https://www.linkedin.com/advice/0/what-some-examples-lock-free-wait-free-data-structures
@@ -107,3 +133,14 @@ AtomDB Release 1.0
   * https://sasha-f.medium.com/why-mmap-is-faster-than-system-calls-24718e75ab37
   * https://news.ycombinator.com/item?id=29936104
   * https://www.youtube.com/watch?v=1BRGU_AS25c
+* Posix_fadvise
+  * https://github.com/hopshadoop/hops/blob/master/hadoop-common-project/hadoop-common/src/main/java/org/apache/hadoop/io/nativeio/NativeIO.java
+* LevelDB explanation
+  * https://segmentfault.com/a/1190000040286395/en (Very well written)
+  * https://docs.riak.com/riak/kv/latest/setup/planning/backend/leveldb/index.html#:~:text=Comparison%20of%20eLevelDB%20and%20Bitcask&text=Bitcask%20stores%20keys%20in%20memory,LevelDB%20will%20need%20two%20seeks. (Compaction)
+  * https://axlgrep.github.io/tech/leveldb-sst-file.html
+  * https://chenju2k6.github.io/blog/2018/11/leveldb
+  * https://rocksdb.org/blog/
+* Compaction
+  * https://smalldatum.blogspot.com/2018/08/name-that-compaction-algorithm.html
+  * https://github.com/facebook/rocksdb/wiki/Compaction
