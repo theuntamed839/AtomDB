@@ -13,7 +13,6 @@ AtomDB Release 1.0
       2. Upper and lower bound check (SK and LK)
       3. Then binary search from the latest file to the older files
       4. Can same the crc32c of keys in memory (Future)
-      
 4. Cache all the open file descriptors.
 5. Minimize the number of files being accessed, need a better predictor and cache.
 6. improvement of Read, write
@@ -29,6 +28,11 @@ AtomDB Release 1.0
     1. first the primary cache which will cache k-v directly.
     2. File blocks
     3. File descriptor, which will be evicted based on the avaliable descriptors.
+16. Reading of sst meta data when db restarts. Thinking needed.
+17. Batch writing and reading.
+18. MMap the whole file for compaction.
+19. we mandatorily not store the 10% keys in memory, we can flush based on memory available and reread when required. but this will have some performance impact.
+
 
 # Bottlenecks
 1. multiple sst reads. (Partially solved by Objective->3)
@@ -100,6 +104,8 @@ AtomDB Release 1.0
 - [ ] before writing the new sst, just check if there is a need for compaction and see if the file overlaps with other. so that directly compacted these files.
 - [ ] need to add magic number at the end of the sst. to mark the end of sst.
 - [ ] Think on what we can cache.
+- [ ] what really is cache obvious data structure.
+- cant we apply common prefix to values.
 
 
 #### Information links
@@ -144,3 +150,14 @@ AtomDB Release 1.0
 * Compaction
   * https://smalldatum.blogspot.com/2018/08/name-that-compaction-algorithm.html
   * https://github.com/facebook/rocksdb/wiki/Compaction
+* Sysetm programming 
+  * https://www.cs.cornell.edu/courses/cs4414/2023sp/
+* Write optimization
+  * https://www.reddit.com/r/cpp_questions/comments/18g513s/resources_for_learning_writing_optimized_code/
+* Cache obvious
+  * https://www.reddit.com/r/programming/comments/90o1g/cache_oblivious_algorithms/
+  * https://www.reddit.com/r/programming/comments/8smna/algorithmconscious_cacheoblivious/
+  * https://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.44.5650
+  * https://www.reddit.com/r/programming/comments/fvqz4/cacheoblivious_algorithms/
+  * http://blog.netduma.com/2013/01/cache-money-hoes-attached-code.html
+  * https://rcoh.me/posts/cache-oblivious-datastructures/
