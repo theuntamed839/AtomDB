@@ -2,6 +2,8 @@ import net.jpountz.lz4.*;
 import org.apache.logging.log4j.core.util.Assert;
 import org.xerial.snappy.Snappy;
 
+import java.io.BufferedWriter;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;

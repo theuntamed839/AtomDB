@@ -1,6 +1,6 @@
 package Tools;
 
-import Checksum.CheckSum;
+import Checksum.CheckSumStatic;
 import sst.Header;
 import sst.MiddleBlock;
 import sst.ValueUnit;
@@ -122,7 +122,7 @@ public class Validate {
         channel.read(byteBuffer);
         byteBuffer.flip();
         long checksum = byteBuffer.getLong();
-        if (CheckSum.compute(key, value) != checksum) {
+        if (CheckSumStatic.compute(key, value) != checksum) {
             throw new Exception("Checksum not matching");
         }
     }
@@ -133,7 +133,7 @@ public class Validate {
         channel.read(byteBuffer);
         byteBuffer.flip();
         long checksum = byteBuffer.getLong();
-        if (CheckSum.compute(key) != checksum) {
+        if (CheckSumStatic.compute(key) != checksum) {
             throw new Exception("Checksum not matching");
         }
     }

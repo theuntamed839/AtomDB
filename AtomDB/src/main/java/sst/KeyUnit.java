@@ -1,7 +1,6 @@
 package sst;
 
-import Checksum.CheckSum;
-import sstIo.Reader;
+import Checksum.CheckSumStatic;
 import util.Util;
 
 public class KeyUnit {
@@ -13,7 +12,7 @@ public class KeyUnit {
 
     private int valueSize;
     public KeyUnit(byte[] key, long checkSum, byte isDelete, int valueSize) {
-        Util.requireTrue(CheckSum.compute(key) == checkSum, "checksum mismatch key");
+        Util.requireTrue(CheckSumStatic.compute(key) == checkSum, "checksum mismatch key");
         this.key = key;
         this.keyChecksum = checkSum;
         this.isDelete = isDelete;

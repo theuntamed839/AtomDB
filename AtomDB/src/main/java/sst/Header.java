@@ -1,8 +1,7 @@
 package sst;
 
-import Checksum.CheckSum;
+import Checksum.CheckSumStatic;
 import Level.Level;
-import com.google.common.primitives.Longs;
 import db.DBComparator;
 import sstIo.Reader;
 import sstIo.SSTWriter;
@@ -151,7 +150,7 @@ public class Header implements AutoCloseable{
     }
 
     private long getKeysChecksum() {
-        return CheckSum.compute(sKey, lKey);
+        return CheckSumStatic.compute(sKey, lKey);
     }
 
     public void writeBS(FileChannel channel, ByteBuffer byteBuffer, long binarySearchLocation) throws IOException {

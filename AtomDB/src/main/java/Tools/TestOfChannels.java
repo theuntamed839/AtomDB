@@ -1,6 +1,6 @@
 package Tools;
 
-import Checksum.CheckSum;
+import Checksum.CheckSumStatic;
 import Constants.DBConstant;
 import Level.Level;
 import db.DBComparator;
@@ -110,10 +110,10 @@ public class TestOfChannels {
                 .putLong(header.getEntries())
                 .putLong(header.getSmallestKey().length)
                 .put(header.getSmallestKey())
-                .putLong(CheckSum.compute(header.getSmallestKey()))
+                .putLong(CheckSumStatic.compute(header.getSmallestKey()))
                 .putLong(header.getLargestKey().length)
                 .put(header.getLargestKey())
-                .putLong(CheckSum.compute(header.getLargestKey()))
+                .putLong(CheckSumStatic.compute(header.getLargestKey()))
                 .flip();
         channel.position(0); // moved to 0 position
         channel.write(byteBuffer);
@@ -126,10 +126,10 @@ public class TestOfChannels {
         channel.writeLong(header.getEntries());
         channel.writeLong(header.getSmallestKey().length);
         channel.write(header.getSmallestKey());
-        channel.writeLong(CheckSum.compute(header.getSmallestKey()));
+        channel.writeLong(CheckSumStatic.compute(header.getSmallestKey()));
         channel.writeLong(header.getLargestKey().length);
         channel.write(header.getLargestKey());
-        channel.writeLong(CheckSum.compute(header.getLargestKey()));
+        channel.writeLong(CheckSumStatic.compute(header.getLargestKey()));
     }
 
     public static void writeBS(Header header, FileChannel channel, ByteBuffer byteBuffer, long binarySearchLocation) throws IOException {
@@ -151,9 +151,9 @@ public class TestOfChannels {
         if (entry.getValue().getIsDelete() != ValueUnit.DELETE) {
             byteBuffer.putLong(entry.getValue().getValue().length)
                     .put(entry.getValue().getValue())
-                    .putLong(CheckSum.compute(entry.getKey(), entry.getValue().getValue()));
+                    .putLong(CheckSumStatic.compute(entry.getKey(), entry.getValue().getValue()));
         } else {
-            byteBuffer.putLong(CheckSum.compute(entry.getKey()));
+            byteBuffer.putLong(CheckSumStatic.compute(entry.getKey()));
         }
         byteBuffer.flip();
         channel.write(byteBuffer);
@@ -167,9 +167,9 @@ public class TestOfChannels {
         if (entry.getValue().getIsDelete() != ValueUnit.DELETE) {
             channel.writeLong(entry.getValue().getValue().length);
             channel.write(entry.getValue().getValue());
-            channel.writeLong(CheckSum.compute(entry.getKey(), entry.getValue().getValue()));
+            channel.writeLong(CheckSumStatic.compute(entry.getKey(), entry.getValue().getValue()));
         } else {
-            channel.writeLong(CheckSum.compute(entry.getKey()));
+            channel.writeLong(CheckSumStatic.compute(entry.getKey()));
         }
     }
 

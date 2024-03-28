@@ -1,50 +1,96 @@
 package Logs;
 
-import Checksum.CheckSum;
+import Checksum.Checksum;
+import Checksum.Crc32cChecksum;
 import Constants.Operations;
-import util.BytesConverter;
 import util.SizeOf;
-import util.Util;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.channels.FileChannel;
-import java.time.Instant;
 import java.util.Arrays;
+
 public class LogBlock {
-    private byte[] key, value;
-    private Instant time;
-    private Operations operations;
-    private long checksum;
-    public LogBlock(Instant time,  Operations operations, byte[] key, byte[] value) {
-        this.time = time;
+    private final byte[] key;
+    private final byte[] value;
+    private final Operations operations;
+    private final long checksum;
+
+    public LogBlock(Operations operations, byte[] key, byte[] value) {
         this.key = key;
         this.value = value;
         this.operations = operations;
-        this.checksum = CheckSum.logBlock(time, operations.value(), key, value);
+        Checksum checksumProvide = new Crc32cChecksum();
+        this.checksum = checksumProvide.logBlock(operations.value(), key, value);
     }
 
-    public LogBlock(byte[] timeInBytes,  Operations operations, byte[] key, byte[] value) {
-        this.time = Instant.ofEpochSecond(
-                BytesConverter.toLong(timeInBytes, 0, 8),
-                BytesConverter.toInt(timeInBytes, 8, 12)
-        );
-        this.key = key;
-        this.value = value;
-        this.operations = operations;
-        this.checksum = CheckSum.logBlock(time, operations.value(), key, value);
+    // Writing section
+    public ByteBuffer getBytes() {
+        // todo performance ?
+        var buffer = ByteBuffer.allocate(getTotalBytesRequiredForLogBlock());
+        buffer.putLong(getLogBlockSize())
+                .put(operations.value())
+                .putInt(key.length)
+                .put(key);
+        if (operations != Operations.DELETE) {
+            buffer.putInt(value.length)
+                    .put(value);
+        }
+        buffer.putLong(checksum);
+        buffer.flip();
+        System.out.println("logging"+ new String(key) + "->" + new String(value));
+        return buffer;
     }
 
-    // total bytes read for extraction of this block
-    //
-    public long totalBytesRead() {
-       return SizeOf.InstantTimeLength +
+    public int getTotalBytesRequiredForLogBlock() {
+       return  SizeOf.LongLength +
                SizeOf.OperationsLength +
-               SizeOf.LongLength + // key length
+               SizeOf.IntLength + // key length
                key.length +
-               SizeOf.LongLength + // value length
-               value.length +
+               (operations == Operations.WRITE ? (SizeOf.IntLength + value.length ) : 0) + // value length and value
                SizeOf.LongLength; // checksum
+    }
+
+    private int getLogBlockSize() {
+        return getTotalBytesRequiredForLogBlock() - SizeOf.LongLength; // since we won't be reading the first long again.
+    }
+
+    // reader
+    public static LogBlock read(Reader reader) {
+        ByteBuffer buffer = getRequiredBytes(reader);
+
+        // operation read
+        Operations op = Operations.getOP(buffer.get());
+
+        // key read
+        byte[] key = getByteArray(buffer);
+
+        byte[] value = null;
+        if (op != Operations.DELETE) {
+            //value read
+            value = getByteArray(buffer);
+        }
+
+        // checksum read
+        long checksum = buffer.getLong();
+        LogBlock logBlock = new LogBlock(op, key, value);
+
+        if (checksum != logBlock.checksum) {
+            throw new RuntimeException("Checksum mismatch"+logBlock);
+        }
+        return logBlock;
+    }
+
+    private static ByteBuffer getRequiredBytes(Reader reader) {
+        ByteBuffer buffer = reader.readFromCurrentPosition(SizeOf.LongLength);
+        long totalSize = buffer.getLong();
+        buffer = reader.readFromCurrentPosition((int) totalSize);
+        return buffer;
+    }
+
+    private static byte[] getByteArray(ByteBuffer buffer) {
+        int length = buffer.getInt();
+        var arr = new byte[length];
+        buffer.get(arr);
+        return arr;
     }
 
     public long getChecksum() {
@@ -59,98 +105,8 @@ public class LogBlock {
         return value;
     }
 
-    public Instant getTime() {
-        return time;
-    }
-
     public Operations getOperations() {
         return operations;
-    }
-
-    public static void write(FileChannel channel,
-                             LogBlock block,
-                             ByteBuffer buffer) throws IOException {
-
-        long checksum = CheckSum.logBlock(block.time, block.operations.value(), block.key, block.value);
-        buffer.clear();
-        // storage
-        // storing time
-        Util.putTime(block.time, buffer);
-        buffer.put(block.operations.value())
-                .putLong(block.key.length)
-                .put(block.key)
-                .putLong(block.value.length)
-                .put(block.value)
-                .putLong(checksum);
-        buffer.flip();
-        channel.write(buffer);
-    }
-
-    /*
-    *   todo
-    *    maybe we can convert this into one read and then parse
-    * */
-    public static LogBlock read(FileChannel channel, ByteBuffer buffer) throws Exception {
-        // time readd
-        byte[] time = getByteArray(channel, buffer, SizeOf.InstantTimeLength);
-
-        // operation read
-        Operations op = Operations.getOP(
-                getByteArray(channel, buffer, SizeOf.OperationsLength));
-
-        // key read
-        // todo need to come up with better name
-        byte[] key = getByteArray(channel, buffer);
-
-        //value read
-        byte[] value = getByteArray(channel, buffer);
-
-        // checksum read
-        readNextArrayWithN(channel, buffer, SizeOf.LongLength);
-        long checksum = buffer.getLong();
-
-        LogBlock logBlock = new LogBlock(time, op, key, value);
-
-        if (checksum != logBlock.checksum)
-            throw new Exception("checksum error for logBlock=" + logBlock);
-//        System.out.println("read block " + logBlock);
-        return logBlock;
-    }
-
-    private static byte[] getByteArray(FileChannel channel, ByteBuffer buffer) throws Exception {
-        int length = readNextArray(channel, buffer);
-        return getByteArrayFromBuffer(buffer, length);
-    }
-
-    private static byte[] getByteArray(FileChannel channel,
-                                       ByteBuffer buffer, int length) throws Exception {
-        readNextArrayWithN(channel, buffer, length);
-        return getByteArrayFromBuffer(buffer, length);
-    }
-
-    private static int readNextArray(FileChannel channel, ByteBuffer buffer) throws IOException {
-        buffer.clear();
-        buffer.limit(SizeOf.LongLength);
-        channel.read(buffer);
-        buffer.flip();
-        int length = (int) buffer.getLong();
-        buffer.clear();
-        readNextArrayWithN(channel, buffer, length);
-        return length;
-    }
-
-    private static void readNextArrayWithN(FileChannel channel, ByteBuffer buffer, int len) throws IOException {
-        buffer.clear();
-        buffer.limit(len);
-        channel.read(buffer);
-        buffer.flip();
-    }
-
-    private static byte[] getByteArrayFromBuffer(ByteBuffer buffer, int len) throws Exception {
-        if (buffer.limit() == 0) throw new Exception("ByteBuffer empty");
-        byte[] bytes = new byte[len];
-        buffer.get(bytes);
-        return bytes;
     }
 
     @Override
@@ -158,9 +114,9 @@ public class LogBlock {
         return "Logs.LogBlock{" +
                 "key=" + Arrays.toString(key) +
                 ", value=" + Arrays.toString(value) +
-                ", time=" + time +
                 ", operations=" + operations +
                 ", checksum=" + checksum +
                 '}';
     }
+
 }

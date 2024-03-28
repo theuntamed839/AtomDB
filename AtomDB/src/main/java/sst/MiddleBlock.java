@@ -1,8 +1,7 @@
 package sst;
 
-import Checksum.CheckSum;
+import Checksum.CheckSumStatic;
 import com.google.common.hash.BloomFilter;
-import org.xerial.snappy.Snappy;
 import sstIo.Reader;
 import sstIo.SSTWriter;
 import util.SizeOf;
@@ -24,9 +23,9 @@ public class MiddleBlock {
         if (entry.getValue().getIsDelete() != ValueUnit.DELETE) {
             byteBuffer.putLong(entry.getValue().getValue().length)
                     .put(entry.getValue().getValue())
-                    .putLong(CheckSum.compute(entry.getKey(), entry.getValue().getValue()));
+                    .putLong(CheckSumStatic.compute(entry.getKey(), entry.getValue().getValue()));
         } else {
-            byteBuffer.putLong(CheckSum.compute(entry.getKey()));
+            byteBuffer.putLong(CheckSumStatic.compute(entry.getKey()));
         }
         byteBuffer.flip();
         channel.write(byteBuffer);
@@ -36,16 +35,16 @@ public class MiddleBlock {
         if (value.getIsDelete() == ValueUnit.DELETE) {
             writer.putInt(key.length)
                     .putBytes(key)
-                    .putLong(CheckSum.compute(key))
+                    .putLong(CheckSumStatic.compute(key))
                     .putByte(value.getIsDelete());
         } else {
             writer.putInt(key.length)
                     .putBytes(key)
-                    .putLong(CheckSum.compute(key))
+                    .putLong(CheckSumStatic.compute(key))
                     .putByte(value.getIsDelete())
                     .putInt(value.getValue().length)
                     .putBytes(value.getValue())
-                    .putLong(CheckSum.compute(key, value.getValue()));
+                    .putLong(CheckSumStatic.compute(key, value.getValue()));
         }
     }
 
@@ -198,7 +197,7 @@ public class MiddleBlock {
         channel.read(byteBuffer, position); // previously it was channel.read(byteBuffer);
         byteBuffer.flip();
         long checksum = byteBuffer.getLong();
-        if (CheckSum.compute(key, value) != checksum) {
+        if (CheckSumStatic.compute(key, value) != checksum) {
             throw new Exception("Checksum not matching");
         }
     }
@@ -209,7 +208,7 @@ public class MiddleBlock {
         channel.read(byteBuffer, position);// previously it was channel.read(byteBuffer);
         byteBuffer.flip();
         long checksum = byteBuffer.getLong();
-        if (CheckSum.compute(key) != checksum) {
+        if (CheckSumStatic.compute(key) != checksum) {
             throw new Exception("Checksum not matching");
         }
     }
@@ -241,14 +240,14 @@ public class MiddleBlock {
         byte[] value = new byte[valueSize];
         byteBuffer.get(value);
         long checkSum = byteBuffer.getLong();
-        if (CheckSum.compute(keyUnit.getKey(), value) != checkSum) {
+        if (CheckSumStatic.compute(keyUnit.getKey(), value) != checkSum) {
             throw new RuntimeException("Checksum mismatch");
         }
         return value;
     }
 
     public static KeyUnit getKeyUnit(byte[] bytes, ValueUnit valueUnit) {
-        return new KeyUnit(bytes, CheckSum.compute(bytes), valueUnit.getIsDelete(),
+        return new KeyUnit(bytes, CheckSumStatic.compute(bytes), valueUnit.getIsDelete(),
                 valueUnit.getIsDelete() != ValueUnit.DELETE ? valueUnit.getValue().length : -1);
     }
 }

@@ -7,7 +7,7 @@ import java.time.Instant;
 import static util.BytesConverter.bytes;
 
 // todo synchronize
-public class CheckSum {
+public class CheckSumStatic {
     private static PureJavaCrc32C pureJavaCrc32C = new PureJavaCrc32C();
 //    private static Object obj = new Object();
 

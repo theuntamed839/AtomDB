@@ -32,7 +32,9 @@ AtomDB Release 1.0
 17. Batch writing and reading.
 18. MMap the whole file for compaction.
 19. we mandatorily not store the 10% keys in memory, we can flush based on memory available and reread when required. but this will have some performance impact.
-
+20. finalise how big can be the key and value.
+21. idea is to make files obsolete and then delete them periodically.
+22. benchmark between partial mapping and full mapping of file.
 
 # Bottlenecks
 1. multiple sst reads. (Partially solved by Objective->3)
@@ -161,3 +163,8 @@ AtomDB Release 1.0
   * https://www.reddit.com/r/programming/comments/fvqz4/cacheoblivious_algorithms/
   * http://blog.netduma.com/2013/01/cache-money-hoes-attached-code.html
   * https://rcoh.me/posts/cache-oblivious-datastructures/
+* Page cache
+  * https://manybutfinite.com/post/page-cache-the-affair-between-memory-and-files/
+* Testing learning
+  * https://junit.org/junit5/docs/current/user-guide/
+  * https://javadoc.io/doc/org.mockito/mockito-core/latest/org/mockito/Mockito.html
