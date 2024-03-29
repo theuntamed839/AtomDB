@@ -8,12 +8,12 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.IOException;
 
-public class LogReader {
+public class LogReader implements AutoCloseable{
     private static final Logger logger = LoggerFactory.getLogger(LogReader.class);
     private final Reader reader;
 
     public LogReader(File oldlogFile) throws IOException {
-        this.reader = new MMapFileReaderPartialMap(oldlogFile);
+        this.reader = new MMapFileReaderPartialMapActAsChannel(oldlogFile);
     }
 
     public void construct(DB db) throws Exception {
@@ -23,16 +23,22 @@ public class LogReader {
             reader.setPosition(i);
             try {
                 block = LogBlock.read(reader);
-                System.out.println("putting" + new String(block.getKey()) + "->" + new String(block.getValue()));
+                System.out.println("restoring" + new String(block.getKey()));
                 switch (block.getOperations()) {
                     case WRITE -> db.put(block.getKey(), block.getValue());
                     case DELETE -> db.delete(block.getKey());
                 }
             } catch (Exception e) {
+                e.printStackTrace();
                 logger.error("Corrupted log data");
                 break;
             }
         }
+        reader.close();
+    }
+
+    @Override
+    public void close() throws Exception {
         reader.close();
     }
 }

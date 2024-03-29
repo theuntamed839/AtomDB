@@ -130,7 +130,7 @@ public class Compaction {
 
         Util.requireTrue(file.createNewFile(), "unable to create file");
 
-        var compactor = new Compactor(files, file, level);
+        var compactor = new Compactor1(files, file, level);
 //        System.out.println("running compaction and will be written on " + file);
         compactor.compact();
 

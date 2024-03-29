@@ -11,18 +11,14 @@ import com.google.common.hash.BloomFilter;
 import com.google.common.hash.Funnels;
 import db.DBComparator;
 import db.DBOptions;
-import org.xerial.snappy.Snappy;
-import sstIo.Reader;
-import sstIo.SSTReaderWithBuffer;
-import sstIo.SSTWriteWithBuffer;
-import sstIo.Writer;
+import sstIo.ReaderInterface;
+import sstIo.SSTWriteWithBufferInterface;
+import sstIo.WriterInterface;
 import util.Util;
 
 import java.io.File;
-import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.channels.FileChannel;
-import java.nio.channels.FileLock;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -89,6 +85,7 @@ public class SSTManager implements AutoCloseable{
     //todo need a better place for Compaction
     private Compaction compaction;
     public SSTManager(File dbFolder) {
+        System.out.println("It me man its me SSTMANAGER the real");
         this.dbFolder = dbFolder;
         this.table = new Table(dbFolder);
         this.cache = new Cache();
@@ -114,7 +111,7 @@ public class SSTManager implements AutoCloseable{
                 RandomAccessFile file = new RandomAccessFile(tempFileName, "rw");
                 FileChannel channel = file.getChannel();
                 //FileLock lock = channel.lock();
-                Writer writer = new SSTWriteWithBuffer(channel);
+                WriterInterface writer = new SSTWriteWithBufferInterface(channel);
         ) {
             header.write(writer);
             for (Map.Entry<byte[], ValueUnit> entry : map.entrySet()) {
@@ -172,7 +169,7 @@ public class SSTManager implements AutoCloseable{
             return null;
         }
 
-        Reader reader = sstInfo.getSSTReader();
+        ReaderInterface reader = sstInfo.getSSTReader();
         Function<Long, KeyUnit> keyRetriever = position -> {
             KeyUnit keyUnit = sstInfo.getSparseBinarySearch().get(position);
             if (keyUnit == null) {

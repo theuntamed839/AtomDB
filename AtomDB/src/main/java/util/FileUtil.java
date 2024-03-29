@@ -9,10 +9,14 @@ public class FileUtil {
         return new File(directoryPath + File.separator + fileName);
     }
 
-    public static boolean makeFileObsolete(File currentFile) {
+    public static File makeFileObsolete(File currentFile) {
         if (!currentFile.exists()) {
-            return false;
+            return null;
         }
-        return currentFile.renameTo(new File(currentFile.getAbsolutePath() + "_" + DBConstant.OBSOLETE));
+        File newFile = new File(currentFile.getAbsolutePath() + "_" + DBConstant.OBSOLETE);
+        if (currentFile.renameTo(newFile)) {
+           return newFile;
+        }
+        return null;
     }
 }

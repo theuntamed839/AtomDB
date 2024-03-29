@@ -2,11 +2,11 @@ package sstIo;
 
 import java.io.IOException;
 
-public interface SSTWriter extends AutoCloseable {
-    SSTWriter putLong(long item);
-    SSTWriter putInt(int item);
-    SSTWriter putByte(byte item);
-    SSTWriter putBytes(byte[] item);
+public interface SSTWriterInterface extends AutoCloseable {
+    SSTWriterInterface putLong(long item);
+    SSTWriterInterface putInt(int item);
+    SSTWriterInterface putByte(byte item);
+    SSTWriterInterface putBytes(byte[] item);
     long position() throws IOException;
     void writeAtPositionInIsolation(long position, long value) throws IOException;
 }

@@ -9,14 +9,14 @@ import java.nio.channels.FileChannel;
 
 import static util.ByteBufferSupport.unmap;
 
-public class SSTReaderWithBuffer extends Reader{
+public class SSTReaderInterfaceWithBuffer extends ReaderInterface {
 
     public static final int PAGE_SIZE = 1 * SizeOf.MB;
     private final FileChannel channel;
     //private final ByteBuffer buffer = ByteBuffer.allocateDirect(4 * SizeOf.MB);
     private MappedByteBuffer map;
     private int mapOffset = -1;
-    public SSTReaderWithBuffer(FileChannel channel) throws IOException {
+    public SSTReaderInterfaceWithBuffer(FileChannel channel) throws IOException {
         this.channel = channel;
         /**
          * todo currently accessing full file we can do partial for big files

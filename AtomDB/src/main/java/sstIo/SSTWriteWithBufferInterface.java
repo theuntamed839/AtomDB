@@ -10,36 +10,36 @@ import java.nio.channels.FileChannel;
 import static util.ByteBufferSupport.unmap;
 
 // important always keep the buffer size small then pagesize
-public class SSTWriteWithBuffer extends Writer{
+public class SSTWriteWithBufferInterface extends WriterInterface {
     public static final int PAGE_SIZE = 4 * SizeOf.MB;
     private final FileChannel channel;
     private final ByteBuffer buffer = ByteBuffer.allocateDirect(4 * SizeOf.MB);
     private MappedByteBuffer map;
     private int mapOffset = 0;
-    public SSTWriteWithBuffer(FileChannel channel) throws IOException {
+    public SSTWriteWithBufferInterface(FileChannel channel) throws IOException {
         this.channel = channel;
         map = channel.map(FileChannel.MapMode.READ_WRITE, 0, PAGE_SIZE);
     }
 
-    public SSTWriter putLong(long item) {
+    public SSTWriterInterface putLong(long item) {
         writeContentIfBufferFull(SizeOf.LongLength);
         buffer.putLong(item);
         return this;
     }
 
-    public SSTWriter putInt(int item) {
+    public SSTWriterInterface putInt(int item) {
         writeContentIfBufferFull(SizeOf.IntLength);
         buffer.putInt(item);
         return this;
     }
 
-    public SSTWriter putByte(byte item) {
+    public SSTWriterInterface putByte(byte item) {
         writeContentIfBufferFull(Byte.BYTES);
         buffer.put(item);
         return this;
     }
 
-    public SSTWriter putBytes(byte[] item) {
+    public SSTWriterInterface putBytes(byte[] item) {
         writeContentIfBufferFull(Byte.BYTES * item.length);
         buffer.put(item);
         return this;

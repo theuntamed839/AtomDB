@@ -13,13 +13,14 @@ public class LogBlock {
     private final byte[] value;
     private final Operations operations;
     private final long checksum;
+    private final static byte[] temp=new byte[1];
 
     public LogBlock(Operations operations, byte[] key, byte[] value) {
         this.key = key;
         this.value = value;
         this.operations = operations;
         Checksum checksumProvide = new Crc32cChecksum();
-        this.checksum = checksumProvide.logBlock(operations.value(), key, value);
+        this.checksum = checksumProvide.logBlock(operations.value(), key, value != null ? value : temp);
     }
 
     // Writing section
@@ -36,7 +37,7 @@ public class LogBlock {
         }
         buffer.putLong(checksum);
         buffer.flip();
-        System.out.println("logging"+ new String(key) + "->" + new String(value));
+        System.out.println("logging "+operations+ new String(key));
         return buffer;
     }
 

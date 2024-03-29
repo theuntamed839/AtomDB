@@ -2,8 +2,8 @@ package sst;
 
 import Checksum.CheckSumStatic;
 import com.google.common.hash.BloomFilter;
-import sstIo.Reader;
-import sstIo.SSTWriter;
+import sstIo.ReaderInterface;
+import sstIo.SSTWriterInterface;
 import util.SizeOf;
 
 import java.io.EOFException;
@@ -31,7 +31,7 @@ public class MiddleBlock {
         channel.write(byteBuffer);
     }
 
-    public static void writeMiddleBlock(SSTWriter writer, byte[] key, ValueUnit value) {
+    public static void writeMiddleBlock(SSTWriterInterface writer, byte[] key, ValueUnit value) {
         if (value.getIsDelete() == ValueUnit.DELETE) {
             writer.putInt(key.length)
                     .putBytes(key)
@@ -70,7 +70,7 @@ public class MiddleBlock {
         }
     }
 
-    public static void writePointers(SSTWriter writer, List<Long> pointers) {
+    public static void writePointers(SSTWriterInterface writer, List<Long> pointers) {
         // todo can be improved.
         for (Long pointer : pointers) {
             writer.putLong(pointer);
@@ -217,7 +217,7 @@ public class MiddleBlock {
         filter.writeTo(outputStream);
     }
 
-    public static KeyUnit getKeyUnit(Reader reader, long position) {
+    public static KeyUnit getKeyUnit(ReaderInterface reader, long position) {
         ByteBuffer byteBuffer = reader.readSize(new byte[SizeOf.IntLength], position, SizeOf.IntLength);
         int keySize = byteBuffer.getInt();
         int readSize = keySize + SizeOf.LongLength +  Byte.BYTES + SizeOf.IntLength;
@@ -232,7 +232,7 @@ public class MiddleBlock {
         return new KeyUnit(key, checkSum, isDelete, -1);
     }
 
-    public static byte[] getValueUnit(Reader reader, long position, KeyUnit keyUnit) {
+    public static byte[] getValueUnit(ReaderInterface reader, long position, KeyUnit keyUnit) {
         int valueSize = keyUnit.getValueSize();
         ByteBuffer byteBuffer = reader.readSize(new byte[valueSize + SizeOf.LongLength],
                 position + SizeOf.IntLength + keyUnit.getKey().length + SizeOf.LongLength + Byte.BYTES + SizeOf.IntLength,

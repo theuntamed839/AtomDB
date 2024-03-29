@@ -28,13 +28,21 @@ AtomDB Release 1.0
     1. first the primary cache which will cache k-v directly.
     2. File blocks
     3. File descriptor, which will be evicted based on the avaliable descriptors.
-16. Reading of sst meta data when db restarts. Thinking needed.
+16. Reading of sst metadata when db restarts. Thinking needed.
 17. Batch writing and reading.
 18. MMap the whole file for compaction.
 19. we mandatorily not store the 10% keys in memory, we can flush based on memory available and reread when required. but this will have some performance impact.
 20. finalise how big can be the key and value.
 21. idea is to make files obsolete and then delete them periodically.
 22. benchmark between partial mapping and full mapping of file.
+23. https://github.com/google/jimfs can be used for testing, its a in-memory files.
+24. Performances Tuning can be done with
+    1. using of better hash class for table in the sst chunks
+    2. use of full mmap of reading files.
+25. remove of contributors list.
+26. wherever possible convert to the latest java features. makes class and record and using sealed. 
+27. can we utilize the async file io to read the block and keep while searching. so while searching we might encounter 2-3 files to search, here we can load in a async was. and the reading wont go waste as they will be cache and will be used by someone else.
+
 
 # Bottlenecks
 1. multiple sst reads. (Partially solved by Objective->3)

@@ -3,8 +3,8 @@ package sst;
 import Checksum.CheckSumStatic;
 import Level.Level;
 import db.DBComparator;
-import sstIo.Reader;
-import sstIo.SSTWriter;
+import sstIo.ReaderInterface;
+import sstIo.SSTWriterInterface;
 import util.SizeOf;
 import util.Util;
 
@@ -18,7 +18,6 @@ import java.nio.channels.FileChannel;
 
 public class Header implements AutoCloseable{
     private static final long BS_POSITION = 2;
-    private static final int ENTRIES_POSITION = 10;
     private static final int HEADER_POSITION = 0;
     private final byte versionId;
     private String fileName;
@@ -109,7 +108,7 @@ public class Header implements AutoCloseable{
         return binarySearchLocation;
     }
 
-    public static Header getHeader(Reader sstReader) throws Exception {
+    public static Header getHeader(ReaderInterface sstReader) throws Exception {
         var byteBuffer = sstReader.readSize(new byte[18], HEADER_POSITION, 18);
         byte verId = byteBuffer.get();
         byte levelID = byteBuffer.get();
@@ -133,7 +132,7 @@ public class Header implements AutoCloseable{
         return new Header(verId, Level.fromID((int) levelID), bs, entries, sKey, lKey, checkSum);
     }
 
-    public void write(SSTWriter writer) throws Exception{
+    public void write(SSTWriterInterface writer) throws Exception{
 //        VID | LEV | BS | EN | Block_LEN | [ SK_LEN | SK | LK_LEN | LK | CH ]
         // todo what about size exceeding bytebuffer length as well as the mappedBuffer length
         writer.putByte(versionId)
@@ -162,7 +161,7 @@ public class Header implements AutoCloseable{
         channel.write(byteBuffer, BS_POSITION);
     }
 
-    public void writeBS(SSTWriter writer, long binarySearchLocation) throws IOException {
+    public void writeBS(SSTWriterInterface writer, long binarySearchLocation) throws IOException {
         Util.requireEquals(this.binarySearchLocation, Long.MIN_VALUE, "overwriting of binary search position, file="+ fileName);
         this.binarySearchLocation = binarySearchLocation;
         writer.writeAtPositionInIsolation(BS_POSITION, binarySearchLocation);

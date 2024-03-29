@@ -2,8 +2,7 @@ package Table;
 
 import com.google.common.hash.BloomFilter;
 import sst.Header;
-import sstIo.Reader;
-import sstIo.SSTReaderWithBuffer;
+import sstIo.SSTReaderInterfaceWithBuffer;
 import sstIo.SparseBinarySearch;
 
 import java.io.RandomAccessFile;
@@ -21,7 +20,7 @@ public class SSTInfo implements AutoCloseable{
     private final String fileName;
     private RandomAccessFile randomAccessFile;
     private FileChannel channel;
-    private SSTReaderWithBuffer reader;
+    private SSTReaderInterfaceWithBuffer reader;
 
     public SSTInfo(String file, Header header, List<Long> pointers, BloomFilter<byte[]> bloomFilter, SparseBinarySearch sparseBinarySearch) {
         this.fileName = file;
@@ -51,12 +50,12 @@ public class SSTInfo implements AutoCloseable{
         return fileName;
     }
 
-    public SSTReaderWithBuffer getSSTReader() {
+    public SSTReaderInterfaceWithBuffer getSSTReader() {
         if (reader != null) return reader;
         try{
             randomAccessFile = new RandomAccessFile(getFileName(), "r");
             channel = randomAccessFile.getChannel();
-            reader = new SSTReaderWithBuffer(channel);
+            reader = new SSTReaderInterfaceWithBuffer(channel);
         } catch (Exception e) {
             System.out.println("Moye moye while searching");
             throw new RuntimeException(e);

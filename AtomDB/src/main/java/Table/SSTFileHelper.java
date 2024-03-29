@@ -22,7 +22,7 @@ public class SSTFileHelper {
                 RandomAccessFile randomAccessFile = new RandomAccessFile(file, "r");
                 FileChannel channel = randomAccessFile.getChannel();
                 //FileLock lock = channel.lock();
-                Reader reader = new SSTReaderWithBuffer(channel);
+                ReaderInterface reader = new SSTReaderInterfaceWithBuffer(channel);
         ) {
             Header header = Header.getHeader(reader);
 
@@ -42,7 +42,7 @@ public class SSTFileHelper {
         }
     }
 
-    public static SparseBinarySearch getSparseBinarySearch(Reader reader, List<Long> pointers) {
+    public static SparseBinarySearch getSparseBinarySearch(ReaderInterface reader, List<Long> pointers) {
         Function<Integer, KeyUnit> keyRetriever = idk -> MiddleBlock.getKeyUnit(reader, pointers.get(idk));
         return sparseBinarySearch(pointers, keyRetriever);
     }
