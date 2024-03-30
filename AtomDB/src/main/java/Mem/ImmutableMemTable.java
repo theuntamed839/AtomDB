@@ -2,6 +2,8 @@ package Mem;
 
 import db.KVUnit;
 
+import java.util.Iterator;
+import java.util.Map;
 import java.util.SortedMap;
 
 public class ImmutableMemTable implements ImmutableMem<byte[], KVUnit> {
@@ -38,4 +40,8 @@ public class ImmutableMemTable implements ImmutableMem<byte[], KVUnit> {
         return map.lastKey();
     }
 
+    @Override
+    public Iterator<Map.Entry<byte[], KVUnit>> getKeySetIterator() {
+        return map.entrySet().iterator();
+    }
 }

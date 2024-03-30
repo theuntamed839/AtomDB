@@ -11,6 +11,7 @@ public class SSTHeader {
     private final int numberOfEntries;
     private final byte sstVersion;
     private final SSTKeyRange sstKeyRange;
+    private final long binarySearchPosition;
 
     public SSTHeader(byte sstVersion, Level level, byte crc32cChecksumType,
                      byte lz4CompressionType, byte numberOfKeysInChunk,
@@ -23,6 +24,7 @@ public class SSTHeader {
         this.shortestCommonPrefixUsed = shortestCommonPrefixUsed;
         this.numberOfEntries = numberOfEntries;
         this.sstKeyRange = sstKeyRange;
+        this.binarySearchPosition = -1;
     }
 
     public int totalHeaderSize() {
@@ -34,10 +36,7 @@ public class SSTHeader {
                 Byte.BYTES + // shortest common prefix used
                 Long.BYTES + // BS
                 Integer.BYTES + // number of entries
-                sstKeyRange.getTotalBoundSize();
-    }
-
-    private int getTotalBoundSize() {
-
+                // partial total => 18
+                sstKeyRange.getRequiredSizeToStoreKeyRange();
     }
 }

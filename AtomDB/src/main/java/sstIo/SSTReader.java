@@ -6,8 +6,10 @@ import Mem.ImmutableMem;
 import db.KVUnit;
 
 public class SSTReader {
+    private final ImmutableMem<byte[], KVUnit> map;
+
     public SSTReader(ImmutableMem<byte[], KVUnit> memtable) {
-        new SSTHeader(
+        SSTHeader sstHeader = new SSTHeader(
                 DBConstant.SST_VERSION,
                 Level.LEVEL_ZERO,
                 DBConstant.CRC32C_CHECKSUM_TYPE,
@@ -16,5 +18,10 @@ public class SSTReader {
                 DBConstant.SHORTEST_COMMON_PREFIX_USED,
                 memtable.getNumberOfEntries(),
                 new SSTKeyRange(memtable.getFirstKey(), memtable.getLastKey()));
+        this.map = memtable;
+    }
+
+    public void getIterator() {
+        map.get
     }
 }
