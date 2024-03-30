@@ -69,6 +69,7 @@ public class SSTPersist {
 
             // writing
             // header
+            writer.putInt(sstHeader.totalHeaderSize());
             sstHeader.storeAsBytes(writer);
             // middle block
             while(customIterator.hasNext()) {

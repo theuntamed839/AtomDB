@@ -54,12 +54,12 @@ public class DeletionTest {
             db.delete(bytes(integer + ""));
         }
 
-        while(exitsValueInSSTFiles(toBeDeleted, db.getTable())) {
-            System.out.println("sending random bullshit");
-            for (int i = TOTAL; i < TOTAL + TOTAL; i++) {
-                db.put(bytes(i + ""), bytes(i + "_" + VALUE));
-            }
-        }
+//        while(exitsValueInSSTFiles(toBeDeleted, db.getTable())) {
+//            System.out.println("sending random bullshit");
+//            for (int i = TOTAL; i < TOTAL + TOTAL; i++) {
+//                db.put(bytes(i + ""), bytes(i + "_" + VALUE));
+//            }
+//        }
     }
     private static boolean exitsValueInSSTFiles(List<Integer> toBeDeleted, Table table) throws Exception {
         boolean result = false;

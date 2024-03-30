@@ -8,7 +8,7 @@ public class SSTHeader implements AutoCloseable {
     private final byte compressionType;
     private final byte clusterKeyCount;
     private final byte shortestCommonPrefixUsed;
-    private int numberOfEntries;
+    private long numberOfEntries;
     private final byte sstVersion;
     private final SSTKeyRange sstKeyRange;
     private long pointersPosition;
@@ -37,7 +37,7 @@ public class SSTHeader implements AutoCloseable {
                 Byte.BYTES + // compression type
                 Byte.BYTES + // number of keys in chunk
                 Byte.BYTES + // shortest common prefix used
-                Integer.BYTES + // number of entries
+                Long.BYTES + // number of entries
                 Long.BYTES + // filter
                 Long.BYTES + // BS
                 // partial total => 26
@@ -59,7 +59,7 @@ public class SSTHeader implements AutoCloseable {
                 .putByte(compressionType)
                 .putByte(clusterKeyCount)
                 .putByte(shortestCommonPrefixUsed)
-                .putInt(numberOfEntries)
+                .putLong(numberOfEntries)
                 .putLong(filterPosition)
                 .putLong(pointersPosition);
         sstKeyRange.storeAsBytes(writer);
@@ -71,7 +71,7 @@ public class SSTHeader implements AutoCloseable {
         }
     }
 
-    public void setEntries(int count) {
+    public void setEntries(long count) {
         this.numberOfEntries = count;
     }
 
@@ -84,8 +84,8 @@ public class SSTHeader implements AutoCloseable {
     }
 
     public void writeRemaining(ChannelBackedWriter writer) {
-        writer.position(6);
-        writer.putInt(numberOfEntries)
+        writer.position(4 /*header size is store at start*/ + 6);
+        writer.putLong(numberOfEntries)
                 .putLong(filterPosition)
                 .putLong(pointersPosition);
     }

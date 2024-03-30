@@ -55,12 +55,12 @@ public class UpdationTest {
         }
 
 
-        while(hasOldValueInSSTFiles(toBeUpdated, db.getTable(), bytes("updated value boss 69"))) {
-            System.out.println("sending random bullshit");
-            for (int i = TOTAL; i < TOTAL + TOTAL; i++) {
-                db.put(bytes(i + ""), bytes(i + "_" + VALUE));
-            }
-        }
+//        while(hasOldValueInSSTFiles(toBeUpdated, db.getTable(), bytes("updated value boss 69"))) {
+//            System.out.println("sending random bullshit");
+//            for (int i = TOTAL; i < TOTAL + TOTAL; i++) {
+//                db.put(bytes(i + ""), bytes(i + "_" + VALUE));
+//            }
+//        }
     }
 
     private static boolean hasOldValueInSSTFiles(List<Integer> tobeUpdated, Table table, byte[] newValue) throws Exception {

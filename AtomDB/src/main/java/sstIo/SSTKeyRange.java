@@ -14,7 +14,7 @@ public class SSTKeyRange {
         this.last = last;
         Checksum checksumProvide = new Crc32cChecksum();
         this.checksum = checksumProvide.compute(first, last);
-        this.size = first.length + last.length + Long.BYTES * 3;
+        this.size = first.length + last.length + Integer.BYTES * 2 + Long.BYTES;
     }
 
     public int getRequiredSizeToStoreKeyRange() {
