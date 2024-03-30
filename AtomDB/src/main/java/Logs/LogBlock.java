@@ -37,7 +37,6 @@ public class LogBlock {
         }
         buffer.putLong(checksum);
         buffer.flip();
-        System.out.println("logging "+operations+ new String(key));
         return buffer;
     }
 

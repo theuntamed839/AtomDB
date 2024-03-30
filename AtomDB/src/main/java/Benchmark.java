@@ -19,10 +19,10 @@ public class Benchmark {
 //        benchmark(inputString, 1000);
 //        benchmark(inputString, 10000);
 //        benchmark(inputString, 100000);
-//        benchmark(inputString, 1000000);
+        benchmark(inputString, 1000000);
         //benchmarkWriting(inputString, 1000000);
 //        initialTest(inputString, 50000);
-        benchmarkRandomRead(inputString, 10_000_000, "asd"); //1000000
+//        benchmarkRandomRead(inputString, 10_000_000, "asd"); //1000000
     }
 
     private static void benchmarkRandomRead(String inputString, long totalEntryCount, String dbName) throws Exception {

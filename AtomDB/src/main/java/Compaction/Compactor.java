@@ -1,14 +1,32 @@
 package Compaction;
 
+import Constants.DBConstant;
+import Level.Level;
 import Mem.ImmutableMem;
-import Mem.SkipListMemtable;
-import sstIo.SSTReader;
+import Table.Table;
+import db.KVUnit;
+import sstIo.MemTableBackedSSTReader;
 
-import java.util.Collections;
+import java.io.File;
+import java.util.List;
 
 public class Compactor {
 
-    public void persistLevelFile(ImmutableMem memtable) {
-        new SSTReader(memtable);
+    private final Table table;
+
+    public Compactor(File dbFolder) {
+        this.table = new Table(dbFolder);
+    }
+
+    public void persistLevelFile(ImmutableMem<byte[], KVUnit> memtable) {
+        MemTableBackedSSTReader sstReader = new MemTableBackedSSTReader(memtable);
+        String newSST = table.getNewSST(Level.LEVEL_ZERO);
+        long start, end;
+        start = System.nanoTime();
+        List<Pointer> checkPoints = new SSTPersist(new File(newSST),
+                sstReader.getIterator(), sstReader.getKeyRange(),
+                sstReader.getEntries(), DBConstant.CLUSTER_SIZE).getCheckPoints();
+        end = System.nanoTime();
+        System.out.println("took="+(end - start));
     }
 }

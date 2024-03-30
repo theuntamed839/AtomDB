@@ -82,6 +82,7 @@ public class WALManager implements AutoCloseable {
     private void deleteLogFile() throws Exception {
         writer.close();
         obsoleteFile(currentLogFile);
+        currentLogFile = null;
     }
 
     private void obsoleteFile(File file) {

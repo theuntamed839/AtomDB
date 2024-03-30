@@ -13,6 +13,8 @@ public class DBConstant {
     public static final byte[] MARK_FILE_END = BytesConverter.bytes(1234567890L);
     public static final byte CRC32C_CHECKSUM_TYPE = 32;
     public static final byte LZ4_COMPRESSION_TYPE = 4;
-    public static final byte NUMBER_OF_KEYS_IN_CHUNK = 10; // 10% of keys in memory.
+    public static final byte CLUSTER_SIZE = 10; // 10% of keys in memory.
     public static final byte SHORTEST_COMMON_PREFIX_USED = 1;
+
+
 }

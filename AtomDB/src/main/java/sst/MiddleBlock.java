@@ -3,7 +3,7 @@ package sst;
 import Checksum.CheckSumStatic;
 import com.google.common.hash.BloomFilter;
 import sstIo.ReaderInterface;
-import sstIo.SSTWriterInterface;
+import sstIo.PrimitiveWriter;
 import util.SizeOf;
 
 import java.io.EOFException;
@@ -31,7 +31,7 @@ public class MiddleBlock {
         channel.write(byteBuffer);
     }
 
-    public static void writeMiddleBlock(SSTWriterInterface writer, byte[] key, ValueUnit value) {
+    public static void writeMiddleBlock(PrimitiveWriter writer, byte[] key, ValueUnit value) {
         if (value.getIsDelete() == ValueUnit.DELETE) {
             writer.putInt(key.length)
                     .putBytes(key)
@@ -70,7 +70,7 @@ public class MiddleBlock {
         }
     }
 
-    public static void writePointers(SSTWriterInterface writer, List<Long> pointers) {
+    public static void writePointers(PrimitiveWriter writer, List<Long> pointers) {
         // todo can be improved.
         for (Long pointer : pointers) {
             writer.putLong(pointer);

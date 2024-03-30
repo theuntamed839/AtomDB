@@ -11,9 +11,9 @@ import com.google.common.hash.BloomFilter;
 import com.google.common.hash.Funnels;
 import db.DBComparator;
 import db.DBOptions;
+import sstIo.ChannelBackedWriter;
 import sstIo.ReaderInterface;
-import sstIo.SSTWriteWithBufferInterface;
-import sstIo.WriterInterface;
+import sstIo.BufferedMMappedWriter;
 import util.Util;
 
 import java.io.File;
@@ -108,23 +108,21 @@ public class SSTManager implements AutoCloseable{
                 0.01);
         List<Long> pointers = new ArrayList<>(map.size());
         try(
-                RandomAccessFile file = new RandomAccessFile(tempFileName, "rw");
-                FileChannel channel = file.getChannel();
                 //FileLock lock = channel.lock();
-                WriterInterface writer = new SSTWriteWithBufferInterface(channel);
+                ChannelBackedWriter channelBackedWriter = new BufferedMMappedWriter(new File(tempFileName));
         ) {
-            header.write(writer);
+            header.write(channelBackedWriter);
             for (Map.Entry<byte[], ValueUnit> entry : map.entrySet()) {
-                pointers.add(writer.position());
+                pointers.add(channelBackedWriter.position());
 
                 // bloom
                 filter.put(entry.getKey());
-                MiddleBlock.writeMiddleBlock(writer, entry.getKey(), entry.getValue());
+                MiddleBlock.writeMiddleBlock(channelBackedWriter, entry.getKey(), entry.getValue());
             }
-            long bs = channel.position();
-            MiddleBlock.writePointers(writer, pointers);
-            filter.writeTo(writer);
-            header.writeBS(writer, bs);
+            long bs = channelBackedWriter.position();
+            MiddleBlock.writePointers(channelBackedWriter, pointers);
+            filter.writeTo(channelBackedWriter);
+            header.writeBS(channelBackedWriter, bs);
             header.close(); // important to close
         } catch (Exception e) {
             e.printStackTrace();

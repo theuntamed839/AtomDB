@@ -39,4 +39,5 @@ public class Crc32cChecksum implements Checksum {
         crc32c.update(value);
         return crc32c.getValue();
     }
+
 }

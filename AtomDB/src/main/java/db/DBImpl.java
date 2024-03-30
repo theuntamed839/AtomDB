@@ -13,7 +13,6 @@ import sst.SSTManager;
 import util.Util;
 
 import java.io.File;
-import java.util.Collections;
 import java.util.Objects;
 
 // todo shrink some value to its native size, like some places long is used
@@ -43,7 +42,7 @@ public class DBImpl implements DB{
         this.walManager = new WALManager(dbFolder.getAbsolutePath());
         this.sstManager = new SSTManager(dbFolder);
         this.memtable = new SkipListMemtable(DBComparator.byteArrayComparator);
-        this.compactor = new Compactor();
+        this.compactor = new Compactor(dbFolder);
         walManager.restore(this);
     }
 
@@ -81,13 +80,18 @@ public class DBImpl implements DB{
     public byte[] get(byte[] key) throws Exception {
         Objects.requireNonNull(key);
         // todo search engine.
-        return this.memtable.get(key);
+        KVUnit kvUnit = memtable.get(key);
+        if (kvUnit.getIsDelete() == KVUnit.DELETE) {
+            return null;
+        } else {
+            return kvUnit.getValue();
+        }
     }
 
     @Override
     public void delete(byte[] key) throws Exception {
         walManager.log(Operations.DELETE, new KVUnit(key, KVUnit.DELETE));
-        memtable.delete(key);
+        memtable.delete(new KVUnit(key, KVUnit.DELETE));
     }
 
 

@@ -4,7 +4,7 @@ import Checksum.CheckSumStatic;
 import Level.Level;
 import db.DBComparator;
 import sstIo.ReaderInterface;
-import sstIo.SSTWriterInterface;
+import sstIo.PrimitiveWriter;
 import util.SizeOf;
 import util.Util;
 
@@ -132,7 +132,7 @@ public class Header implements AutoCloseable{
         return new Header(verId, Level.fromID((int) levelID), bs, entries, sKey, lKey, checkSum);
     }
 
-    public void write(SSTWriterInterface writer) throws Exception{
+    public void write(PrimitiveWriter writer) throws Exception{
 //        VID | LEV | BS | EN | Block_LEN | [ SK_LEN | SK | LK_LEN | LK | CH ]
         // todo what about size exceeding bytebuffer length as well as the mappedBuffer length
         writer.putByte(versionId)
@@ -161,10 +161,10 @@ public class Header implements AutoCloseable{
         channel.write(byteBuffer, BS_POSITION);
     }
 
-    public void writeBS(SSTWriterInterface writer, long binarySearchLocation) throws IOException {
+    public void writeBS(PrimitiveWriter writer, long binarySearchLocation) throws IOException {
         Util.requireEquals(this.binarySearchLocation, Long.MIN_VALUE, "overwriting of binary search position, file="+ fileName);
         this.binarySearchLocation = binarySearchLocation;
-        writer.writeAtPositionInIsolation(BS_POSITION, binarySearchLocation);
+//        writer.writeAtPositionInIsolation(BS_POSITION, binarySearchLocation);
     }
 
 

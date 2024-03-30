@@ -20,4 +20,12 @@ public class SSTKeyRange {
     public int getRequiredSizeToStoreKeyRange() {
         return size;
     }
+
+    public void storeAsBytes(ChannelBackedWriter writer) {
+        writer.putInt(first.length)
+                .putBytes(first)
+                .putInt(last.length)
+                .putBytes(last)
+                .putLong(checksum);
+    }
 }

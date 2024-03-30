@@ -42,7 +42,8 @@ AtomDB Release 1.0
 25. remove of contributors list.
 26. wherever possible convert to the latest java features. makes class and record and using sealed. 
 27. can we utilize the async file io to read the block and keep while searching. so while searching we might encounter 2-3 files to search, here we can load in a async was. and the reading wont go waste as they will be cache and will be used by someone else.
-
+28. before release do benchmark based on the different writers and readers, see if the bufferedWriter is of any help when we have mmapped the file. since mmap does the same thing.
+29. can we use cleaner and cleanable apis for unmapping ? and also does unmap calls the gc ? and also can't we just learn all the maping and unmapping be done and call System.gc() when we close the class ?
 
 # Bottlenecks
 1. multiple sst reads. (Partially solved by Objective->3)
@@ -105,7 +106,7 @@ AtomDB Release 1.0
   - https://www.youtube.com/watch?v=jvmvezq8Twg
 - [ ] Read Virtual threads.
 - [ ] Guava's bloom filter is just not it, need to find another one.
-- [ ] benchmark our system with plane filechannel, mmap, and posix_fadvise. write the writer in a very abstract way.
+- [ ] benchmark our system with plane filechannel, mmap, and posix_fadvise. write the ChannelBackedWriter in a very abstract way.
 - [ ] before writing have a look at leveldb and the other project, for unit and integration test cases. as well as how they used the option class.
 - [ ] what if we manage the block of pages by our own ? just like wiredTiger (mongodb)
   - https://source.wiredtiger.com/develop/arch-index.html

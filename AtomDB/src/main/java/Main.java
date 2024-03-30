@@ -1,15 +1,11 @@
-import com.google.common.base.Stopwatch;
 import db.DB;
 import db.DBImpl;
 import db.DBOptions;
-import org.xerial.snappy.Snappy;
 
 import java.io.File;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Scanner;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 
 import static util.BytesConverter.bytes;
 // todo, think/idea what if we store all the keys in memory, key -> file
