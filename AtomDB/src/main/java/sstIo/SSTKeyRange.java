@@ -17,6 +17,18 @@ public class SSTKeyRange {
         this.size = first.length + last.length + Integer.BYTES * 2 + Long.BYTES;
     }
 
+    public SSTKeyRange(byte[] first, byte[] last, long checksumProvided) {
+        Checksum checksumProvide = new Crc32cChecksum();
+        var computedChecksum = checksumProvide.compute(first, last);
+        if (computedChecksum != checksumProvided) {
+            throw new RuntimeException("Checksum mismatch");
+        }
+        this.first = first;
+        this.last = last;
+        this.checksum = computedChecksum;
+        this.size = first.length + last.length + Integer.BYTES * 2 + Long.BYTES;
+    }
+
     public int getRequiredSizeToStoreKeyRange() {
         return size;
     }
@@ -27,5 +39,17 @@ public class SSTKeyRange {
                 .putInt(last.length)
                 .putBytes(last)
                 .putLong(checksum);
+    }
+
+    public byte[] getFirst() {
+        return first;
+    }
+
+    public byte[] getLast() {
+        return last;
+    }
+
+    public long getChecksum() {
+        return checksum;
     }
 }

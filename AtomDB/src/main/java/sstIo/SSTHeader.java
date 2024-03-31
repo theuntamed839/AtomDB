@@ -2,6 +2,8 @@ package sstIo;
 
 import Level.Level;
 
+import java.lang.reflect.Field;
+
 public class SSTHeader implements AutoCloseable {
     private final Level level;
     private final byte checksumType;
@@ -13,6 +15,7 @@ public class SSTHeader implements AutoCloseable {
     private final SSTKeyRange sstKeyRange;
     private long pointersPosition;
     private long filterPosition;
+    public static final long SST_KEY_RANGE_POSITION_IN_HEADER = 30;
 
     public SSTHeader(byte sstVersion, Level level, byte checksumType,
                      byte compressionType, byte clusterKeyCount,
@@ -27,6 +30,28 @@ public class SSTHeader implements AutoCloseable {
         this.numberOfEntries = -1;
         this.pointersPosition = -1;
         this.filterPosition = -1;
+    }
+
+    public SSTHeader(byte sstVersion,
+                     Level level,
+                     byte checksumType,
+                     byte compressionType,
+                     byte clusterKeyCount,
+                     byte shortestCommonPrefixUsed,
+                     long numberOfEntries,
+                     long filterPosition,
+                     long pointersPosition,
+                     SSTKeyRange sstKeyRange) {
+        this.sstVersion = sstVersion;
+        this.level = level;
+        this.checksumType = checksumType;
+        this.compressionType = compressionType;
+        this.clusterKeyCount = clusterKeyCount;
+        this.shortestCommonPrefixUsed = shortestCommonPrefixUsed;
+        this.numberOfEntries = numberOfEntries;
+        this.filterPosition = filterPosition;
+        this.pointersPosition = pointersPosition;
+        this.sstKeyRange = sstKeyRange;
     }
 
     public int totalHeaderSize() {
@@ -66,7 +91,14 @@ public class SSTHeader implements AutoCloseable {
     }
 
     private void validateIfAllFieldTakenIntoConsideration(int fields) {
-        if (getClass().getDeclaredFields().length != fields) {
+        Field[] declaredFields = getClass().getDeclaredFields();
+        int staticCount = 0;
+        for (Field declaredField : declaredFields) {
+            if (java.lang.reflect.Modifier.isStatic(declaredField.getModifiers())) {
+                staticCount++;
+            }
+        }
+        if (getClass().getDeclaredFields().length  - staticCount != fields) {
             throw new RuntimeException("Modified " + getClass().getName() + " but didn't modify the total count");
         }
     }
@@ -84,9 +116,49 @@ public class SSTHeader implements AutoCloseable {
     }
 
     public void writeRemaining(ChannelBackedWriter writer) {
-        writer.position(4 /*header size is store at start*/ + 6);
+        writer.position(Integer.BYTES /*header size is store at start*/ + 6);
         writer.putLong(numberOfEntries)
                 .putLong(filterPosition)
                 .putLong(pointersPosition);
+    }
+
+    public Level getLevel() {
+        return level;
+    }
+
+    public byte getChecksumType() {
+        return checksumType;
+    }
+
+    public byte getCompressionType() {
+        return compressionType;
+    }
+
+    public byte getClusterKeyCount() {
+        return clusterKeyCount;
+    }
+
+    public byte getShortestCommonPrefixUsed() {
+        return shortestCommonPrefixUsed;
+    }
+
+    public long getNumberOfEntries() {
+        return numberOfEntries;
+    }
+
+    public byte getSstVersion() {
+        return sstVersion;
+    }
+
+    public SSTKeyRange getSstKeyRange() {
+        return sstKeyRange;
+    }
+
+    public long getPointersPosition() {
+        return pointersPosition;
+    }
+
+    public long getFilterPosition() {
+        return filterPosition;
     }
 }

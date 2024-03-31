@@ -10,7 +10,7 @@ public class DBConstant {
     public static final String OBSOLETE = "OBSOLETE";
     public static final String LOG = "LOG";
     public static final int PAGE_SIZE = 4096;
-    public static final byte[] MARK_FILE_END = BytesConverter.bytes(1234567890L);
+    public static final long MARK_FILE_END = 1234567890L;
     public static final byte CRC32C_CHECKSUM_TYPE = 32;
     public static final byte LZ4_COMPRESSION_TYPE = 4;
     public static final byte CLUSTER_SIZE = 10; // 10% of keys in memory.

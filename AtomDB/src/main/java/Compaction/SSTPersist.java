@@ -11,6 +11,9 @@ import sstIo.SSTHeader;
 import sstIo.SSTKeyRange;
 
 import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -80,13 +83,12 @@ public class SSTPersist {
             // footer
             sstHeader.setEntries(customIterator.getCount());
             sstHeader.setFilterPosition(writer.position());
-
             filter.writeTo(writer);
 
             sstHeader.setPointersPosition(writer.position());
             writePointers(writer, pointers);
 
-            writer.write(DBConstant.MARK_FILE_END); // todo need confirm this while reading file.
+            writer.putLong(DBConstant.MARK_FILE_END); // todo need confirm this while reading file.
 
             sstHeader.writeRemaining(writer);
             sstHeader.close(); // important to close

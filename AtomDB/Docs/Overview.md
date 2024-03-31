@@ -44,6 +44,12 @@ AtomDB Release 1.0
 27. can we utilize the async file io to read the block and keep while searching. so while searching we might encounter 2-3 files to search, here we can load in a async was. and the reading wont go waste as they will be cache and will be used by someone else.
 28. before release do benchmark based on the different writers and readers, see if the bufferedWriter is of any help when we have mmapped the file. since mmap does the same thing.
 29. can we use cleaner and cleanable apis for unmapping ? and also does unmap calls the gc ? and also can't we just learn all the maping and unmapping be done and call System.gc() when we close the class ?
+30. is common prefix adding any value ? need to do benchmark.
+31. Observations
+    1. for entries of 50000, and k and v size 1024 both.
+    2. common saved ~50000 bytes and compression ate 700000 bytes.
+    3. common prefix saved but compression didnt, (mind random class was used to generate byte data)
+
 
 # Bottlenecks
 1. multiple sst reads. (Partially solved by Objective->3)

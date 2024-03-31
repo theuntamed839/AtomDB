@@ -59,9 +59,20 @@ public class BufferedMMappedWriter extends ChannelBackedWriter {
         return this;
     }
 
+    // outputStream
     @Override
     public void write(int b) throws IOException {
-        putInt(b);
+        putByte((byte) b);
+    }
+
+    @Override
+    public void write(byte[] b) throws IOException {
+        putBytes(b);
+    }
+
+    @Override
+    public void write(byte[] b, int off, int len) throws IOException {
+        putBytes(b, off, len);
     }
 
     @Override
@@ -76,8 +87,12 @@ public class BufferedMMappedWriter extends ChannelBackedWriter {
     }
 
     private void remapToPosition(long positionToMove) {
-        unmap(map);
+        if (mapOffset < positionToMove && map.limit() > positionToMove) {
+            // in the mapped region.
+            return;
+        }
         try {
+            unmap(map);
             mapOffset = (int) positionToMove;
             map = channel.map(FileChannel.MapMode.READ_WRITE, mapOffset, PAGE_SIZE);
         } catch (IOException e) {

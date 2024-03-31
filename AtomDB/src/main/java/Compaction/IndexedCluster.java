@@ -13,6 +13,8 @@ import java.util.zip.CRC32C;
 
 public class IndexedCluster {
     private static final int NOT_CALCULATED_YET = -1;
+    private static int DEBUG_COUNT_DELETE_ME = 0;
+
     private final int clusterSize;
     private final CRC32C checksum;
     private final DataCompressionStrategy compression;
@@ -77,11 +79,19 @@ public class IndexedCluster {
 
             location += compressed.length;
         }
+        locations.add(location); // will be used to get the last block data.
 
         checksums.forEach(writer::putLong);
         locations.forEach(writer::putInt);
         writer.putInt(commonPrefix);
         kvs.forEach(writer::putBytes);
+//        for (byte[] kv : kvs) {
+//            if (DEBUG_COUNT_DELETE_ME < 50) {
+//                System.out.println("writing block at="+writer.position());
+//                DEBUG_COUNT_DELETE_ME++;
+//            }
+//            writer.putBytes(kv);
+//        }
     }
 
     private long getChecksum(byte[] key) {
@@ -97,7 +107,7 @@ public class IndexedCluster {
         byte isDelete = entry.getIsDelete();
 
         int requiredSize = getRequiredSize(key, value, isDelete);
-
+        // todo performance improvement, use a temp buffer.
         ByteBuffer buffer = ByteBuffer.allocate(requiredSize);
 
         checksum.reset();
