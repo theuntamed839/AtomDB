@@ -1,7 +1,6 @@
 import Checksum.Crc32cChecksum;
 import Compaction.Pointer;
 import Compaction.SSTPersist;
-import Compression.DataCompressionStrategy;
 import Compression.Lz4Compression;
 import Constants.DBConstant;
 import Level.Level;
@@ -18,8 +17,10 @@ import org.junit.jupiter.api.Test;
 import sstIo.SSTHeader;
 import sstIo.SSTKeyRange;
 
-import java.io.*;
-import java.nio.Buffer;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
@@ -27,7 +28,6 @@ import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
 import java.util.stream.IntStream;
@@ -36,8 +36,6 @@ import java.util.stream.LongStream;
 public class SSTPersistCorrectnessTest {
     private File testFile;
     private FileSystem fs;
-    private static int commonSaved = 0;
-    private static int compressionSaved = 0;
 
     @BeforeEach
     void setUp() throws IOException {
@@ -130,8 +128,6 @@ public class SSTPersistCorrectnessTest {
         for (KVUnit kv : kvs) {
             Assertions.assertArrayEquals(kv.getValue(), findKey(testFile, kv.getKey(), pointers));
         }
-        System.out.println("commonSaved" + commonSaved);
-        System.out.println("compressionSaved" + compressionSaved);
     }
 
     private byte[] findKey(File testFile, byte[] key, List<Pointer> pointers) {
@@ -168,7 +164,6 @@ public class SSTPersistCorrectnessTest {
         int nextKeyLocation = map.getInt();
         map.position((int) point.position() + Long.BYTES * DBConstant.CLUSTER_SIZE + (DBConstant.CLUSTER_SIZE + 1) * Integer.BYTES);
         int commonPrefix = map.getInt();
-        commonSaved+=commonPrefix;
         map.position((int) (point.position() +
                         Long.BYTES * DBConstant.CLUSTER_SIZE +
                         (DBConstant.CLUSTER_SIZE + 1) * Integer.BYTES
@@ -178,12 +173,6 @@ public class SSTPersistCorrectnessTest {
         var block = new byte[blockSizeToRead];
         map.get(block);
         byte[] decompress = Lz4Compression.getInstance().decompress(block);
-        if (decompress.length > blockSizeToRead) {
-            System.out.println("decompressed size greater"+(decompress.length - blockSizeToRead));
-        } else {
-            //System.out.println("compressed size greater" + (decompress.length - blockSizeToRead));
-        }
-        compressionSaved += decompress.length - blockSizeToRead;
         var wrap = ByteBuffer.wrap(decompress);
         int keyLength = wrap.getInt();
         wrap.position(wrap.position() + keyLength);
