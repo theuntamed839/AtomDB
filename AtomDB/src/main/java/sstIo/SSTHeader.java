@@ -54,6 +54,19 @@ public class SSTHeader implements AutoCloseable {
         this.sstKeyRange = sstKeyRange;
     }
 
+    public SSTHeader(SSTHeader header) {
+        this.sstVersion = header.sstVersion;
+        this.level = header.level;
+        this.checksumType = header.checksumType;
+        this.compressionType = header.compressionType;
+        this.clusterKeyCount = header.clusterKeyCount;
+        this.shortestCommonPrefixUsed = header.shortestCommonPrefixUsed;
+        this.numberOfEntries = header.numberOfEntries;
+        this.filterPosition = header.filterPosition;
+        this.pointersPosition = header.pointersPosition;
+        this.sstKeyRange = header.sstKeyRange;
+    }
+
     public int totalHeaderSize() {
         validateIfAllFieldTakenIntoConsideration(10);
         return  Byte.BYTES + // version

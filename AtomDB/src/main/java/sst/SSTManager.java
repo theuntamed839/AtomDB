@@ -82,7 +82,7 @@ public class SSTManager implements AutoCloseable{
     // todo need to move cache to somewhere, maybe in table
     private Cache cache;
 
-    //todo need a better place for Compaction
+    //todo need a better place for Compaction.md
     private Compaction compaction;
     public SSTManager(File dbFolder) {
         System.out.println("It me man its me SSTMANAGER the real");

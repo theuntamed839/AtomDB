@@ -1,12 +1,13 @@
 package Compaction;
 
+import db.DBComparator;
 import sstIo.ChannelBackedWriter;
 
 import java.nio.MappedByteBuffer;
 import java.util.Arrays;
 import java.util.Objects;
 
-public record Pointer(byte[] key, long position) {
+public record Pointer(byte[] key, long position) implements Comparable<Pointer> {
 
     public void storeAsBytes(ChannelBackedWriter writer) {
         // todo can't we compress the keys ?
@@ -35,5 +36,11 @@ public record Pointer(byte[] key, long position) {
         int result = Objects.hash(position);
         result = 31 * result + Arrays.hashCode(key);
         return result;
+    }
+
+
+    @Override
+    public int compareTo(Pointer pointer) {
+        return DBComparator.byteArrayComparator.compare(this.key, pointer.key);
     }
 }

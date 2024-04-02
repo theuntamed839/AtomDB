@@ -49,6 +49,7 @@ AtomDB Release 1.0
     1. for entries of 50000, and k and v size 1024 both.
     2. common saved ~50000 bytes and compression ate 700000 bytes.
     3. common prefix saved but compression didnt, (mind random class was used to generate byte data)
+32. Try to get rid of guava library, otherwise try to use guava library extensively.
 
 
 # Bottlenecks

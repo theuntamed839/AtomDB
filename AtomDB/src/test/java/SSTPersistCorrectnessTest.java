@@ -1,5 +1,6 @@
 import Checksum.Crc32cChecksum;
 import Compaction.Pointer;
+import Compaction.PointerList;
 import Compaction.SSTPersist;
 import Compression.Lz4Compression;
 import Constants.DBConstant;
@@ -100,7 +101,7 @@ public class SSTPersistCorrectnessTest {
         kvs.sort((a, b) -> DBComparator.byteArrayComparator.compare(a.getKey(), b.getKey()));
 
         // suuuuutt
-        List<Pointer> pointers = new SSTPersist(testFile, kvs.iterator(),
+        var pointers = new SSTPersist(testFile, kvs.iterator(),
                 new SSTKeyRange(kvs.getFirst().getKey(), kvs.getLast().getKey()),
                 numberOfEntries, 10).getCheckPoints();
         SSTHeader header = getHeader(testFile);
@@ -119,7 +120,7 @@ public class SSTPersistCorrectnessTest {
         kvs.sort((a, b) -> DBComparator.byteArrayComparator.compare(a.getKey(), b.getKey()));
 
         // suuuuutt
-        List<Pointer> pointers = new SSTPersist(testFile, kvs.iterator(),
+        var pointers = new SSTPersist(testFile, kvs.iterator(),
                 new SSTKeyRange(kvs.getFirst().getKey(), kvs.getLast().getKey()),
                 numberOfEntries, 10).getCheckPoints();
         SSTHeader header = getHeader(testFile);
@@ -130,7 +131,7 @@ public class SSTPersistCorrectnessTest {
         }
     }
 
-    private byte[] findKey(File testFile, byte[] key, List<Pointer> pointers) {
+    private byte[] findKey(File testFile, byte[] key, PointerList pointers) {
         try (
                 RandomAccessFile randomAccessFile = new RandomAccessFile(testFile, "r");
                 FileChannel channel = randomAccessFile.getChannel();
@@ -185,7 +186,7 @@ public class SSTPersistCorrectnessTest {
         return bytes;
     }
 
-    private int getCluster(List<Pointer> pointers, byte[] key) {
+    private int getCluster(PointerList pointers, byte[] key) {
         int l = 0, h = pointers.size() - 1;
         while(l <= h) {
             int mid = (l + h) >>> 1;

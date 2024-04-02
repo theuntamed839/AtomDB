@@ -32,7 +32,7 @@ public class Compactor {
         String newSST = table.getNewSST(Level.LEVEL_ZERO);
         long start, end;
         start = System.nanoTime();
-        List<Pointer> checkPoints = new SSTPersist(new File(newSST),
+        var checkPoints = new SSTPersist(new File(newSST),
                 sstReader.getIterator(), sstReader.getKeyRange(),
                 sstReader.getEntries(), DBConstant.CLUSTER_SIZE).getCheckPoints();
         end = System.nanoTime();

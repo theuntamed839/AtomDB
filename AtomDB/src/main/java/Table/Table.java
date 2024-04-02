@@ -1,30 +1,36 @@
 package Table;
 
+import Constants.DBConstant;
 import Level.Level;
+import com.google.common.base.Preconditions;
 import com.google.common.hash.BloomFilter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.*;
 import java.util.regex.Pattern;
 
 public class Table implements AutoCloseable {
-    private Map<Level, List<SSTInfo>>  table;
+    private static final Logger logger = LoggerFactory.getLogger(Table.class);
+    private Map<Level, SortedSet<SSTInfo>>  table;
     private int currentFileName = 0;
     private final File dbFolder;
     private final String fileSeparatorForSplit =  Pattern.quote(File.separator);
     private Map<String, BloomFilter<byte[]>> bloomMap;
     public Table(File dbFolder) {
+        Preconditions.checkArgument(dbFolder.exists());
         this.dbFolder = dbFolder;
-        table = Map.of(Level.LEVEL_ZERO, new ArrayList<SSTInfo>(),
-                Level.LEVEL_ONE,         new ArrayList<SSTInfo>(),
-                Level.LEVEL_TWO,         new ArrayList<SSTInfo>(),
-                Level.LEVEL_THREE,       new ArrayList<SSTInfo>(),
-                Level.LEVEL_FOUR,        new ArrayList<SSTInfo>(),
-                Level.LEVEL_FIVE,        new ArrayList<SSTInfo>(),
-                Level.LEVEL_SIX,         new ArrayList<SSTInfo>(),
-                Level.LEVEL_SEVEN,       new ArrayList<SSTInfo>());
+        table = Map.of(Level.LEVEL_ZERO, new TreeSet<SSTInfo>(),
+                Level.LEVEL_ONE,         new TreeSet<SSTInfo>(),
+                Level.LEVEL_TWO,         new TreeSet<SSTInfo>(),
+                Level.LEVEL_THREE,       new TreeSet<SSTInfo>(),
+                Level.LEVEL_FOUR,        new TreeSet<SSTInfo>(),
+                Level.LEVEL_FIVE,        new TreeSet<SSTInfo>(),
+                Level.LEVEL_SIX,         new TreeSet<SSTInfo>(),
+                Level.LEVEL_SEVEN,       new TreeSet<SSTInfo>());
         bloomMap = new HashMap<>();
-        // todo why to fill everything at start
         fillLevels();
     }
 
@@ -35,7 +41,7 @@ public class Table implements AutoCloseable {
 
         int max = Integer.MIN_VALUE;
         for (String fileName : fileNames) {
-            if (!fileName.contains(".sst")) continue;
+            if (!fileName.contains(".sst") || fileName.contains(DBConstant.OBSOLETE)) continue;
 
             // todo make it neat
             int got = Integer.parseInt(fileName.trim().split("_")[1].trim().replace(".sst", ""));
@@ -50,18 +56,21 @@ public class Table implements AutoCloseable {
         currentFileName = max;
     }
 
-    public String getNewSST(Level level) {
-        return dbFolder.getAbsolutePath() + File.separator +
-                level.value() + "_" + (++currentFileName) + ".sst";
+    public File getNewSST(Level level) throws IOException {
+        Preconditions.checkNotNull(level);
+
+        File file = new File(dbFolder.getAbsolutePath() + File.separator +
+                level.value() + "_" + (++currentFileName) + ".sst");
+        if (!file.createNewFile()) {
+            throw new RuntimeException("Unable to create file");
+        }
+        return file;
     }
 
     public void addSST(Level level, SSTInfo sstInfo) {
+        Preconditions.checkNotNull(level);
+        Preconditions.checkNotNull(sstInfo);
         table.get(level).add(sstInfo);
-        bloomMap.put(sstInfo.getFileName(), sstInfo.getBloomFilter());
-    }
-
-    public List<SSTInfo> getLevelFileList(Level value) {
-        return List.copyOf(table.get(value));
     }
 
 //    private List<String> createList() {
@@ -87,7 +96,7 @@ public class Table implements AutoCloseable {
 //        };
 //    }
 
-    public void removeFiles(Level level, List<String> filesToCompact) {
+    public void discardFiles(List<String> filesToCompact) {
         table.get(level).removeAll(filesToCompact);
         for (String s : filesToCompact) {
             bloomMap.remove(s);

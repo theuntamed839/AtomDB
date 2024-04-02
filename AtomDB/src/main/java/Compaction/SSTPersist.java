@@ -11,12 +11,7 @@ import sstIo.SSTHeader;
 import sstIo.SSTKeyRange;
 
 import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.util.ArrayList;
 import java.util.Iterator;
-import java.util.List;
 
 /**
  * todo
@@ -31,7 +26,7 @@ public class SSTPersist {
     private final int upperLimitOfEntries;
     private final int clusterSize;
     private final SSTHeader sstHeader;
-    private List<Pointer> pointers;
+    private PointerList pointers;
 
     public SSTPersist(File file,
                       Iterator<KVUnit> iterator,
@@ -68,7 +63,7 @@ public class SSTPersist {
                     upperLimitOfEntries,
                     0.01);
             FilterAddingIterator customIterator = new FilterAddingIterator(iterator, filter);
-            this.pointers = new ArrayList<>(upperLimitOfEntries);
+            this.pointers = new PointerList(upperLimitOfEntries);
 
             // writing
             // header
@@ -86,7 +81,7 @@ public class SSTPersist {
             filter.writeTo(writer);
 
             sstHeader.setPointersPosition(writer.position());
-            writePointers(writer, pointers);
+            pointers.storeAsBytes(writer);
 
             writer.putLong(DBConstant.MARK_FILE_END); // todo need confirm this while reading file.
 
@@ -95,10 +90,6 @@ public class SSTPersist {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
-    }
-
-    private void writePointers(ChannelBackedWriter writer, List<Pointer> pointers) {
-        pointers.forEach(each -> each.storeAsBytes(writer));
     }
 
     private IndexedCluster getNextCluster(Iterator<KVUnit> customIterator) {
@@ -110,7 +101,7 @@ public class SSTPersist {
         return cluster;
     }
 
-    public List<Pointer> getCheckPoints() {
+    public PointerList getCheckPoints() {
         return pointers;
     }
 }

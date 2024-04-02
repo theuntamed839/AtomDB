@@ -2,6 +2,8 @@ package sstIo;
 
 import Checksum.Checksum;
 import Checksum.Crc32cChecksum;
+import db.DBComparator;
+import util.Util;
 
 public class SSTKeyRange {
     private final byte[] first;
@@ -10,6 +12,7 @@ public class SSTKeyRange {
     private final int size;
 
     public SSTKeyRange(byte[] first, byte[] last) {
+        Validate(first, last);
         this.first = first;
         this.last = last;
         Checksum checksumProvide = new Crc32cChecksum();
@@ -18,15 +21,23 @@ public class SSTKeyRange {
     }
 
     public SSTKeyRange(byte[] first, byte[] last, long checksumProvided) {
-        Checksum checksumProvide = new Crc32cChecksum();
-        var computedChecksum = checksumProvide.compute(first, last);
-        if (computedChecksum != checksumProvided) {
-            throw new RuntimeException("Checksum mismatch");
-        }
+        Validate(first, last);
+        long computedChecksum = computeChecksum(first, last);
+        Util.requireTrue(checksumProvided == computedChecksum, "Checksum mismatch");
         this.first = first;
         this.last = last;
         this.checksum = computedChecksum;
         this.size = first.length + last.length + Integer.BYTES * 2 + Long.BYTES;
+    }
+
+    private static long computeChecksum(byte[] first, byte[] last) {
+        Checksum checksumProvide = new Crc32cChecksum();
+        return checksumProvide.compute(first, last);
+    }
+
+
+    private void Validate(byte[] first, byte[] last) {
+        Util.requireTrue(DBComparator.byteArrayComparator.compare(first, last) < 0, "First key should be smaller than last key");
     }
 
     public int getRequiredSizeToStoreKeyRange() {
