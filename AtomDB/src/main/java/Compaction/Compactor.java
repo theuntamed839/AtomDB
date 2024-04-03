@@ -8,6 +8,7 @@ import db.KVUnit;
 import sstIo.MemTableBackedSSTReader;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.List;
 
 /**
@@ -27,12 +28,12 @@ public class Compactor {
         this.table = new Table(dbFolder);
     }
 
-    public void persistLevelFile(ImmutableMem<byte[], KVUnit> memtable) {
+    public void persistLevelFile(ImmutableMem<byte[], KVUnit> memtable) throws IOException {
         MemTableBackedSSTReader sstReader = new MemTableBackedSSTReader(memtable);
-        String newSST = table.getNewSST(Level.LEVEL_ZERO);
+        File newSST = table.getNewSST(Level.LEVEL_ZERO);
         long start, end;
         start = System.nanoTime();
-        var checkPoints = new SSTPersist(new File(newSST),
+        var checkPoints = new SSTPersist(newSST,
                 sstReader.getIterator(), sstReader.getKeyRange(),
                 sstReader.getEntries(), DBConstant.CLUSTER_SIZE).getCheckPoints();
         end = System.nanoTime();

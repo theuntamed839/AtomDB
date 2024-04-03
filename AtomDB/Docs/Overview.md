@@ -50,7 +50,9 @@ AtomDB Release 1.0
     2. common saved ~50000 bytes and compression ate 700000 bytes.
     3. common prefix saved but compression didnt, (mind random class was used to generate byte data)
 32. Try to get rid of guava library, otherwise try to use guava library extensively.
-
+33. If we mandatoryily going to store the pointers then we need not have sK and Lk since this can be acquired by the pointers key list.
+34. see if all the classes follow the single principle.
+35. we should cache the checksum & location block.
 
 # Bottlenecks
 1. multiple sst reads. (Partially solved by Objective->3)

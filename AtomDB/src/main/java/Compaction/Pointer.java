@@ -7,6 +7,7 @@ import java.nio.MappedByteBuffer;
 import java.util.Arrays;
 import java.util.Objects;
 
+// todo make the position int.
 public record Pointer(byte[] key, long position) implements Comparable<Pointer> {
 
     public void storeAsBytes(ChannelBackedWriter writer) {

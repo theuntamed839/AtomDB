@@ -63,4 +63,9 @@ public class SSTKeyRange {
     public long getChecksum() {
         return checksum;
     }
+
+    public boolean inRange(byte[] key) {
+        return DBComparator.byteArrayComparator.compare(first, key) <= 0 &&
+                DBComparator.byteArrayComparator.compare(last, key) >= 0;
+    }
 }

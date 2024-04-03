@@ -30,6 +30,7 @@ public class ValueUnit {
     }
 
     public ValueUnit(byte[] value, byte isDelete) {
+        // todo the isDelete from this constructor.
         Objects.requireNonNull(value);
         this.value = value;
         this.isDelete = isDelete;
@@ -37,5 +38,9 @@ public class ValueUnit {
 
     public ValueUnit(byte isDelete) {
         this.isDelete = isDelete;
+    }
+
+    public int getSize() {
+        return  1 + (value != null ? value.length : 0);
     }
 }

@@ -15,6 +15,5 @@ public class DBConstant {
     public static final byte LZ4_COMPRESSION_TYPE = 4;
     public static final byte CLUSTER_SIZE = 10; // 10% of keys in memory.
     public static final byte SHORTEST_COMMON_PREFIX_USED = 1;
-
-
+    public static final long KEY_VALUE_CACHE_SIZE = 100 * 1024 * 1024;
 }
