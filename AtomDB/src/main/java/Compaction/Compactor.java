@@ -9,7 +9,6 @@ import sstIo.MemTableBackedSSTReader;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.List;
 
 /**
  * 1. select the more who is sparse (large-small) > others and has less entries.
@@ -24,8 +23,8 @@ public class Compactor {
 
     private final Table table;
 
-    public Compactor(File dbFolder) {
-        this.table = new Table(dbFolder);
+    public Compactor(Table table) {
+        this.table = table;
     }
 
     public void persistLevelFile(ImmutableMem<byte[], KVUnit> memtable) throws IOException {
@@ -33,10 +32,13 @@ public class Compactor {
         File newSST = table.getNewSST(Level.LEVEL_ZERO);
         long start, end;
         start = System.nanoTime();
-        var checkPoints = new SSTPersist(newSST,
+        var sstInfo = new SSTPersist(newSST,
                 sstReader.getIterator(), sstReader.getKeyRange(),
-                sstReader.getEntries(), DBConstant.CLUSTER_SIZE).getCheckPoints();
+                sstReader.getEntries(), DBConstant.CLUSTER_SIZE).write();
         end = System.nanoTime();
         System.out.println("took="+(end - start));
+        System.out.println("bounds are s=" + new String(sstInfo.getSstKeyRange().getFirst()) + " l="+
+                new String(sstInfo.getSstKeyRange().getLast()));
+        table.addSST(Level.LEVEL_ZERO, sstInfo);
     }
 }

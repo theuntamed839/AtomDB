@@ -17,7 +17,7 @@ import java.nio.ByteBuffer;
 /**
  *  we should work on moving respective code to thier respective classes.
  */
-public class Finder {
+public class Finder implements AutoCloseable{
 
     private final File file;
     private final PointerList pointerList;
@@ -36,9 +36,11 @@ public class Finder {
     }
 
     private ValueUnit getLocation(byte[] key, long keyChecksum) throws IOException {
+        int initialPosition = (int) reader.position();
         int index = -1;
         for (int i = 0; i < DBConstant.CLUSTER_SIZE; i++) {
-            if (keyChecksum == reader.getLong()) {
+            long check = reader.getLong();
+            if (keyChecksum == check) {
                 index = i;
             }
         }
@@ -47,13 +49,14 @@ public class Finder {
             return null;
         }
 
-        reader.position((int) reader.position() + Long.BYTES * DBConstant.CLUSTER_SIZE + index * Integer.BYTES);
+        // directly moving to location block
+        reader.position( initialPosition + Long.BYTES * DBConstant.CLUSTER_SIZE + index * Integer.BYTES);
         int keyLocation = reader.getInt();
         int nextKeyLocation = reader.getInt();
-        reader.position((int) reader.position() + Long.BYTES * DBConstant.CLUSTER_SIZE + (DBConstant.CLUSTER_SIZE + 1) * Integer.BYTES);
+        reader.position(initialPosition + Long.BYTES * DBConstant.CLUSTER_SIZE + (DBConstant.CLUSTER_SIZE + 1) * Integer.BYTES);
         // todo use the common prefix, to maybe validate.
         int commonPrefix = reader.getInt();
-        reader.position((int) (reader.position() +
+        reader.position((int) (initialPosition +
                 Long.BYTES * DBConstant.CLUSTER_SIZE +
                 (DBConstant.CLUSTER_SIZE + 1) * Integer.BYTES
                 + Integer.BYTES + keyLocation));
@@ -99,5 +102,10 @@ public class Finder {
             }
         }
         return h;
+    }
+
+    @Override
+    public void close() throws Exception {
+        reader.close();
     }
 }

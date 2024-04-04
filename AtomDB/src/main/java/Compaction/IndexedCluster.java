@@ -2,12 +2,14 @@ package Compaction;
 
 import Compression.DataCompressionStrategy;
 import Compression.Lz4Compression;
+import Constants.DBConstant;
 import db.KVUnit;
 import sstIo.ChannelBackedWriter;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.zip.CRC32C;
 
@@ -81,6 +83,14 @@ public class IndexedCluster {
         }
         locations.add(location); // will be used to get the last block data.
 
+        if (checksums.size() != DBConstant.CLUSTER_SIZE) {
+            fillDummyData(checksums, locations);
+        }
+//        System.out.println("writing checksums, position="+writer.position());
+//        for (int i = 0; i < entries.size(); i++) {
+//            System.out.print("[ " + Arrays.toString(entries.get(i).getKey()) + "->" + checksums.get(i) + " ]");
+//        }
+//        System.out.println();
         checksums.forEach(writer::putLong);
         locations.forEach(writer::putInt);
         writer.putInt(commonPrefix);
@@ -92,6 +102,13 @@ public class IndexedCluster {
 //            }
 //            writer.putBytes(kv);
 //        }
+    }
+
+    private void fillDummyData(List<Long> checksums, List<Integer> locations) {
+        for (int i = checksums.size(); i < DBConstant.CLUSTER_SIZE; i++) {
+            checksums.add(Long.MIN_VALUE);
+            locations.add(Integer.MIN_VALUE);
+        }
     }
 
     private long getChecksum(byte[] key) {

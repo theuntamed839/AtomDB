@@ -1,6 +1,7 @@
 package Table;
 
 import Compaction.PointerList;
+import Level.Level;
 import com.google.common.base.Preconditions;
 import com.google.common.hash.BloomFilter;
 import sstIo.SSTHeader;
@@ -13,10 +14,13 @@ public class SSTInfo extends SSTHeader implements AutoCloseable, Comparable<SSTI
     private final File sst;
     private final PointerList pointers;
     private final BloomFilter<byte[]> filter;
+    private final int number;
 
     public SSTInfo(File sst, SSTHeader header, PointerList pointers, BloomFilter<byte[]> filter) {
         super(header);
         Preconditions.checkArgument(sst.exists());
+        this.number = Integer.parseInt(sst.getName().trim().split("_")[1].trim().replace(".sst", ""));
+        Preconditions.checkArgument(Level.fromID(sst.getName().charAt(0) - 48).equals(getLevel()));
         this.sst = sst;
         this.pointers = pointers;
         this.filter = filter;
@@ -36,7 +40,15 @@ public class SSTInfo extends SSTHeader implements AutoCloseable, Comparable<SSTI
 
     @Override
     public int compareTo(SSTInfo sstInfo) {
+        if (this.getLevel().equals(sstInfo.getLevel())) {
+            return Integer.compare(this.number, sstInfo.number);
+        }
+        return  Byte.compare(this.getLevel().value(), sstInfo.getLevel().value());
+    }
 
+    public static File newFile(String filePath, Level level, int number) {
+        return new File(filePath + File.separator +
+                level.value() + "_" + number + ".sst");
     }
 
     @Override

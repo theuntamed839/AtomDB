@@ -53,6 +53,7 @@ AtomDB Release 1.0
 33. If we mandatoryily going to store the pointers then we need not have sK and Lk since this can be acquired by the pointers key list.
 34. see if all the classes follow the single principle.
 35. we should cache the checksum & location block.
+36. all position var should be int and file should be limited.
 
 # Bottlenecks
 1. multiple sst reads. (Partially solved by Objective->3)

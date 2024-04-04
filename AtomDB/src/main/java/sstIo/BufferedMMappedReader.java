@@ -15,10 +15,11 @@ public class BufferedMMappedReader extends ChannelBackedReader{
     private MappedByteBuffer map;
     private int mapOffset = 0;
     public BufferedMMappedReader(File file) throws IOException {
+        System.out.println("creating reader for="+file);
         this.file = file;
         this.randomAccessFile = new RandomAccessFile(file, "rw");
         this.channel = randomAccessFile.getChannel();
-        this.map = channel.map(FileChannel.MapMode.READ_WRITE, 0, PAGE_SIZE);
+        this.map = channel.map(FileChannel.MapMode.READ_WRITE, mapOffset, channel.size());
     }
 
     // input stream
@@ -77,14 +78,13 @@ public class BufferedMMappedReader extends ChannelBackedReader{
 
     @Override
     public void position(int positionToMove) {
-        if (map == null) {
+        if (mapOffset < positionToMove && mapOffset + map.limit() > positionToMove) {
+            // in the mapped region.
+            map.position(positionToMove - mapOffset);
+        }
+        else {
             map(positionToMove);
         }
-        if (mapOffset < positionToMove && map.limit() > positionToMove) {
-            // in the mapped region.
-            return;
-        }
-        map(positionToMove);
     }
 
     private void map(int position) {

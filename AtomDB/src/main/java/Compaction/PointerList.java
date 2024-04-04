@@ -14,7 +14,9 @@ public class PointerList {
     }
 
     public void add(Pointer pointer) {
-        Preconditions.checkArgument(previous != null && previous.compareTo(pointer) < 0);
+        if (previous !=null ){
+            Preconditions.checkArgument(previous.compareTo(pointer) <= 0);
+        }
         previous = pointer;
         pointers.add(pointer);
     }

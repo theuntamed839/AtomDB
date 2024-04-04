@@ -9,7 +9,7 @@ import Logs.WALManager;
 import Mem.ImmutableMem;
 import Mem.SkipListMemtable;
 import Table.Table;
-import sst.SSTManager;
+import search.Search;
 import util.Util;
 
 import java.io.File;
@@ -29,8 +29,8 @@ public class DBImpl implements DB{
     private final DataCompressionStrategy compression;
     private final WALManager walManager;
     private final Compactor compactor;
+    private final Search search;
     private SkipListMemtable memtable;
-    private SSTManager sstManager;
     private Table table;
     private int MEMTABLE_SIZE = DBConstant.MEMTABLE_SIZE;
 
@@ -40,9 +40,10 @@ public class DBImpl implements DB{
         this.dbFolder = dbFolder;
         this.compression = CompressionStrategyFactory.GetCompressionStrategy(dbOptions.isDisableCompression());
         this.walManager = new WALManager(dbFolder.getAbsolutePath());
-        this.sstManager = new SSTManager(dbFolder);
         this.memtable = new SkipListMemtable(DBComparator.byteArrayComparator);
-        this.compactor = new Compactor(dbFolder);
+        this.search = new Search();
+        this.table = new Table(dbFolder, search);
+        this.compactor = new Compactor(table);
         walManager.restore(this);
     }
 
@@ -70,7 +71,7 @@ public class DBImpl implements DB{
         memtable.put(kvUnit);
         if (memtable.getMemTableSize() >= MEMTABLE_SIZE) {
             compactor.persistLevelFile(ImmutableMem.of(memtable));
-//            finder.acceptSecondaryMem();
+            search.addSecondaryMemtable(ImmutableMem.of(memtable));
             walManager.deleteOldLogAndCreateNewLog();
             memtable = new SkipListMemtable(DBComparator.byteArrayComparator);
         }
@@ -81,6 +82,9 @@ public class DBImpl implements DB{
         Objects.requireNonNull(key);
         // todo search engine.
         KVUnit kvUnit = memtable.get(key);
+        if (kvUnit == null) {
+            return search.findKey(key).getValue();
+        }
         if (kvUnit.getIsDelete() == KVUnit.DELETE) {
             return null;
         } else {
@@ -98,8 +102,7 @@ public class DBImpl implements DB{
     @Override
     public void close() throws Exception {
         walManager.close();
-        sstManager.close();
-
+        search.close();
         // todo remove this and find bugs
         System.gc();
     }

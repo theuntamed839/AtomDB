@@ -19,7 +19,7 @@ import java.util.*;
  * 2. data is of type deleted.
  * 3. data is value
  */
-public class Search {
+public class Search implements AutoCloseable{
 
     private final LoadingCache<byte[], ValueUnit> kvCache;
     private final LoadingCache<SSTInfo, Finder> readerCache;
@@ -50,11 +50,11 @@ public class Search {
         return new Finder(sst.getSst(), sst.getPointers());
     }
 
-    private ValueUnit findKey(byte[] key) throws IOException {
-        KVUnit kvUnit = secondaryMem.get(key);
-        if (kvUnit != null) {
-            return new ValueUnit(kvUnit.getValue(), kvUnit.getIsDelete());
-        }
+    public ValueUnit findKey(byte[] key) throws IOException {
+//        KVUnit kvUnit = secondaryMem.get(key);
+//        if (kvUnit != null) {
+//            return new ValueUnit(kvUnit.getValue(), kvUnit.getIsDelete());
+//        }
 
         List<Finder> list = getFilesToSearch(key);
         Crc32cChecksum crc32cChecksum = new Crc32cChecksum();
@@ -66,6 +66,15 @@ public class Search {
             }
         }
         return null;
+    }
+
+    private void log(byte[] key) {
+        System.out.println(Arrays.toString(key));
+        for (SSTInfo sstInfo : fileList) {
+            if (sstInfo.getSstKeyRange().inRange(key) && sstInfo.mightContainElement(key)) {
+                System.out.println("sk="+ Arrays.toString(sstInfo.getSstKeyRange().getFirst()) + " lk="+Arrays.toString(sstInfo.getSstKeyRange().getLast()));
+            }
+        }
     }
 
     private List<Finder> getFilesToSearch(byte[] key) {
@@ -87,4 +96,11 @@ public class Search {
     }
 
 
+    @Override
+    public void close() throws Exception {
+        kvCache.invalidateAll();
+        readerCache.invalidateAll();
+        kvCache.cleanUp();
+        readerCache.cleanUp();
+    }
 }

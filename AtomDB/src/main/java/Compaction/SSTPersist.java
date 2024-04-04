@@ -2,6 +2,7 @@ package Compaction;
 
 import Constants.DBConstant;
 import Level.Level;
+import Table.SSTInfo;
 import com.google.common.hash.BloomFilter;
 import com.google.common.hash.Funnels;
 import db.KVUnit;
@@ -39,7 +40,6 @@ public class SSTPersist {
         this.upperLimitOfEntries = upperLimitOfEntries;
         this.clusterSize = clusterSize;
         this.sstHeader = createHeader();
-        write();
     }
 
     private SSTHeader createHeader() {
@@ -53,7 +53,7 @@ public class SSTPersist {
                 keyRange);
     }
 
-    private void write() {
+    public SSTInfo write() {
         try (
                 ChannelBackedWriter writer = new BufferedMMappedWriter(file);
         ) {
@@ -70,11 +70,13 @@ public class SSTPersist {
             writer.putInt(sstHeader.totalHeaderSize());
             sstHeader.storeAsBytes(writer);
             // middle block
+            IndexedCluster indexedCluster = null;
             while(customIterator.hasNext()) {
-                var indexedCluster = getNextCluster(customIterator);
+                indexedCluster = getNextCluster(customIterator);
                 pointers.add(new Pointer(indexedCluster.getFirstKey(), writer.position()));
                 indexedCluster.storeAsBytes(writer);
             }
+            pointers.add(new Pointer(indexedCluster.getFirstKey(), -1));
             // footer
             sstHeader.setEntries(customIterator.getCount());
             sstHeader.setFilterPosition(writer.position());
@@ -87,6 +89,7 @@ public class SSTPersist {
 
             sstHeader.writeRemaining(writer);
             sstHeader.close(); // important to close
+            return new SSTInfo(file, sstHeader, pointers, filter);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
