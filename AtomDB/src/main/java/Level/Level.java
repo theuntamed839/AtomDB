@@ -1,5 +1,7 @@
 package Level;
 
+import util.SizeOf;
+
 public enum Level {
     LEVEL_ZERO,
     LEVEL_ONE,
@@ -45,5 +47,18 @@ public enum Level {
 
     public static byte toID(Level level) {
         return level.value();
+    }
+
+    public long limitingSize() {
+        return switch (this) {
+            case LEVEL_ZERO -> 10L * SizeOf.MB;
+            case LEVEL_ONE -> 100L * SizeOf.MB;
+            case LEVEL_TWO -> 1000L * SizeOf.MB;
+            case LEVEL_THREE -> 10000L * SizeOf.MB;
+            case LEVEL_FOUR -> 100000L * SizeOf.MB;
+            case LEVEL_FIVE -> 1000000L * SizeOf.MB;
+            case LEVEL_SIX -> 10000000L * SizeOf.MB;
+            case LEVEL_SEVEN -> 100000000L * SizeOf.MB;
+        };
     }
 }

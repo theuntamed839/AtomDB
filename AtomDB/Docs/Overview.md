@@ -54,6 +54,9 @@ AtomDB Release 1.0
 34. see if all the classes follow the single principle.
 35. we should cache the checksum & location block.
 36. all position var should be int and file should be limited.
+37. we should only map only the blocks. rather than mmapping whole file since we already have read the pointers. and header.
+38. we can write checksums in sorted order so that we can retrive checksums together (cache them) and perform binary search.
+39. can we share a mmaped file with other readers ? or is it that we do share internally.
 
 # Bottlenecks
 1. multiple sst reads. (Partially solved by Objective->3)

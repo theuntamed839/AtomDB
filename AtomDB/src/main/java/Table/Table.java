@@ -1,23 +1,21 @@
 package Table;
 
-import Constants.DBConstant;
 import Level.Level;
 import com.google.common.base.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import search.Search;
+import util.FileUtil;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.Collection;
-import java.util.Map;
-import java.util.SortedSet;
-import java.util.TreeSet;
+import java.util.*;
 import java.util.regex.Pattern;
 
 public class Table implements AutoCloseable {
     private static final Logger logger = LoggerFactory.getLogger(Table.class);
     private final Search search;
+    private final Map<Level, Integer> tableSize;
     private Map<Level, SortedSet<SSTInfo>>  table;
     private int currentFileName = 0;
     private final File dbFolder;
@@ -34,6 +32,10 @@ public class Table implements AutoCloseable {
                 Level.LEVEL_FIVE,        new TreeSet<SSTInfo>(),
                 Level.LEVEL_SIX,         new TreeSet<SSTInfo>(),
                 Level.LEVEL_SEVEN,       new TreeSet<SSTInfo>());
+        tableSize = new HashMap<>() ;
+        for (Level value : Level.values()) {
+            tableSize.put(value, 0);
+        }
 //        fillLevels();
     }
 
@@ -58,7 +60,7 @@ public class Table implements AutoCloseable {
 //        currentFileName = max;
 //    }
 
-    public File getNewSST(Level level) throws IOException {
+    public synchronized File getNewSST(Level level) throws IOException {
         Preconditions.checkNotNull(level);
         File file = SSTInfo.newFile(dbFolder.getAbsolutePath(), level, ++currentFileName);
         if (!file.createNewFile()) {
@@ -67,11 +69,29 @@ public class Table implements AutoCloseable {
         return file;
     }
 
-    public void addSST(Level level, SSTInfo sstInfo) {
+    public synchronized void addSST(Level level, SSTInfo sstInfo) {
         Preconditions.checkNotNull(level);
         Preconditions.checkNotNull(sstInfo);
+        System.out.println("adding="+sstInfo.getSst().getName());
         table.get(level).add(sstInfo);
+        tableSize.put(level, tableSize.get(level) + sstInfo.getFileTorsoSize());
         search.addSSTInfo(sstInfo);
+    }
+
+    public synchronized void removeSST(SSTInfo sstInfo)  {
+        Preconditions.checkNotNull(sstInfo.getLevel());
+        Preconditions.checkNotNull(sstInfo);
+        System.out.println("removing="+sstInfo.getSst().getName());
+        table.get(sstInfo.getLevel()).remove(sstInfo);
+        tableSize.put(sstInfo.getLevel(), tableSize.get(sstInfo.getLevel()) - sstInfo.getFileTorsoSize());
+        try {
+            search.removeSSTInfo(sstInfo);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+        if (FileUtil.makeFileObsolete(sstInfo.getSst()) == null) {
+            throw new RuntimeException("unable to rename");
+        }
     }
 
 //    private List<String> createList() {
@@ -107,5 +127,21 @@ public class Table implements AutoCloseable {
                 throw new RuntimeException(e);
             }
         });
+    }
+
+    public SortedSet<SSTInfo> getLevelFileList(Level level) {
+        return table.get(level);
+    }
+
+    public int getCurrentLevelSize(Level level) {
+        return tableSize.get(level);
+    }
+
+    public byte[] getLastCompactedKey(Level level) {
+        SortedSet<SSTInfo> sstofLevel = table.get(level);
+        if (sstofLevel.isEmpty()) {
+            return null;
+        }
+        return sstofLevel.getLast().getSstKeyRange().getLast();
     }
 }

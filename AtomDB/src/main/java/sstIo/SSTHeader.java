@@ -12,21 +12,19 @@ public class SSTHeader implements AutoCloseable {
     private final byte shortestCommonPrefixUsed;
     private long numberOfEntries;
     private final byte sstVersion;
-    private final SSTKeyRange sstKeyRange;
     private long pointersPosition;
     private long filterPosition;
     public static final long SST_KEY_RANGE_POSITION_IN_HEADER = 30;
 
     public SSTHeader(byte sstVersion, Level level, byte checksumType,
                      byte compressionType, byte clusterKeyCount,
-                     byte shortestCommonPrefixUsed, SSTKeyRange sstKeyRange) {
+                     byte shortestCommonPrefixUsed) {
         this.sstVersion = sstVersion;
         this.level = level;
         this.checksumType = checksumType;
         this.compressionType = compressionType;
         this.clusterKeyCount = clusterKeyCount;
         this.shortestCommonPrefixUsed = shortestCommonPrefixUsed;
-        this.sstKeyRange = sstKeyRange;
         this.numberOfEntries = -1;
         this.pointersPosition = -1;
         this.filterPosition = -1;
@@ -51,7 +49,6 @@ public class SSTHeader implements AutoCloseable {
         this.numberOfEntries = numberOfEntries;
         this.filterPosition = filterPosition;
         this.pointersPosition = pointersPosition;
-        this.sstKeyRange = sstKeyRange;
     }
 
     public SSTHeader(SSTHeader header) {
@@ -64,11 +61,10 @@ public class SSTHeader implements AutoCloseable {
         this.numberOfEntries = header.numberOfEntries;
         this.filterPosition = header.filterPosition;
         this.pointersPosition = header.pointersPosition;
-        this.sstKeyRange = header.sstKeyRange;
     }
 
     public int totalHeaderSize() {
-        validateIfAllFieldTakenIntoConsideration(10);
+        validateIfAllFieldTakenIntoConsideration(9);
         return  Byte.BYTES + // version
                 Byte.BYTES + // level
                 Byte.BYTES + // checksum type
@@ -77,9 +73,7 @@ public class SSTHeader implements AutoCloseable {
                 Byte.BYTES + // shortest common prefix used
                 Long.BYTES + // number of entries
                 Long.BYTES + // filter
-                Long.BYTES + // BS
-                // partial total => 26
-                sstKeyRange.getRequiredSizeToStoreKeyRange();
+                Long.BYTES;
     }
 
     @Override
@@ -90,7 +84,7 @@ public class SSTHeader implements AutoCloseable {
     }
 
     public void storeAsBytes(ChannelBackedWriter writer) {
-        validateIfAllFieldTakenIntoConsideration(10);
+        validateIfAllFieldTakenIntoConsideration(9);
         writer.putByte(sstVersion)
                 .putByte(level.value())
                 .putByte(checksumType)
@@ -100,7 +94,6 @@ public class SSTHeader implements AutoCloseable {
                 .putLong(numberOfEntries)
                 .putLong(filterPosition)
                 .putLong(pointersPosition);
-        sstKeyRange.storeAsBytes(writer);
     }
 
     private void validateIfAllFieldTakenIntoConsideration(int fields) {
@@ -161,10 +154,6 @@ public class SSTHeader implements AutoCloseable {
 
     public byte getSstVersion() {
         return sstVersion;
-    }
-
-    public SSTKeyRange getSstKeyRange() {
-        return sstKeyRange;
     }
 
     public long getPointersPosition() {

@@ -68,4 +68,9 @@ public class SSTKeyRange {
         return DBComparator.byteArrayComparator.compare(first, key) <= 0 &&
                 DBComparator.byteArrayComparator.compare(last, key) >= 0;
     }
+
+    public boolean overLapping(SSTKeyRange sstKeyRange) {
+        return inRange(sstKeyRange.getFirst()) || inRange(sstKeyRange.getLast()) ||
+                sstKeyRange.inRange(first) || sstKeyRange.inRange(last);
+    }
 }

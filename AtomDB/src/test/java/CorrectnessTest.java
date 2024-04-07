@@ -45,6 +45,7 @@ public class CorrectnessTest {
             }
             Assertions.assertArrayEquals(db.get(bytes(i + "")), bytes(i + "_" + VALUE));
         }
+        System.out.println("done");
     }
 
     @Test
@@ -55,6 +56,7 @@ public class CorrectnessTest {
             }
             Assertions.assertArrayEquals(db.get(bytes(i + "")), bytes(i + "_" + VALUE));
         }
+        System.out.println("done");
     }
 
     @Test
@@ -68,6 +70,7 @@ public class CorrectnessTest {
             }
             Assertions.assertArrayEquals(db.get(bytes(i + "")), bytes(i + "_" + VALUE));
         }
+        System.out.println("done");
     }
 }
 

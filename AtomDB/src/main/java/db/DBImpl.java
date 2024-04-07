@@ -5,6 +5,7 @@ import Compression.CompressionStrategyFactory;
 import Compression.DataCompressionStrategy;
 import Constants.DBConstant;
 import Constants.Operations;
+import Level.Level;
 import Logs.WALManager;
 import Mem.ImmutableMem;
 import Mem.SkipListMemtable;
@@ -13,6 +14,7 @@ import search.Search;
 import util.Util;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.Objects;
 
 // todo shrink some value to its native size, like some places long is used
@@ -74,6 +76,7 @@ public class DBImpl implements DB{
             search.addSecondaryMemtable(ImmutableMem.of(memtable));
             walManager.deleteOldLogAndCreateNewLog();
             memtable = new SkipListMemtable(DBComparator.byteArrayComparator);
+            compactor.tryCompaction(Level.LEVEL_ZERO);
         }
     }
 

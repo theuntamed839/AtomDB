@@ -23,6 +23,7 @@ public class Search implements AutoCloseable{
 
     private final LoadingCache<byte[], ValueUnit> kvCache;
     private final LoadingCache<SSTInfo, Finder> readerCache;
+    private final HashMap<Integer, Integer> removeMeAfterTestMap;
     private ImmutableMem<byte[], KVUnit> secondaryMem;
     private final SortedSet<SSTInfo> fileList = new TreeSet<>();
 
@@ -35,14 +36,19 @@ public class Search implements AutoCloseable{
                 .maximumSize(500)
                 .build(sst -> getFinder(sst));
         this.secondaryMem = new ImmutableMemTable(new TreeMap<>(), 0);
+        this.removeMeAfterTestMap = new HashMap<>();
     }
 
     public void addSSTInfo(SSTInfo info) {
         fileList.add(info);
     }
 
-    public void removeSSTInfo(SSTInfo info) {
+    public void removeSSTInfo(SSTInfo info) throws Exception {
         fileList.remove(info);
+        Finder exists = readerCache.getIfPresent(info);
+        if (exists != null) {
+            exists.close();
+        }
         readerCache.invalidate(info);
     }
 
@@ -51,12 +57,13 @@ public class Search implements AutoCloseable{
     }
 
     public ValueUnit findKey(byte[] key) throws IOException {
-//        KVUnit kvUnit = secondaryMem.get(key);
-//        if (kvUnit != null) {
-//            return new ValueUnit(kvUnit.getValue(), kvUnit.getIsDelete());
-//        }
+        KVUnit kvUnit = secondaryMem.get(key);
+        if (kvUnit != null) {
+            return new ValueUnit(kvUnit.getValue(), kvUnit.getIsDelete());
+        }
 
         List<Finder> list = getFilesToSearch(key);
+        removeMeAfterTestMap.put(list.size(), removeMeAfterTestMap.getOrDefault(list.size(), 0) + 1);
         Crc32cChecksum crc32cChecksum = new Crc32cChecksum();
         long keyChecksum = crc32cChecksum.compute(key);
         for (Finder finder : list) {
@@ -98,6 +105,9 @@ public class Search implements AutoCloseable{
 
     @Override
     public void close() throws Exception {
+        for (Map.Entry<Integer, Integer> entry : removeMeAfterTestMap.entrySet()) {
+            System.out.println("numberOfFilesRequiredToSearch="+entry.getKey()+" numberOfTimesThisHappened="+entry.getValue());
+        }
         kvCache.invalidateAll();
         readerCache.invalidateAll();
         kvCache.cleanUp();

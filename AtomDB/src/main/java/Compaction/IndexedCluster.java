@@ -3,10 +3,14 @@ package Compaction;
 import Compression.DataCompressionStrategy;
 import Compression.Lz4Compression;
 import Constants.DBConstant;
+import com.google.common.primitives.Longs;
 import db.KVUnit;
+import sst.ValueUnit;
+import sstIo.BufferedMMappedReader;
 import sstIo.ChannelBackedWriter;
 
 import java.io.IOException;
+import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -28,6 +32,62 @@ public class IndexedCluster {
         this.commonPrefix = NOT_CALCULATED_YET;
         this.checksum = new CRC32C(); // todo using naked crc32c
         this.compression = Lz4Compression.getInstance();
+    }
+
+    public Cluster read(BufferedMMappedReader reader, byte[] startKey) throws IOException {
+        // todo we should use the file's clustersize and not global cluster size.
+        List<Long> checksums = getChecksumList(reader);
+        List<Integer> locations = getLocationList(reader);
+        int commonPrefix = reader.getInt();
+        List<KVUnit> units = new ArrayList<>();
+        for (int i = 0; i < clusterSize; i++) {
+            if (checksums.get(i) == Long.MIN_VALUE) {
+                break;
+            }
+            byte[] block = new byte[locations.get(i + 1) - locations.get(i)];
+            reader.read(block);
+            byte[] decompress = compression.decompress(block);
+            var wrap = ByteBuffer.wrap(decompress);
+            int keyLength = wrap.getInt();
+
+            byte[] key = new byte[keyLength + commonPrefix];
+            System.arraycopy(startKey, 0, key, 0, commonPrefix);
+            wrap.get(key, commonPrefix, keyLength);
+
+            byte isDeleted = wrap.get();
+            if (isDeleted == KVUnit.DELETE) {
+                units.add(new KVUnit(key, KVUnit.DELETE));
+            }
+            else {
+                int valueLength = wrap.getInt();
+                byte[] value = new byte[valueLength];
+                wrap.get(value);
+                units.add(new KVUnit(key, value));
+            }
+        }
+        return new Cluster(checksums, units);
+    }
+
+    private  List<Integer> getLocationList(BufferedMMappedReader reader) throws IOException {
+        byte[] bytes = new byte[Integer.BYTES * (clusterSize + 1)];
+        reader.read(bytes);
+        ByteBuffer wrap = ByteBuffer.wrap(bytes);
+        List<Integer> locations = new ArrayList<>(clusterSize);
+        for (int i = 0; i < clusterSize + 1; i++) {
+            locations.add(wrap.getInt());
+        }
+        return locations;
+    }
+
+    private List<Long> getChecksumList(BufferedMMappedReader reader) throws IOException {
+        byte[] bytes = new byte[Long.BYTES * clusterSize];
+        reader.read(bytes);
+        ByteBuffer wrap = ByteBuffer.wrap(bytes);
+        List<Long> checksums = new ArrayList<>(clusterSize);
+        for (int i = 0; i < clusterSize; i++) {
+            checksums.add(wrap.getLong());
+        }
+        return checksums;
     }
 
     public void add(KVUnit kv) {
@@ -64,6 +124,8 @@ public class IndexedCluster {
         return entries.getLast().getKey();
     }
 
+    // 10 long checksum + 11 integer locations + 1 integer commonPrefix + 10 clusters (kvs)
+    // n long checksum + n + 1 integer locations + 1 integer commonPrefix + n clusters (kvs)
     public void storeAsBytes(ChannelBackedWriter writer) throws IOException {
         List<Long> checksums = new ArrayList<>(clusterSize);
         List<byte[]> kvs = new ArrayList<>(clusterSize);
@@ -86,22 +148,10 @@ public class IndexedCluster {
         if (checksums.size() != DBConstant.CLUSTER_SIZE) {
             fillDummyData(checksums, locations);
         }
-//        System.out.println("writing checksums, position="+writer.position());
-//        for (int i = 0; i < entries.size(); i++) {
-//            System.out.print("[ " + Arrays.toString(entries.get(i).getKey()) + "->" + checksums.get(i) + " ]");
-//        }
-//        System.out.println();
         checksums.forEach(writer::putLong);
         locations.forEach(writer::putInt);
         writer.putInt(commonPrefix);
         kvs.forEach(writer::putBytes);
-//        for (byte[] kv : kvs) {
-//            if (DEBUG_COUNT_DELETE_ME < 50) {
-//                System.out.println("writing block at="+writer.position());
-//                DEBUG_COUNT_DELETE_ME++;
-//            }
-//            writer.putBytes(kv);
-//        }
     }
 
     private void fillDummyData(List<Long> checksums, List<Integer> locations) {

@@ -3,7 +3,7 @@ package db;
 import java.util.Arrays;
 import java.util.Objects;
 
-public class KVUnit {
+public class KVUnit implements Comparable<KVUnit>{
     public static final byte DELETE = 1;
     public static final byte PRESENT = 0;
     private final byte[] key;
@@ -38,7 +38,7 @@ public class KVUnit {
     }
 
     public long unitSize() {
-        return key.length + (value != null ? value.length : 0);
+        return key.length + (value != null ? value.length : 0) + 1;
     }
 
     @Override
@@ -48,5 +48,11 @@ public class KVUnit {
                 ", value=" + (value != null ? Arrays.toString(value) : 0) +
                 ", isDelete=" + isDelete +
                 '}';
+    }
+
+
+    @Override
+    public int compareTo(KVUnit kvUnit) {
+        return DBComparator.byteArrayComparator.compare(this.key, kvUnit.key);
     }
 }

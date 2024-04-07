@@ -15,3 +15,17 @@ then we work compaction by planning on first how things will move and then imple
 then optimize and make the code clean.
 benchmark and optimize.
 write improved unit test, integration test, crash test, performance test under different loads.
+
+
+
+LevelDB compaction:
+1. 4mb file is level0
+2. pick one file from level L and all overlapping files from level L+1.
+3. While Level 0 -> 1, we take all the overlapping files from 0 and 1 as well. since this is very special level.
+4. New create a new sst for every 2 mb file.
+5. we also switch to a new sst when we have grown enough to cover 10 level+2 files. (so that we wont pickup more files from l+2 for next compaction)
+6. we remember last key of level l so that next time we pick files from last key.
+
+
+We haven't done:
+deleting of old value and keeping the latest onces. also deleting.

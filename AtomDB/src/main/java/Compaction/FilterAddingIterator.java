@@ -8,6 +8,7 @@ import java.util.Iterator;
 public class FilterAddingIterator implements Iterator<KVUnit> {
     private final Iterator<KVUnit> iterator;
     private final BloomFilter<byte[]> filter;
+    private int totalKVSize;
     private int count;
 
     public FilterAddingIterator(Iterator<KVUnit> iterator, BloomFilter<byte[]> filter) {
@@ -15,6 +16,7 @@ public class FilterAddingIterator implements Iterator<KVUnit> {
         this.iterator = iterator;
         this.filter = filter;
         this.count = 0;
+        this.totalKVSize = 0;
     }
 
     @Override
@@ -26,10 +28,12 @@ public class FilterAddingIterator implements Iterator<KVUnit> {
     public KVUnit next() {
         var next = iterator.next();
         filter.put(next.getKey());
+        totalKVSize += next.unitSize();
         count++;
         return next;
     }
 
+    public int getTotalKVSize() {return totalKVSize;}
     public int getCount() {
         return count;
     }

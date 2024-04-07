@@ -3,9 +3,12 @@ import db.DBOptions;
 import org.xerial.snappy.Snappy;
 
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
 import java.util.stream.IntStream;
 
 import static util.BytesConverter.bytes;
@@ -19,11 +22,135 @@ public class Benchmark {
 //        benchmark(inputString, 1000);
 //        benchmark(inputString, 10000);
 //        benchmark(inputString, 100000);
-//        benchmark(inputString, 1000_000);
+        benchmark(inputString, 1000_000);
 //        benchmarkWriting(inputString, 1000_000);
 //        initialTest(inputString, 50000);
 //                benchmark(inputString, 15000);
-        benchmarkRandomRead(inputString, 1000_000, "asd"); //1000000
+       // benchmarkWithRandomKVBytes(1000_000, 50, 500);
+        //benchmarkWithRandomLengthKVBytes(1000_000);
+//        benchmarkRandomRead(inputString, 1000_000, "asd"); //1000000
+    }
+
+    private static void benchmarkWithRandomLengthKVBytes(int totalEntryCount) throws Exception {
+        var dbName = "benchmarkWithRandomKVBytes";
+        var rand = new Random();
+        var map = getRandomKV(totalEntryCount, () -> rand.nextInt(50, 100), () -> rand.nextInt(50, 1000));
+
+        System.out.println("Number of threads: " + Thread.activeCount());
+        long beforeUsedMem = Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
+        var opt = new DBOptions();
+        var db = new DBImpl(new File(dbName), opt);
+        long startTime , endTime, readingTime, writingTime;
+        try {
+            System.out.println("Writing... " + totalEntryCount);
+            startTime = System.nanoTime();
+            map.entrySet().forEach(each -> {
+                try {
+                    db.put(each.getKey(), each.getValue());
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+            });
+            endTime = System.nanoTime();
+
+            writingTime = endTime - startTime;
+
+            var list = new ArrayList<>(map.keySet());
+            Collections.shuffle(list);
+            System.out.println("Reading... ");
+            startTime = System.nanoTime();
+            list.forEach(each -> {
+                try {
+                    db.get(each);
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+            });
+            endTime = System.nanoTime();
+
+            readingTime = endTime - startTime;
+            System.out.println("writing time=" + writingTime + " , reading time=" + readingTime);
+            long afterUsedMem=Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
+            long actualMemUsed=afterUsedMem-beforeUsedMem;
+            System.out.println("memory utilised="+actualMemUsed);
+            System.out.println("Number of threads: " + Thread.activeCount());
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            db.close();
+            Files.walk(Path.of(dbName ))
+                    .sorted(Comparator.reverseOrder())
+                    .map(Path::toFile)
+                    .forEach(File::delete);
+        }
+    }
+
+    private static void benchmarkWithRandomKVBytes(int totalEntryCount, int keyBytesLength, int valueBytesLength) throws Exception {
+        var dbName = "benchmarkWithRandomKVBytes";
+        var map = getRandomKV(totalEntryCount, () -> keyBytesLength, () -> valueBytesLength);
+
+        System.out.println("Number of threads: " + Thread.activeCount());
+        long beforeUsedMem = Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
+        var opt = new DBOptions();
+        var db = new DBImpl(new File(dbName), opt);
+        long startTime , endTime, readingTime, writingTime;
+        try {
+            System.out.println("Writing... " + totalEntryCount);
+            startTime = System.nanoTime();
+            map.entrySet().forEach(each -> {
+                try {
+                    db.put(each.getKey(), each.getValue());
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+            });
+            endTime = System.nanoTime();
+
+            writingTime = endTime - startTime;
+
+            var list = new ArrayList<>(map.keySet());
+            Collections.shuffle(list);
+            System.out.println("Reading... ");
+            startTime = System.nanoTime();
+            list.forEach(each -> {
+                try {
+                    db.get(each);
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+            });
+            endTime = System.nanoTime();
+
+            readingTime = endTime - startTime;
+            System.out.println("writing time=" + writingTime + " , reading time=" + readingTime);
+            long afterUsedMem=Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
+            long actualMemUsed=afterUsedMem-beforeUsedMem;
+            System.out.println("memory utilised="+actualMemUsed);
+            System.out.println("Number of threads: " + Thread.activeCount());
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            db.close();
+            Files.walk(Path.of(dbName ))
+                    .sorted(Comparator.reverseOrder())
+                    .map(Path::toFile)
+                    .forEach(File::delete);
+        }
+    }
+
+    private static Map<byte[], byte[]> getRandomKV(int totalEntryCount, Supplier<Integer> keyBytesLength, Supplier<Integer> valueBytesLength) {
+        // total entries
+        System.out.println("random generation");
+        var rand = new Random();
+        Map<byte[], byte[]> map = new HashMap<>(totalEntryCount);
+        for (int i = 0; i < totalEntryCount; i++) {
+            var key = new byte[keyBytesLength.get()];
+            var value = new byte[valueBytesLength.get()];
+            rand.nextBytes(key); rand.nextBytes(value);
+            map.put(key, value);
+        }
+        // end
+        return map;
     }
 
     private static void benchmarkRandomRead(String inputString, long totalEntryCount, String dbName) throws Exception {

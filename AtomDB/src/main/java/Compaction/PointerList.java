@@ -13,6 +13,11 @@ public class PointerList {
         this.pointers = new ArrayList<>(numberOfEntries);
     }
 
+    public PointerList(){
+        this.pointers = new ArrayList<>(5000);
+    }
+
+
     public void add(Pointer pointer) {
         if (previous !=null ){
             Preconditions.checkArgument(previous.compareTo(pointer) <= 0);
@@ -24,6 +29,9 @@ public class PointerList {
     public Pointer get(int index) {
         return pointers.get(index);
     }
+
+    public Pointer getFirst() { return pointers.getFirst();}
+    public Pointer getLast() {return  pointers.getLast();}
 
     public void storeAsBytes(ChannelBackedWriter writer) {
         pointers.forEach(each -> each.storeAsBytes(writer));
