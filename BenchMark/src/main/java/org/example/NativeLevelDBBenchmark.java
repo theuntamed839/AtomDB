@@ -21,7 +21,7 @@ public class NativeLevelDBBenchmark {
 //        benchmark(inputString, 100000, "asdasdas");
         //benchmark(inputString, 1000000, "asd");
 //        System.out.println("random read");
-        benchmarkRandomRead(inputString, 1000000, "asd");
+        benchmarkRandomRead(inputString, 1000_000, "asd");
     }
 
     private static void benchmarkRandomRead(String inputString, long totalEntryCount, String dbName) throws IOException {
