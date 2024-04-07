@@ -112,6 +112,11 @@ public class BufferedMMappedReader extends ChannelBackedReader{
 
     @Override
     public void close() throws IOException {
-        unmap(map);
+        if (map != null) {
+            unmap(map);
+        }
+        map = null;
+        channel.close();
+        randomAccessFile.close();
     }
 }

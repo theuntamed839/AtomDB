@@ -58,15 +58,27 @@ public class CollectiveSStIterator implements Iterator<KVUnit>{
                 toRemove.add(iterator);
             }
         }
-        for (PeekingIterator<KVUnit> iterator : iterators) {
-            System.out.println("i am here");
-            try {
-                ((ClusterIterator) iterator).close();
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
+        System.out.println("OK");
+        try {
+            ((ClusterIterator) iterators.getFirst()).close();
+            ((ClusterIterator) iterators.getFirst()).close();
+            iterators.getFirst().hasNext();
+            ((ClusterIterator) iterators.getFirst()).close();
+            ((ClusterIterator) iterators.getFirst()).close();
+            System.gc();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
         }
-        iterators.removeAll(toRemove);
+        System.out.println("OK DONE");
+//        for (PeekingIterator<KVUnit> iterator : iterators) {
+//            System.out.println("i am here");
+//            try {
+//                ((ClusterIterator) iterator).close();
+//            } catch (Exception e) {
+//                throw new RuntimeException(e);
+//            }
+//        }
+//        iterators.removeAll(toRemove);
     }
 }
 
