@@ -1,19 +1,20 @@
 package Compaction;
 
-import Constants.DBConstant;
 import Level.Level;
 import Mem.ImmutableMem;
 import Table.Table;
 import Table.SSTInfo;
+import db.DBComparator;
 import db.KVUnit;
 import sstIo.MemTableBackedSSTReader;
+import sstIo.SSTKeyRange;
+import util.SizeOf;
+import util.Util;
 
-import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.SortedSet;
+import java.util.*;
+import java.util.concurrent.*;
+import java.util.function.Function;
 
 /**
  * 1. select the more who is sparse (large-small) > others and has less entries.
@@ -24,73 +25,70 @@ import java.util.SortedSet;
  * 5. always take from oldest to newest. ( basically find sst based on above and use the oldest to newest sort)
  * 6. add the algorithm which tells how many elements can be present inside 2 key ranges.
  */
-public class Compactor {
-
+public class Compactor implements AutoCloseable{
     private final Table table;
-
+    private ConcurrentMap<Level, Boolean> compactions = new ConcurrentHashMap<>();
+    private ExecutorService executors = Executors.newCachedThreadPool();
     public Compactor(Table table) {
         this.table = table;
     }
 
     public void persistLevelFile(ImmutableMem<byte[], KVUnit> memtable) throws IOException {
         MemTableBackedSSTReader sstReader = new MemTableBackedSSTReader(memtable);
-        long start, end;
-        start = System.nanoTime();
-        new SSTPersist(Level.LEVEL_ZERO, sstReader.getIterator(), sstReader.getEntries(),
-                DBConstant.CLUSTER_SIZE, table).write();
-        end = System.nanoTime();
-        System.out.println("took="+(end - start));
+        SSTPersist.writeSingleFile(Level.LEVEL_ZERO, sstReader.getEntries(), sstReader.getIterator(), table);
     }
 
-    public void tryCompaction(Level level) throws IOException {
+    public synchronized void tryCompaction(Level level) throws Exception {
+        //if (true) return;
         int size = table.getCurrentLevelSize(level);
-        if (size <= level.limitingSize()) {
+        if (size <= level.limitingSize() || compactions.getOrDefault(level, false) || compactions.getOrDefault(level.next(), false)) {
             return;
         }
-        System.out.println("comparator for"+level);
+
         SortedSet<SSTInfo> levelFileList = table.getLevelFileList(level);
+
         byte[] arr = table.getLastCompactedKey(level);
-        List<SSTInfo> files = getFilesContainingKey(arr, levelFileList);
-        if (files.isEmpty()){
-            files.add(levelFileList.getFirst());
+        List<SSTInfo> overlappingFiles = getFilesContainingKey(arr, levelFileList);
+
+         // todo here we can take the big range for level zero rather tlevelhen only the range of first. need analysis
+//        var nextLevelOverlappingFiles = getOverlappingFiles(overlappingFiles.getLast().getSstKeyRange(), table.getLevelFileList(level.next()));
+        Collection<SSTInfo> nextLevelOverlappingFiles = getFilesContainingKey(arr, table.getLevelFileList(level.next()));
+        nextLevelOverlappingFiles.addAll(overlappingFiles);
+
+        if (nextLevelOverlappingFiles.size() <= 1) {
+            nextLevelOverlappingFiles = getFilesContainingKey(levelFileList.getLast().getSstKeyRange().getSmallest(), levelFileList);
+
         }
-         // todo here we can take the big range for level zero rather then only the range of first. need analysis
-        List<SSTInfo> overlappingFiles = getOverlappingFiles(files.getFirst(), table.getLevelFileList(level.next()));
 
-//        if (level == Level.LEVEL_ZERO) {
-//            overlappingFiles.addAll(files);
-//        } else {
-//            overlappingFiles.add(files.getFirst());
-//        }
-
-        overlappingFiles.addAll(files);
-        if (overlappingFiles.size() <= 1) {
+        if (nextLevelOverlappingFiles.size() <= 1) {
             return;
         }
-        var iterator = new CollectiveSStIterator(Collections.unmodifiableList(overlappingFiles));
 
-        long start, end;
-        start = System.nanoTime();
-        new SSTPersist(level.next(), iterator,
-                DBConstant.CLUSTER_SIZE, table).writeBigLevel();
-        end = System.nanoTime();
-        System.out.println("comparator took="+(end - start));
-        System.out.println("compacted files");
-        overlappingFiles.forEach(each -> System.out.println(each.getSst().getName()));
-        overlappingFiles.forEach(table::removeSST);
+        Collection<SSTInfo> finalNextLevelOverlappingFiles = nextLevelOverlappingFiles;
+        Future<?> submit = executors.submit(() -> {
+            try {
+                scheduleCompaction(level, finalNextLevelOverlappingFiles);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        });
+//        scheduleCompaction(level, finalNextLevelOverlappingFiles);
+    }
+
+    private void scheduleCompaction(Level level, Collection<SSTInfo> nextLevelOverlappingFiles) throws Exception {
+        System.out.println(level + " Compaction Started " + Thread.currentThread().getName());
+        compactions.put(level, true);
+        var iterator = new CollectiveSStIterator(Collections.unmodifiableCollection(nextLevelOverlappingFiles));
+
+        SSTPersist.writeManyFiles(level.next(), iterator, table);
+
+        nextLevelOverlappingFiles.forEach(table::removeSST);
+
+        compactions.put(level, false);
         if (Level.LEVEL_SEVEN != level) {
             tryCompaction(level.next());
         }
-    }
-
-    private List<SSTInfo> getOverlappingFiles(SSTInfo first, SortedSet<SSTInfo> levelFileList) {
-        var list = new ArrayList<SSTInfo>();
-        for (SSTInfo sstInfo : levelFileList) {
-            if (first.getSstKeyRange().overLapping(sstInfo.getSstKeyRange())) {
-                list.add(sstInfo);
-            }
-        }
-        return list;
+        System.out.println(level + " Compaction Ended   " + Thread.currentThread().getName());
     }
 
     private List<SSTInfo> getFilesContainingKey(byte[] key, SortedSet<SSTInfo> levelFileList) {
@@ -104,5 +102,35 @@ public class Compactor {
             }
         }
         return list;
+    }
+
+    private SSTKeyRange getBigRange(List<SSTInfo> files) {
+        var low = files.getFirst().getSstKeyRange().getSmallest();
+        var high = files.getFirst().getSstKeyRange().getGreatest();
+        for (SSTInfo file : files) {
+            if (DBComparator.byteArrayComparator.compare(low, file.getSstKeyRange().getSmallest()) > 0) {
+                low = file.getSstKeyRange().getSmallest();
+            }
+            if (DBComparator.byteArrayComparator.compare(high, file.getSstKeyRange().getGreatest()) < 0) {
+                high = file.getSstKeyRange().getGreatest();
+            }
+        }
+        return new SSTKeyRange(low, high);
+    }
+
+    private SortedSet<SSTInfo> getOverlappingFiles(SSTKeyRange range, SortedSet<SSTInfo> levelFileList) {
+        var set = new TreeSet<SSTInfo>();
+        for (SSTInfo sstInfo : levelFileList) {
+            if (range.overLapping(sstInfo.getSstKeyRange())) {
+                set.add(sstInfo);
+            }
+        }
+        return set;
+    }
+
+    @Override
+    public void close() throws Exception {
+        executors.close();
+        executors.shutdown();
     }
 }

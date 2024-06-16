@@ -8,24 +8,19 @@ import sstIo.SSTHeader;
 import sstIo.SSTKeyRange;
 
 import java.io.File;
-import java.util.Objects;
 
-public class SSTInfo extends SSTHeader implements AutoCloseable, Comparable<SSTInfo>{
-
+public class SSTInfo extends SSTHeader implements AutoCloseable, Comparable<SSTInfo> {
     private final File sst;
     private final PointerList pointers;
     private final BloomFilter<byte[]> filter;
     private final int number;
     private final SSTKeyRange sstKeyRange;
 
+
     public SSTInfo(File sst, SSTHeader header, PointerList pointers, BloomFilter<byte[]> filter) {
         super(header);
         Preconditions.checkArgument(sst.exists());
         this.number = Integer.parseInt(sst.getName().trim().split("_")[1].trim().replace(".sst", ""));
-        System.out.println(sst.getName());
-        System.out.println(sst.getName().charAt(0) - 48);
-        System.out.println(Level.fromID(sst.getName().charAt(0) - 48));
-        System.out.println(getLevel());
         Preconditions.checkArgument(Level.fromID(sst.getName().charAt(0) - 48).equals(getLevel()));
         this.sst = sst;
         this.pointers = pointers;
@@ -52,12 +47,12 @@ public class SSTInfo extends SSTHeader implements AutoCloseable, Comparable<SSTI
     @Override
     public int compareTo(SSTInfo sstInfo) {
         if (this.getLevel().equals(sstInfo.getLevel())) {
-            return Integer.compare(this.number, sstInfo.number);
+            return Integer.compare(sstInfo.number, this.number); // newer file will have greater number, and they should come first.
         }
         return  Byte.compare(this.getLevel().value(), sstInfo.getLevel().value());
     }
 
-    public static File newFile(String filePath, Level level, int number) {
+    public static File newFile(String filePath, Level level, long number) {
         return new File(filePath + File.separator +
                 level.value() + "_" + number + ".sst");
     }
@@ -77,9 +72,6 @@ public class SSTInfo extends SSTHeader implements AutoCloseable, Comparable<SSTI
 
     @Override
     public int hashCode() {
-        int result = sst != null ? sst.hashCode() : 0;
-        result = 31 * result + (pointers != null ? pointers.hashCode() : 0);
-        result = 31 * result + (filter != null ? filter.hashCode() : 0);
-        return result;
+        return sst.getAbsolutePath().hashCode();
     }
 }

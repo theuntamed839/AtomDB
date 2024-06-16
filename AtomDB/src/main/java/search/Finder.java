@@ -9,10 +9,12 @@ import db.KVUnit;
 import sst.ValueUnit;
 import sstIo.BufferedMMappedReader;
 import sstIo.ChannelBackedReader;
+import util.MaxMinAvg;
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.HashMap;
 
 /**
  *  we should work on moving respective code to thier respective classes.
@@ -22,17 +24,20 @@ public class Finder implements AutoCloseable{
     private final File file;
     private final PointerList pointerList;
     private final ChannelBackedReader reader;
+    private final MaxMinAvg pointerTime;
 
     public Finder(File file, PointerList pointerList) throws IOException {
         this.file = file;
         this.reader = new BufferedMMappedReader(file);
         this.pointerList = pointerList;
+        this.pointerTime = new MaxMinAvg();
     }
 
     public ValueUnit find(byte[] key, long keyChecksum) throws IOException {
         Pointer pointer = getPointer(key);
         reader.position((int) pointer.position());
-        return getLocation(key, keyChecksum);
+        ValueUnit location = getLocation(key, keyChecksum);
+        return location;
     }
 
     private ValueUnit getLocation(byte[] key, long keyChecksum) throws IOException {

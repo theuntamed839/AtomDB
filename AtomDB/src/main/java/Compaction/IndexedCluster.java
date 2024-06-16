@@ -2,30 +2,25 @@ package Compaction;
 
 import Compression.DataCompressionStrategy;
 import Compression.Lz4Compression;
-import Constants.DBConstant;
-import com.google.common.primitives.Longs;
 import db.KVUnit;
-import sst.ValueUnit;
 import sstIo.BufferedMMappedReader;
 import sstIo.ChannelBackedWriter;
 
 import java.io.IOException;
-import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.zip.CRC32C;
 
 public class IndexedCluster {
     private static final int NOT_CALCULATED_YET = -1;
-    private static int DEBUG_COUNT_DELETE_ME = 0;
-
     private final int clusterSize;
     private final CRC32C checksum;
     private final DataCompressionStrategy compression;
     private int commonPrefix;
     private final List<KVUnit> entries;
+    private static final long DUMMY_CHECKSUM = Long.MIN_VALUE;
+    private static final int DUMMY_LOCATION = Integer.MIN_VALUE;
     public IndexedCluster(int clusterSize) {
         this.clusterSize = clusterSize;
         this.entries = new ArrayList<>(clusterSize);
@@ -34,24 +29,22 @@ public class IndexedCluster {
         this.compression = Lz4Compression.getInstance();
     }
 
-    public Cluster read(BufferedMMappedReader reader, byte[] startKey) throws IOException {
-        // todo we should use the file's clustersize and not global cluster size.
-        List<Long> checksums = getChecksumList(reader);
-        List<Integer> locations = getLocationList(reader);
+    public Cluster read(BufferedMMappedReader reader, Pointer pointer) throws IOException {
+        reader.position((int) (pointer.position() + Long.BYTES * clusterSize));
+        List<Integer> locations = getLocationList(getBytes(reader, Integer.BYTES * (clusterSize + 1)));
         int commonPrefix = reader.getInt();
+        ByteBuffer bytes = getBytes(reader, getTotalSizeToReadForKVs(locations));
+
         List<KVUnit> units = new ArrayList<>();
-        for (int i = 0; i < clusterSize; i++) {
-            if (checksums.get(i) == Long.MIN_VALUE) {
-                break;
-            }
+        for (int i = 0; i < clusterSize && bytes.hasRemaining(); i++) {
             byte[] block = new byte[locations.get(i + 1) - locations.get(i)];
-            reader.read(block);
+            bytes.get(block);
             byte[] decompress = compression.decompress(block);
             var wrap = ByteBuffer.wrap(decompress);
             int keyLength = wrap.getInt();
 
             byte[] key = new byte[keyLength + commonPrefix];
-            System.arraycopy(startKey, 0, key, 0, commonPrefix);
+            System.arraycopy(pointer.key(), 0, key, 0, commonPrefix);
             wrap.get(key, commonPrefix, keyLength);
 
             byte isDeleted = wrap.get();
@@ -65,13 +58,26 @@ public class IndexedCluster {
                 units.add(new KVUnit(key, value));
             }
         }
-        return new Cluster(checksums, units);
+        return new Cluster(units);
     }
 
-    private  List<Integer> getLocationList(BufferedMMappedReader reader) throws IOException {
-        byte[] bytes = new byte[Integer.BYTES * (clusterSize + 1)];
+    private int getTotalSizeToReadForKVs(List<Integer> locations) {
+        for (int i = 0; i < locations.size(); i++) {
+            if (locations.get(i) == DUMMY_LOCATION) {
+                return locations.get(i - 1);
+            }
+        }
+        return locations.getLast();
+    }
+
+    private ByteBuffer getBytes(BufferedMMappedReader reader, int size) throws IOException {
+        byte[] bytes = new byte[size];
         reader.read(bytes);
         ByteBuffer wrap = ByteBuffer.wrap(bytes);
+        return wrap;
+    }
+
+    private  List<Integer> getLocationList(ByteBuffer wrap) throws IOException {
         List<Integer> locations = new ArrayList<>(clusterSize);
         for (int i = 0; i < clusterSize + 1; i++) {
             locations.add(wrap.getInt());
@@ -79,10 +85,7 @@ public class IndexedCluster {
         return locations;
     }
 
-    private List<Long> getChecksumList(BufferedMMappedReader reader) throws IOException {
-        byte[] bytes = new byte[Long.BYTES * clusterSize];
-        reader.read(bytes);
-        ByteBuffer wrap = ByteBuffer.wrap(bytes);
+    private List<Long> getChecksumList(ByteBuffer wrap) throws IOException {
         List<Long> checksums = new ArrayList<>(clusterSize);
         for (int i = 0; i < clusterSize; i++) {
             checksums.add(wrap.getLong());
@@ -124,9 +127,16 @@ public class IndexedCluster {
         return entries.getLast().getKey();
     }
 
+    public KVUnit getLastKV() {
+        return entries.getLast();
+    }
+
     // 10 long checksum + 11 integer locations + 1 integer commonPrefix + 10 clusters (kvs)
     // n long checksum + n + 1 integer locations + 1 integer commonPrefix + n clusters (kvs)
     public void storeAsBytes(ChannelBackedWriter writer) throws IOException {
+        if (entries.isEmpty()) {
+            throw new RuntimeException("Indexed Cluster entries are empty");
+        }
         List<Long> checksums = new ArrayList<>(clusterSize);
         List<byte[]> kvs = new ArrayList<>(clusterSize);
         List<Integer> locations = new ArrayList<>(clusterSize);
@@ -145,7 +155,7 @@ public class IndexedCluster {
         }
         locations.add(location); // will be used to get the last block data.
 
-        if (checksums.size() != DBConstant.CLUSTER_SIZE) {
+        if (checksums.size() != clusterSize) {
             fillDummyData(checksums, locations);
         }
         checksums.forEach(writer::putLong);
@@ -155,9 +165,9 @@ public class IndexedCluster {
     }
 
     private void fillDummyData(List<Long> checksums, List<Integer> locations) {
-        for (int i = checksums.size(); i < DBConstant.CLUSTER_SIZE; i++) {
-            checksums.add(Long.MIN_VALUE);
-            locations.add(Integer.MIN_VALUE);
+        for (int i = checksums.size(); i < clusterSize; i++) {
+            checksums.add(DUMMY_CHECKSUM);
+            locations.add(DUMMY_LOCATION);
         }
     }
 

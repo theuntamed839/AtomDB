@@ -7,25 +7,34 @@ import Mem.ImmutableMemTable;
 import Table.SSTInfo;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
+import com.github.benmanes.caffeine.cache.stats.CacheStats;
+import db.DBComparator;
 import db.KVUnit;
 import sst.ValueUnit;
+import util.MaxMinAvg;
 
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentSkipListSet;
 
 /**
  * we should have a class which will tell us
  * 1. data existence
  * 2. data is of type deleted.
  * 3. data is value
+ * 1beafb0b371cf3b51732a84d4d82acd7b4926ba1 commit is faster.
+ * https://github.com/theuntamed839/AtomDB/commit/1beafb0b371cf3b51732a84d4d82acd7b4926ba1
  */
+
 public class Search implements AutoCloseable{
 
     private final LoadingCache<byte[], ValueUnit> kvCache;
     private final LoadingCache<SSTInfo, Finder> readerCache;
     private final HashMap<Integer, Integer> removeMeAfterTestMap;
     private ImmutableMem<byte[], KVUnit> secondaryMem;
-    private final SortedSet<SSTInfo> fileList = new TreeSet<>();
+    private final SortedSet<SSTInfo> fileList = new ConcurrentSkipListSet<>();
+    MaxMinAvg maker = new MaxMinAvg();
 
     public Search() {
         this.kvCache = Caffeine.newBuilder()
@@ -35,7 +44,7 @@ public class Search implements AutoCloseable{
         this.readerCache = Caffeine.newBuilder()
                 .maximumSize(500)
                 .build(sst -> getFinder(sst));
-        this.secondaryMem = new ImmutableMemTable(new TreeMap<>(), 0);
+        this.secondaryMem = new ImmutableMemTable(new TreeMap<>(DBComparator.byteArrayComparator), 0);
         this.removeMeAfterTestMap = new HashMap<>();
     }
 
@@ -61,37 +70,25 @@ public class Search implements AutoCloseable{
         if (kvUnit != null) {
             return new ValueUnit(kvUnit.getValue(), kvUnit.getIsDelete());
         }
-
-        List<Finder> list = getFilesToSearch(key);
-        removeMeAfterTestMap.put(list.size(), removeMeAfterTestMap.getOrDefault(list.size(), 0) + 1);
         Crc32cChecksum crc32cChecksum = new Crc32cChecksum();
         long keyChecksum = crc32cChecksum.compute(key);
-        for (Finder finder : list) {
-            ValueUnit valueUnit = finder.find(key, keyChecksum);
-            if (valueUnit != null) {
-                return valueUnit;
+
+        int fileRequiredToSearch = 0;
+
+        for (SSTInfo sstInfo : fileList) {
+            if (sstInfo.getSstKeyRange().inRange(key) && sstInfo.mightContainElement(key)) {
+                fileRequiredToSearch++;
+
+                Finder finder = readerCache.get(sstInfo);
+                ValueUnit valueUnit = finder.find(key, keyChecksum);
+                if (valueUnit != null) {
+                    removeMeAfterTestMap.put(fileRequiredToSearch, removeMeAfterTestMap.getOrDefault(fileRequiredToSearch, 0) + 1);
+                    return valueUnit;
+                }
             }
         }
+        removeMeAfterTestMap.put(fileRequiredToSearch, removeMeAfterTestMap.getOrDefault(fileRequiredToSearch, 0) + 1);
         return null;
-    }
-
-    private void log(byte[] key) {
-        System.out.println(Arrays.toString(key));
-        for (SSTInfo sstInfo : fileList) {
-            if (sstInfo.getSstKeyRange().inRange(key) && sstInfo.mightContainElement(key)) {
-                System.out.println("sk="+ Arrays.toString(sstInfo.getSstKeyRange().getFirst()) + " lk="+Arrays.toString(sstInfo.getSstKeyRange().getLast()));
-            }
-        }
-    }
-
-    private List<Finder> getFilesToSearch(byte[] key) {
-        List<Finder> list = new ArrayList<>();
-        for (SSTInfo sstInfo : fileList) {
-            if (sstInfo.getSstKeyRange().inRange(key) && sstInfo.mightContainElement(key)) {
-                list.add(readerCache.get(sstInfo));
-            }
-        }
-        return list;
     }
 
     public void addSecondaryMemtable(ImmutableMem<byte[], KVUnit> mem) {
@@ -108,9 +105,16 @@ public class Search implements AutoCloseable{
         for (Map.Entry<Integer, Integer> entry : removeMeAfterTestMap.entrySet()) {
             System.out.println("numberOfFilesRequiredToSearch="+entry.getKey()+" numberOfTimesThisHappened="+entry.getValue());
         }
+        for (Finder value : readerCache.asMap().values()) {
+            value.close();
+        }
         kvCache.invalidateAll();
         readerCache.invalidateAll();
         kvCache.cleanUp();
         readerCache.cleanUp();
+    }
+
+    public void printActiveFiles() {
+        fileList.forEach(each -> System.out.println("Active file="+each.getSst().getName()));
     }
 }

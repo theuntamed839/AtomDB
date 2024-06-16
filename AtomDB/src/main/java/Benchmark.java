@@ -3,11 +3,10 @@ import db.DBOptions;
 import org.xerial.snappy.Snappy;
 
 import java.io.File;
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
-import java.util.function.Consumer;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 
@@ -18,16 +17,19 @@ public class Benchmark {
     public static void main(String[] args) throws Exception {
         var inputString = "qwertyuiopasdfghjklzxcvbnm<>?:}{+_)(*&^%$#@!)}1234567890`~".repeat(5);
         System.out.println("Warm Up with 50k");
-//        benchmark(inputString, 500000);
+        //searchBenchMark(500000, "benchmarkWithRandomKVBytesWithCompaction");
+        //searchBenchMark(500000, "benchmarkWithRandomKVBytesWithoutCompaction");
+        //searchBenchMark(500000, "IssueDB");
+//         benchmark(inputString, 500000);
 //        benchmark(inputString, 1000);
 //        benchmark(inputString, 10000);
 //        benchmark(inputString, 100000);
-        benchmark(inputString, 1000_000);
+//        benchmark(inputString, 1000_000);
 //        benchmarkWriting(inputString, 1000_000);
 //        initialTest(inputString, 50000);
 //                benchmark(inputString, 15000);
-       // benchmarkWithRandomKVBytes(1000_000, 50, 500);
-        //benchmarkWithRandomLengthKVBytes(1000_000);
+        benchmarkWithRandomKVBytes(500000, 50, 500); //500000
+//        benchmarkWithRandomLengthKVBytes(1000_000);
 //        benchmarkRandomRead(inputString, 1000_000, "asd"); //1000000
     }
 
@@ -97,8 +99,13 @@ public class Benchmark {
         try {
             System.out.println("Writing... " + totalEntryCount);
             startTime = System.nanoTime();
+            AtomicInteger i = new AtomicInteger();
             map.entrySet().forEach(each -> {
                 try {
+                    if (i.get() % 10000 == 0) {
+                        System.out.println("progress="+i);
+                    }
+                    i.getAndIncrement();
                     db.put(each.getKey(), each.getValue());
                 } catch (Exception e) {
                     throw new RuntimeException(e);
@@ -110,6 +117,8 @@ public class Benchmark {
 
             var list = new ArrayList<>(map.keySet());
             Collections.shuffle(list);
+
+
             System.out.println("Reading... ");
             startTime = System.nanoTime();
             list.forEach(each -> {
@@ -122,7 +131,7 @@ public class Benchmark {
             endTime = System.nanoTime();
 
             readingTime = endTime - startTime;
-            System.out.println("writing time=" + writingTime + " , reading time=" + readingTime);
+            System.out.println("writing time=" + writingTime/1000_000_000.0 + " , reading time=" + readingTime/1000_000_000.0);
             long afterUsedMem=Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
             long actualMemUsed=afterUsedMem-beforeUsedMem;
             System.out.println("memory utilised="+actualMemUsed);
@@ -288,7 +297,35 @@ public class Benchmark {
             e.printStackTrace();
         } finally {
             db.close();
-            db.destroy();
+            //db.destroy();
+        }
+    }
+
+    public static void searchBenchMark(long totalEntryCount, String DBName) throws Exception {
+        System.out.println("Number of threads: " + Thread.activeCount());
+        long beforeUsedMem = Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
+        var opt = new DBOptions();
+        var db = new DBImpl(new File(DBName), opt);
+        long startTime , endTime, readingTime, writingTime;
+        try {
+            System.out.println("Reading... ");
+            startTime = System.nanoTime();
+            for (int i = 0; i < totalEntryCount; i++) {
+                db.get(bytes(i + ""));
+            }
+            endTime = System.nanoTime();
+
+            readingTime = endTime - startTime;
+            System.out.println("reading time=" + (readingTime/1000_000_000.0));
+            long afterUsedMem=Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
+            long actualMemUsed=afterUsedMem-beforeUsedMem;
+            System.out.println("memory utilised="+actualMemUsed);
+            System.out.println("Number of threads: " + Thread.activeCount());
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            db.close();
+            //db.destroy();
         }
     }
 }

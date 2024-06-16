@@ -25,7 +25,7 @@ AtomDB Release 1.0
 13. for random reads use mmap.
 14. Implement Manifest file https://github.com/google/leveldb/blob/main/doc/impl.md#manifest
 15. We will be having 3 caches.
-    1. first the primary cache which will cache k-v directly.
+    1. smallest the primary cache which will cache k-v directly.
     2. File blocks
     3. File descriptor, which will be evicted based on the avaliable descriptors.
 16. Reading of sst metadata when db restarts. Thinking needed.
@@ -74,7 +74,7 @@ AtomDB Release 1.0
 ### TODO:
 - [ ] **IMP** we can implement the shared keys in sst block down the list but need to understand the cost to write sst and also compaction cost and also does it help in reading.
   - basically when we have n keys in a sorted order, some keys will have thier prefix similar which can taken common out.
-  - we need not store the prefix since we already have the first key in the memory, we just need to prefix length.
+  - we need not store the prefix since we already have the smallest key in the memory, we just need to prefix length.
   - this will help in comparing as well as storing, since we will store less now.
   - before we implement we need to find the cost.
   - writing computation cost.
@@ -112,7 +112,7 @@ AtomDB Release 1.0
 - [ ] compaction, the sst file which close to each other based on the overlaps. here the idea is to find a sst which has a big range and then compact it with other sst which has small ranges together.
 - [ ] Providing ACID
 - [ ] OPTIMIZATION THINK: creating of tree of the spare keys to find the correct file.
-- [ ] OPTIMIZATION THINK: in a block we can store partial keys, for example maybe the first key defines the commons prefix and further keys has suffix.
+- [ ] OPTIMIZATION THINK: in a block we can store partial keys, for example maybe the smallest key defines the commons prefix and further keys has suffix.
 - [ ] can we make atomDB into sqlDB ?
 - [ ] Need to have a look on rocksDB and levelDB docs.
   - https://github.com/facebook/rocksdb

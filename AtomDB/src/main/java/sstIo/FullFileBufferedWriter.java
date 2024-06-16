@@ -6,7 +6,6 @@ import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
-import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 
 import static util.ByteBufferSupport.unmap;
@@ -16,16 +15,10 @@ import static util.ByteBufferSupport.unmap;
  *  1. can we divide this class, where the buffer is abstracted out in some other class, since this is kinda cache or something which adds up to the responsibility
  *  2. if we do this then we can have a mmapped and a channel based classes and both can be wrapped in buffered class.
  */
-public class BufferedMMappedWriter extends ChannelBackedWriter {
-    public static final int PAGE_SIZE = DBConstant.PAGE_SIZE;
-    private final ByteBuffer buffer = ByteBuffer.allocateDirect(PAGE_SIZE);
-    private MappedByteBuffer map;
-    private int mapOffset = 0;
-    public BufferedMMappedWriter(File file) throws IOException {
+public class FullFileBufferedWriter extends ChannelBackedWriter {
+    private ByteBuffer buffer = ByteBuffer.allocateDirect(DBConstant.WRITER_BUFFER_SIZE);
+    public FullFileBufferedWriter(File file) throws IOException {
         this.file = file;
-        this.randomAccessFile = new RandomAccessFile(file, "rw");
-        this.channel = randomAccessFile.getChannel();
-        this.map = channel.map(FileChannel.MapMode.READ_WRITE, 0, PAGE_SIZE);
     }
 
     public PrimitiveWriter putLong(long item) {
@@ -77,61 +70,32 @@ public class BufferedMMappedWriter extends ChannelBackedWriter {
 
     @Override
     public long position() throws IOException {
-        return mapOffset + map.position() + buffer.position();
+        return buffer.position();
     }
 
     @Override
     public void position(long positionToMove) {
-        writeContents();
-        remapToPosition(positionToMove);
-    }
-
-    private void remapToPosition(long positionToMove) {
-        if (mapOffset < positionToMove && map.limit() > positionToMove) {
-            // in the mapped region.
-            return;
-        }
-        try {
-            unmap(map);
-            mapOffset = (int) positionToMove;
-            map = channel.map(FileChannel.MapMode.READ_WRITE, mapOffset, PAGE_SIZE);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+        buffer.position((int) positionToMove);
     }
 
     private void writeContentIfBufferFull(int requiredSpace) {
         if (buffer.remaining() < requiredSpace) {
-            writeContents();
-        }
-    }
-
-    private void writeContents() {
-        buffer.flip();
-        ensureCapacity(buffer.remaining());
-        map.put(buffer);
-        buffer.clear();
-    }
-
-    private void ensureCapacity(int bytes) {
-        if (map.remaining() < bytes) {
-            // remap
-            mapOffset += map.position();
-            unmap(map);
-            try {
-                int requiredSize = Math.max(bytes, PAGE_SIZE);
-                map = channel.map(FileChannel.MapMode.READ_WRITE, mapOffset, requiredSize);
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
+            System.out.println("I CURRENT SUITATION THIS SHOULDNOT HIT".repeat(100));
+            var newBuff = ByteBuffer.allocate((buffer.remaining() + buffer.position()) * 2);
+            buffer.flip();
+            newBuff.put(buffer);
+            buffer = newBuff;
         }
     }
 
     @Override
     public void close() throws IOException {
-        if (buffer.position() > 0 || buffer.limit() != buffer.capacity()) {
-            writeContents();
-        }
+        buffer.flip();
+        var randomAccessFile = new RandomAccessFile(file, "rw");
+        var channel = randomAccessFile.getChannel();
+        var map = channel.map(FileChannel.MapMode.READ_WRITE, 0, buffer.remaining());
+        map.put(buffer);
+        buffer.clear();
         unmap(map);
     }
 }

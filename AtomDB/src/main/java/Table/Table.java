@@ -1,7 +1,9 @@
 package Table;
 
+import Constants.DBConstant;
 import Level.Level;
 import com.google.common.base.Preconditions;
+import db.KVUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import search.Search;
@@ -10,14 +12,17 @@ import util.FileUtil;
 import java.io.File;
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Pattern;
 
 public class Table implements AutoCloseable {
     private static final Logger logger = LoggerFactory.getLogger(Table.class);
     private final Search search;
     private final Map<Level, Integer> tableSize;
+    private final Map<Level, byte[]> lastCompactedKV;
     private Map<Level, SortedSet<SSTInfo>>  table;
-    private int currentFileName = 0;
+    // todo this should be set at start
+    private AtomicLong currentFileName = new AtomicLong(0);
     private final File dbFolder;
     private final String fileSeparatorForSplit =  Pattern.quote(File.separator);
     public Table(File dbFolder, Search search) {
@@ -36,33 +41,30 @@ public class Table implements AutoCloseable {
         for (Level value : Level.values()) {
             tableSize.put(value, 0);
         }
-//        fillLevels();
+        fillLevels();
+        lastCompactedKV = new HashMap<>();
     }
 
-//    private void fillLevels() {
-//        String[] fileNames = dbFolder.list();
-//
-//        if (fileNames.length == 0) return; // new db
-//
-//        int max = Integer.MIN_VALUE;
-//        for (String fileName : fileNames) {
-//            if (!fileName.contains(".sst") || fileName.contains(DBConstant.OBSOLETE)) continue;
-//
-//            // todo make it neat
-//            int got = Integer.parseInt(fileName.trim().split("_")[1].trim().replace(".sst", ""));
-//            max = Math.max(got, max);
-//
-//            Level level = Level.fromID(fileName.charAt(0) - 48);
-//            String file = dbFolder + File.separator + fileName;
-//            SSTInfo sstInfo = SSTFileHelper.getSSTInfo(file);
-//            table.get(level).add(sstInfo);
-//        }
-//        currentFileName = max;
-//    }
+    private void fillLevels() {
+        long max = Long.MIN_VALUE;
+        for (File file : dbFolder.listFiles()) {
+            if (!file.getName().contains(".sst") || file.getName().contains(DBConstant.OBSOLETE)) {
+                continue;
+            }
+            var split = file.getName().strip().replace(".sst", "").split("_");
 
-    public synchronized File getNewSST(Level level) throws IOException {
+            max = Math.max(Long.parseLong(split[1]), max);
+            Level level = Level.fromID(split[0].charAt(0) - 48);
+
+            var sstInfo = SSTFileHelper.getSSTInfo(file);
+            addSST(level, sstInfo);
+        }
+        currentFileName.set(max != Long.MIN_VALUE ? max : 0);
+    }
+
+    public File getNewSST(Level level) throws IOException {
         Preconditions.checkNotNull(level);
-        File file = SSTInfo.newFile(dbFolder.getAbsolutePath(), level, ++currentFileName);
+        File file = SSTInfo.newFile(dbFolder.getAbsolutePath(), level, currentFileName.incrementAndGet());
         if (!file.createNewFile()) {
             throw new RuntimeException("Unable to create file");
         }
@@ -72,7 +74,6 @@ public class Table implements AutoCloseable {
     public synchronized void addSST(Level level, SSTInfo sstInfo) {
         Preconditions.checkNotNull(level);
         Preconditions.checkNotNull(sstInfo);
-        System.out.println("adding="+sstInfo.getSst().getName());
         table.get(level).add(sstInfo);
         tableSize.put(level, tableSize.get(level) + sstInfo.getFileTorsoSize());
         search.addSSTInfo(sstInfo);
@@ -81,7 +82,6 @@ public class Table implements AutoCloseable {
     public synchronized void removeSST(SSTInfo sstInfo)  {
         Preconditions.checkNotNull(sstInfo.getLevel());
         Preconditions.checkNotNull(sstInfo);
-        System.out.println("removing="+sstInfo.getSst().getName());
         table.get(sstInfo.getLevel()).remove(sstInfo);
         tableSize.put(sstInfo.getLevel(), tableSize.get(sstInfo.getLevel()) - sstInfo.getFileTorsoSize());
         try {
@@ -89,8 +89,13 @@ public class Table implements AutoCloseable {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
-        if (FileUtil.makeFileObsolete(sstInfo.getSst()) == null) {
+        System.gc();
+        File obsolete = FileUtil.makeFileObsolete(sstInfo.getSst());
+        if (obsolete == null) {
             throw new RuntimeException("unable to rename");
+        }
+        if (!obsolete.delete()) {
+            throw new RuntimeException("Unable to delete files");
         }
     }
 
@@ -138,10 +143,17 @@ public class Table implements AutoCloseable {
     }
 
     public byte[] getLastCompactedKey(Level level) {
+        if (lastCompactedKV.containsKey(level)) {
+            return lastCompactedKV.get(level);
+        }
         SortedSet<SSTInfo> sstofLevel = table.get(level);
         if (sstofLevel.isEmpty()) {
             return null;
         }
-        return sstofLevel.getLast().getSstKeyRange().getLast();
+        return sstofLevel.getLast().getSstKeyRange().getGreatest();
+    }
+
+    public synchronized void  saveLastCompactedKey(byte[] last, Level level) {
+        lastCompactedKV.put(level, last);
     }
 }

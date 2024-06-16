@@ -23,7 +23,6 @@ public class LogReader implements AutoCloseable{
             reader.setPosition(i);
             try {
                 block = LogBlock.read(reader);
-                System.out.println("restoring" + new String(block.getKey()));
                 switch (block.getOperations()) {
                     case WRITE -> db.put(block.getKey(), block.getValue());
                     case DELETE -> db.delete(block.getKey());

@@ -1,6 +1,7 @@
 package Compaction;
 
 import com.google.common.base.Preconditions;
+import sstIo.BufferedMMappedReader;
 import sstIo.ChannelBackedWriter;
 
 import java.util.*;
@@ -35,6 +36,14 @@ public class PointerList {
 
     public void storeAsBytes(ChannelBackedWriter writer) {
         pointers.forEach(each -> each.storeAsBytes(writer));
+    }
+
+    public static PointerList getPointerList(BufferedMMappedReader reader, int entries) {
+        var pointers = new PointerList(entries);
+        for (int i = 0; i < entries; i++) {
+            pointers.add(Pointer.getPointer(reader));
+        }
+        return pointers;
     }
 
     public int size() {

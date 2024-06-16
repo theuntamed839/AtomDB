@@ -6,28 +6,28 @@ import db.DBComparator;
 import util.Util;
 
 public class SSTKeyRange {
-    private final byte[] first;
-    private final byte[] last;
+    private final byte[] smallest;
+    private final byte[] greatest;
     private final long checksum;
     private final int size;
 
-    public SSTKeyRange(byte[] first, byte[] last) {
-        Validate(first, last);
-        this.first = first;
-        this.last = last;
+    public SSTKeyRange(byte[] smallest, byte[] greatest) {
+        Validate(smallest, greatest);
+        this.smallest = smallest;
+        this.greatest = greatest;
         Checksum checksumProvide = new Crc32cChecksum();
-        this.checksum = checksumProvide.compute(first, last);
-        this.size = first.length + last.length + Integer.BYTES * 2 + Long.BYTES;
+        this.checksum = checksumProvide.compute(smallest, greatest);
+        this.size = smallest.length + greatest.length + Integer.BYTES * 2 + Long.BYTES;
     }
 
-    public SSTKeyRange(byte[] first, byte[] last, long checksumProvided) {
-        Validate(first, last);
-        long computedChecksum = computeChecksum(first, last);
+    public SSTKeyRange(byte[] smallest, byte[] greatest, long checksumProvided) {
+        Validate(smallest, greatest);
+        long computedChecksum = computeChecksum(smallest, greatest);
         Util.requireTrue(checksumProvided == computedChecksum, "Checksum mismatch");
-        this.first = first;
-        this.last = last;
+        this.smallest = smallest;
+        this.greatest = greatest;
         this.checksum = computedChecksum;
-        this.size = first.length + last.length + Integer.BYTES * 2 + Long.BYTES;
+        this.size = smallest.length + greatest.length + Integer.BYTES * 2 + Long.BYTES;
     }
 
     private static long computeChecksum(byte[] first, byte[] last) {
@@ -37,7 +37,7 @@ public class SSTKeyRange {
 
 
     private void Validate(byte[] first, byte[] last) {
-        Util.requireTrue(DBComparator.byteArrayComparator.compare(first, last) < 0, "First key should be smaller than last key");
+        Util.requireTrue(DBComparator.byteArrayComparator.compare(first, last) < 0, "First key should be smaller than greatest key");
     }
 
     public int getRequiredSizeToStoreKeyRange() {
@@ -45,19 +45,19 @@ public class SSTKeyRange {
     }
 
     public void storeAsBytes(ChannelBackedWriter writer) {
-        writer.putInt(first.length)
-                .putBytes(first)
-                .putInt(last.length)
-                .putBytes(last)
+        writer.putInt(smallest.length)
+                .putBytes(smallest)
+                .putInt(greatest.length)
+                .putBytes(greatest)
                 .putLong(checksum);
     }
 
-    public byte[] getFirst() {
-        return first;
+    public byte[] getSmallest() {
+        return smallest;
     }
 
-    public byte[] getLast() {
-        return last;
+    public byte[] getGreatest() {
+        return greatest;
     }
 
     public long getChecksum() {
@@ -65,12 +65,12 @@ public class SSTKeyRange {
     }
 
     public boolean inRange(byte[] key) {
-        return DBComparator.byteArrayComparator.compare(first, key) <= 0 &&
-                DBComparator.byteArrayComparator.compare(last, key) >= 0;
+        return DBComparator.byteArrayComparator.compare(smallest, key) <= 0 &&
+                DBComparator.byteArrayComparator.compare(greatest, key) >= 0;
     }
 
-    public boolean overLapping(SSTKeyRange sstKeyRange) {
-        return inRange(sstKeyRange.getFirst()) || inRange(sstKeyRange.getLast()) ||
-                sstKeyRange.inRange(first) || sstKeyRange.inRange(last);
+    public boolean overLapping(SSTKeyRange givenRange) {
+        return (DBComparator.byteArrayComparator.compare(smallest, givenRange.getGreatest()) <= 0 &&
+                DBComparator.byteArrayComparator.compare(greatest, givenRange.getSmallest()) >= 0);
     }
 }

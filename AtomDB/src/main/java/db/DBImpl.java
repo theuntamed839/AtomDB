@@ -106,6 +106,7 @@ public class DBImpl implements DB{
     public void close() throws Exception {
         walManager.close();
         search.close();
+        compactor.close();
         // todo remove this and find bugs
         System.gc();
     }

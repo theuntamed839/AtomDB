@@ -90,7 +90,7 @@ New
 
 # Think tank
 1. we have wal, and then we have level one sst. Basically writing of same data twice. can we improve
-2. Storing all the values first then keys, basically when binary search done we can improve the disk needle movement
+2. Storing all the values smallest then keys, basically when binary search done we can improve the disk needle movement
 since now the needle need not move to a huge gap as we reduced the values inbetween its jumps.
 3. We need now get the whole byte array key in to the memory, look at how the comparison is done in the code.
 basically it compares each bytes so partial key can be retrieved and checked.

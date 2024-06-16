@@ -61,7 +61,7 @@
 //
 //        // suuuuutt
 //        new SSTPersist(testFile, kvs.iterator(),
-//                new SSTKeyRange(kvs.getFirst().getKey(), kvs.getLast().getKey()),
+//                new SSTKeyRange(kvs.getSmallest().getKey(), kvs.getGreatest().getKey()),
 //                numberOfEntries, 10);
 //
 //        // verification
@@ -73,8 +73,8 @@
 //        Assertions.assertEquals(DBConstant.CLUSTER_SIZE, header.getClusterKeyCount());
 //        Assertions.assertEquals(DBConstant.SHORTEST_COMMON_PREFIX_USED, header.getShortestCommonPrefixUsed());
 //        Assertions.assertEquals(numberOfEntries, header.getNumberOfEntries());
-//        Assertions.assertArrayEquals(kvs.getFirst().getKey(), header.getSstKeyRange().getFirst());
-//        Assertions.assertArrayEquals(kvs.getLast().getKey(), header.getSstKeyRange().getLast());
+//        Assertions.assertArrayEquals(kvs.getSmallest().getKey(), header.getSstKeyRange().getSmallest());
+//        Assertions.assertArrayEquals(kvs.getGreatest().getKey(), header.getSstKeyRange().getGreatest());
 //    }
 //
 //    @Test
@@ -85,7 +85,7 @@
 //
 //        // suuuuutt
 //        new SSTPersist(testFile, kvs.iterator(),
-//                new SSTKeyRange(kvs.getFirst().getKey(), kvs.getLast().getKey()),
+//                new SSTKeyRange(kvs.getSmallest().getKey(), kvs.getGreatest().getKey()),
 //                numberOfEntries, 10);
 //        SSTHeader header = getHeader(testFile);
 //
@@ -102,7 +102,7 @@
 //
 //        // suuuuutt
 //        var pointers = new SSTPersist(testFile, kvs.iterator(),
-//                new SSTKeyRange(kvs.getFirst().getKey(), kvs.getLast().getKey()),
+//                new SSTKeyRange(kvs.getSmallest().getKey(), kvs.getGreatest().getKey()),
 //                numberOfEntries, 10).getCheckPoints();
 //        SSTHeader header = getHeader(testFile);
 //
@@ -121,11 +121,11 @@
 //
 //        // suuuuutt
 //        var pointers = new SSTPersist(testFile, kvs.iterator(),
-//                new SSTKeyRange(kvs.getFirst().getKey(), kvs.getLast().getKey()),
+//                new SSTKeyRange(kvs.getSmallest().getKey(), kvs.getGreatest().getKey()),
 //                numberOfEntries, 10).getCheckPoints();
 //        SSTHeader header = getHeader(testFile);
 //
-//        pointers.add(new Pointer(header.getSstKeyRange().getLast(), -1));
+//        pointers.add(new Pointer(header.getSstKeyRange().getGreatest(), -1));
 //        for (KVUnit kv : kvs) {
 //            Assertions.assertArrayEquals(kv.getValue(), findKey(testFile, kv.getKey(), pointers));
 //        }

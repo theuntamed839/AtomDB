@@ -1,7 +1,6 @@
 package sstIo;
 
 import Constants.DBConstant;
-
 import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
@@ -15,7 +14,6 @@ public class BufferedMMappedReader extends ChannelBackedReader{
     private MappedByteBuffer map;
     private int mapOffset = 0;
     public BufferedMMappedReader(File file) throws IOException {
-        System.out.println("creating reader for="+file);
         this.file = file;
         this.randomAccessFile = new RandomAccessFile(file, "rw");
         this.channel = randomAccessFile.getChannel();
@@ -99,6 +97,7 @@ public class BufferedMMappedReader extends ChannelBackedReader{
     private void ensureCapacity(int bytes) {
         if (map.remaining() < bytes) {
             // remap
+            System.out.println("I SHOULD NOT BE CALLED IN CURRENT CONDITION".repeat(100));
             mapOffset += map.position();
             unmap(map);
             try {
@@ -118,5 +117,6 @@ public class BufferedMMappedReader extends ChannelBackedReader{
         map = null;
         channel.close();
         randomAccessFile.close();
+        System.gc();
     }
 }

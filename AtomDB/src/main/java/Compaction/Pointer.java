@@ -1,6 +1,7 @@
 package Compaction;
 
 import db.DBComparator;
+import sstIo.ChannelBackedReader;
 import sstIo.ChannelBackedWriter;
 
 import java.nio.MappedByteBuffer;
@@ -15,6 +16,14 @@ public record Pointer(byte[] key, long position) implements Comparable<Pointer> 
         writer.putLong(position)
                 .putInt(key.length)
                 .putBytes(key);
+    }
+
+    public static Pointer getPointer(ChannelBackedReader reader) {
+        long position = reader.getLong();
+        int size = reader.getInt();
+        var key = new byte[size];
+        reader.getBytes(key);
+        return new Pointer(key, position);
     }
 
     public static Pointer readBytesToObj(MappedByteBuffer buffer) {

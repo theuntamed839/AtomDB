@@ -3,6 +3,7 @@ package util;
 import java.io.File;
 import java.nio.ByteBuffer;
 import java.time.Instant;
+import java.util.function.Function;
 import java.util.regex.Pattern;
 
 public class Util {
@@ -71,4 +72,12 @@ public class Util {
     }
 
     public static String fileSeparatorForSplit = Pattern.quote(File.separator);
+
+    public static Object recordTimeTaken(Function<Object, Object> asd) {
+        long start = System.nanoTime();
+        var value =  asd.apply(new Object());
+        long end = System.nanoTime();
+        System.out.println("took="+(end - start)/1000_000_000.0);
+        return value;
+    }
 }

@@ -3,6 +3,7 @@ package sstIo;
 import Level.Level;
 
 import java.lang.reflect.Field;
+import java.nio.ByteBuffer;
 
 public class SSTHeader implements AutoCloseable {
     private final Level level;
@@ -10,11 +11,11 @@ public class SSTHeader implements AutoCloseable {
     private final byte compressionType;
     private final byte clusterKeyCount;
     private final byte shortestCommonPrefixUsed;
-    private long numberOfEntries;
+    private int numberOfEntries;
     private final byte sstVersion;
-    private long pointersPosition;
-    private long filterPosition;
-    public static final long SST_KEY_RANGE_POSITION_IN_HEADER = 30;
+    private int pointersPosition;
+    private int filterPosition;
+    public static final int TOTAL_HEADER_SIZE = 18;
 
     public SSTHeader(byte sstVersion, Level level, byte checksumType,
                      byte compressionType, byte clusterKeyCount,
@@ -31,17 +32,16 @@ public class SSTHeader implements AutoCloseable {
     }
 
     public SSTHeader(byte sstVersion,
-                     Level level,
+                     byte level,
                      byte checksumType,
                      byte compressionType,
                      byte clusterKeyCount,
                      byte shortestCommonPrefixUsed,
-                     long numberOfEntries,
-                     long filterPosition,
-                     long pointersPosition,
-                     SSTKeyRange sstKeyRange) {
+                     int numberOfEntries,
+                     int filterPosition,
+                     int pointersPosition) {
         this.sstVersion = sstVersion;
-        this.level = level;
+        this.level = Level.fromID(level);
         this.checksumType = checksumType;
         this.compressionType = compressionType;
         this.clusterKeyCount = clusterKeyCount;
@@ -63,19 +63,6 @@ public class SSTHeader implements AutoCloseable {
         this.pointersPosition = header.pointersPosition;
     }
 
-    public int totalHeaderSize() {
-        validateIfAllFieldTakenIntoConsideration(9);
-        return  Byte.BYTES + // version
-                Byte.BYTES + // level
-                Byte.BYTES + // checksum type
-                Byte.BYTES + // compression type
-                Byte.BYTES + // number of keys in chunk
-                Byte.BYTES + // shortest common prefix used
-                Long.BYTES + // number of entries
-                Long.BYTES + // filter
-                Long.BYTES;
-    }
-
     @Override
     public void close() throws Exception {
         if (pointersPosition <= 0 || numberOfEntries <= 0) {
@@ -91,9 +78,29 @@ public class SSTHeader implements AutoCloseable {
                 .putByte(compressionType)
                 .putByte(clusterKeyCount)
                 .putByte(shortestCommonPrefixUsed)
-                .putLong(numberOfEntries)
-                .putLong(filterPosition)
-                .putLong(pointersPosition);
+                .putInt(numberOfEntries)
+                .putInt(filterPosition)
+                .putInt(pointersPosition);
+    }
+
+    public int totalHeaderSize() {
+        validateIfAllFieldTakenIntoConsideration(9);
+        return  Byte.BYTES + // version
+                Byte.BYTES + // level
+                Byte.BYTES + // checksum type
+                Byte.BYTES + // compression type
+                Byte.BYTES + // number of keys in chunk
+                Byte.BYTES + // shortest common prefix used
+                Integer.BYTES + // number of entries
+                Integer.BYTES + // filter
+                Integer.BYTES;
+    }
+
+    public static SSTHeader getHeader(ChannelBackedReader reader) {
+        var bytes = new byte[TOTAL_HEADER_SIZE];
+        reader.getBytes(bytes);
+        var buffer = ByteBuffer.wrap(bytes);
+        return new SSTHeader(buffer.get(), buffer.get(), buffer.get(), buffer.get(), buffer.get(), buffer.get(), buffer.getInt(), buffer.getInt(), buffer.getInt());
     }
 
     private void validateIfAllFieldTakenIntoConsideration(int fields) {
@@ -109,23 +116,23 @@ public class SSTHeader implements AutoCloseable {
         }
     }
 
-    public void setEntries(long count) {
+    public void setEntries(int count) {
         this.numberOfEntries = count;
     }
 
-    public void setFilterPosition(long position) {
+    public void setFilterPosition(int position) {
         this.filterPosition = position;
     }
 
-    public void setPointersPosition(long position) {
+    public void setPointersPosition(int position) {
         this.pointersPosition = position;
     }
 
     public void writeRemaining(ChannelBackedWriter writer) {
-        writer.position(Integer.BYTES /*header size is store at start*/ + 6);
-        writer.putLong(numberOfEntries)
-                .putLong(filterPosition)
-                .putLong(pointersPosition);
+        writer.position(Byte.BYTES * 6);
+        writer.putInt(numberOfEntries)
+                .putInt(filterPosition)
+                .putInt(pointersPosition);
     }
 
     public Level getLevel() {
@@ -148,7 +155,7 @@ public class SSTHeader implements AutoCloseable {
         return shortestCommonPrefixUsed;
     }
 
-    public long getNumberOfEntries() {
+    public int getNumberOfEntries() {
         return numberOfEntries;
     }
 
@@ -156,11 +163,26 @@ public class SSTHeader implements AutoCloseable {
         return sstVersion;
     }
 
-    public long getPointersPosition() {
+    public int getPointersPosition() {
         return pointersPosition;
     }
 
-    public long getFilterPosition() {
+    public int getFilterPosition() {
         return filterPosition;
+    }
+
+    @Override
+    public String toString() {
+        return "SSTHeader{" +
+                "level=" + level +
+                ", checksumType=" + checksumType +
+                ", compressionType=" + compressionType +
+                ", clusterKeyCount=" + clusterKeyCount +
+                ", shortestCommonPrefixUsed=" + shortestCommonPrefixUsed +
+                ", numberOfEntries=" + numberOfEntries +
+                ", sstVersion=" + sstVersion +
+                ", pointersPosition=" + pointersPosition +
+                ", filterPosition=" + filterPosition +
+                '}';
     }
 }
