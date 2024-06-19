@@ -3,7 +3,7 @@ package Compaction;
 import Compression.DataCompressionStrategy;
 import Compression.Lz4Compression;
 import db.KVUnit;
-import sstIo.BufferedMMappedReader;
+import sstIo.MMappedReader;
 import sstIo.ChannelBackedWriter;
 
 import java.io.IOException;
@@ -29,7 +29,7 @@ public class IndexedCluster {
         this.compression = Lz4Compression.getInstance();
     }
 
-    public Cluster read(BufferedMMappedReader reader, Pointer pointer) throws IOException {
+    public Cluster read(MMappedReader reader, Pointer pointer) throws IOException {
         reader.position((int) (pointer.position() + Long.BYTES * clusterSize));
         List<Integer> locations = getLocationList(getBytes(reader, Integer.BYTES * (clusterSize + 1)));
         int commonPrefix = reader.getInt();
@@ -70,7 +70,7 @@ public class IndexedCluster {
         return locations.getLast();
     }
 
-    private ByteBuffer getBytes(BufferedMMappedReader reader, int size) throws IOException {
+    private ByteBuffer getBytes(MMappedReader reader, int size) throws IOException {
         byte[] bytes = new byte[size];
         reader.read(bytes);
         ByteBuffer wrap = ByteBuffer.wrap(bytes);

@@ -13,7 +13,7 @@
 //import db.DBOptions;
 //import sstIo.ChannelBackedWriter;
 //import sstIo.ReaderInterface;
-//import sstIo.BufferedMMappedWriter;
+//import sstIo.MMappedWriter;
 //import util.Util;
 //
 //import java.io.File;
@@ -107,7 +107,7 @@
 //        List<Long> pointers = new ArrayList<>(map.size());
 //        try(
 //                //FileLock lock = channel.lock();
-//                ChannelBackedWriter channelBackedWriter = new BufferedMMappedWriter(new File(tempFileName));
+//                ChannelBackedWriter channelBackedWriter = new MMappedWriter(new File(tempFileName));
 //        ) {
 //            header.write(channelBackedWriter);
 //            for (Map.Entry<byte[], ValueUnit> entry : map.entrySet()) {

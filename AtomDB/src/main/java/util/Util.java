@@ -3,6 +3,7 @@ package util;
 import java.io.File;
 import java.nio.ByteBuffer;
 import java.time.Instant;
+import java.util.concurrent.Callable;
 import java.util.function.Function;
 import java.util.regex.Pattern;
 
@@ -79,5 +80,17 @@ public class Util {
         long end = System.nanoTime();
         System.out.println("took="+(end - start)/1000_000_000.0);
         return value;
+    }
+
+    public static <T> T recordTimeTaken(Callable<T> callable) {
+        long start = System.nanoTime();
+        try {
+            T result = callable.call();
+            long end = System.nanoTime();
+            System.out.println("took=" + (end - start) / 1_000_000_000.0 + " seconds");
+            return result;
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 }

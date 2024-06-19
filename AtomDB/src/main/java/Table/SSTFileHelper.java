@@ -4,23 +4,19 @@ import Compaction.PointerList;
 import Constants.DBConstant;
 import com.google.common.hash.BloomFilter;
 import com.google.common.hash.Funnels;
-import sst.Header;
 import sst.KeyUnit;
 import sst.MiddleBlock;
 import sst.ValueUnit;
 import sstIo.*;
 
 import java.io.File;
-import java.io.RandomAccessFile;
-import java.nio.ByteBuffer;
-import java.nio.channels.FileChannel;
 import java.util.*;
 import java.util.function.Function;
 
 public class SSTFileHelper {
 
     public static SSTInfo getSSTInfo(File file) {
-        try(var reader = new BufferedMMappedReader(file)) {
+        try(var reader = new MMappedReader(file)) {
             System.out.println("File="+file.getName());
             var header = SSTHeader.getHeader(reader);
             System.out.println(header);

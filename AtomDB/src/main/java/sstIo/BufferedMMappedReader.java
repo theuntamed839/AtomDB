@@ -117,6 +117,5 @@ public class BufferedMMappedReader extends ChannelBackedReader{
         map = null;
         channel.close();
         randomAccessFile.close();
-        System.gc();
     }
 }

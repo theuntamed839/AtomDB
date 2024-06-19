@@ -89,14 +89,14 @@ public class Table implements AutoCloseable {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
-        System.gc();
-        File obsolete = FileUtil.makeFileObsolete(sstInfo.getSst());
-        if (obsolete == null) {
-            throw new RuntimeException("unable to rename");
-        }
-        if (!obsolete.delete()) {
-            throw new RuntimeException("Unable to delete files");
-        }
+        // todo
+//        File obsolete = FileUtil.makeFileObsolete(sstInfo.getSst());
+//        if (obsolete == null) {
+//            throw new RuntimeException("unable to rename");
+//        }
+//        if (!obsolete.delete()) {
+//            throw new RuntimeException("Unable to delete files");
+//        }
     }
 
 //    private List<String> createList() {

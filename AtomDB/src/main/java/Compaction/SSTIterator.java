@@ -3,12 +3,12 @@ package Compaction;
 import Table.SSTInfo;
 import com.google.common.collect.PeekingIterator;
 import db.KVUnit;
-import sstIo.BufferedMMappedReader;
+import sstIo.MMappedReader;
 import java.io.IOException;
 import java.util.Iterator;
 
 class SSTIterator implements PeekingIterator<KVUnit>, AutoCloseable {
-    private final BufferedMMappedReader reader;
+    private final MMappedReader reader;
     private final int clusterEndPoint;
     private final IndexedCluster indexedCluster;
     private final SSTInfo sstInfo;
@@ -17,7 +17,7 @@ class SSTIterator implements PeekingIterator<KVUnit>, AutoCloseable {
     private int numberOfRetrievedClusterCount = 0;
 
     public SSTIterator(SSTInfo sstInfo) throws IOException {
-        this.reader = new BufferedMMappedReader(sstInfo.getSst());
+        this.reader = new MMappedReader(sstInfo.getSst());
         this.sstInfo = sstInfo;
         this.clusterEndPoint = (int) Math.abs(sstInfo.getPointers().get(sstInfo.getPointers().size() - 1).position());
         this.indexedCluster = new IndexedCluster(sstInfo.getClusterKeyCount());

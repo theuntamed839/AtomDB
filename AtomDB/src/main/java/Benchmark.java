@@ -20,7 +20,7 @@ public class Benchmark {
         //searchBenchMark(500000, "benchmarkWithRandomKVBytesWithCompaction");
         //searchBenchMark(500000, "benchmarkWithRandomKVBytesWithoutCompaction");
         //searchBenchMark(500000, "IssueDB");
-//         benchmark(inputString, 500000);
+         benchmark(inputString, 500000);
 //        benchmark(inputString, 1000);
 //        benchmark(inputString, 10000);
 //        benchmark(inputString, 100000);
@@ -28,7 +28,7 @@ public class Benchmark {
 //        benchmarkWriting(inputString, 1000_000);
 //        initialTest(inputString, 50000);
 //                benchmark(inputString, 15000);
-        benchmarkWithRandomKVBytes(500000, 50, 500); //500000
+        //benchmarkWithRandomKVBytes(500000, 50, 500); //500000
 //        benchmarkWithRandomLengthKVBytes(1000_000);
 //        benchmarkRandomRead(inputString, 1000_000, "asd"); //1000000
     }
@@ -297,7 +297,7 @@ public class Benchmark {
             e.printStackTrace();
         } finally {
             db.close();
-            //db.destroy();
+            db.destroy();
         }
     }
 

@@ -76,6 +76,7 @@ public class Compactor implements AutoCloseable{
     }
 
     private void scheduleCompaction(Level level, Collection<SSTInfo> nextLevelOverlappingFiles) throws Exception {
+        long start = System.nanoTime();
         System.out.println(level + " Compaction Started " + Thread.currentThread().getName());
         compactions.put(level, true);
         var iterator = new CollectiveSStIterator(Collections.unmodifiableCollection(nextLevelOverlappingFiles));
@@ -88,7 +89,7 @@ public class Compactor implements AutoCloseable{
         if (Level.LEVEL_SEVEN != level) {
             tryCompaction(level.next());
         }
-        System.out.println(level + " Compaction Ended   " + Thread.currentThread().getName());
+        System.out.println(level + " Compaction Ended   " + Thread.currentThread().getName() + " took=" + (System.nanoTime() - start)/1000_000_000.0 + " Seconds");
     }
 
     private List<SSTInfo> getFilesContainingKey(byte[] key, SortedSet<SSTInfo> levelFileList) {
