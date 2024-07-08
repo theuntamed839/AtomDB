@@ -4,13 +4,12 @@ import Compaction.Pointer;
 import Compaction.PointerList;
 import Compression.Lz4Compression;
 import Constants.DBConstant;
+import com.github.benmanes.caffeine.cache.Cache;
 import db.DBComparator;
 import db.KVUnit;
 import sst.ValueUnit;
 import sstIo.MMappedReader;
 import sstIo.ChannelBackedReader;
-import util.MaxMinAvg;
-
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -19,36 +18,49 @@ import java.nio.ByteBuffer;
  *  we should work on moving respective code to thier respective classes.
  */
 public class Finder implements AutoCloseable{
-
     private final File file;
     private final PointerList pointerList;
     private final ChannelBackedReader reader;
-    private final MaxMinAvg pointerTime;
+    private final Cache<Pointer, Checksums> checksumsCache;
 
-    public Finder(File file, PointerList pointerList) throws IOException {
+    public Finder(File file, PointerList pointerList, Cache<Pointer, Checksums> checksumsCache) throws IOException {
         this.file = file;
         this.reader = new MMappedReader(file);
         this.pointerList = pointerList;
-        this.pointerTime = new MaxMinAvg();
+        this.checksumsCache = checksumsCache;
     }
 
     public ValueUnit find(byte[] key, long keyChecksum) throws IOException {
         Pointer pointer = getPointer(key);
         reader.position((int) pointer.position());
-        ValueUnit location = getLocation(key, keyChecksum);
-        return location;
-    }
 
-    private ValueUnit getLocation(byte[] key, long keyChecksum) throws IOException {
-        int initialPosition = (int) reader.position();
-        int index = -1;
-        for (int i = 0; i < DBConstant.CLUSTER_SIZE; i++) {
-            long check = reader.getLong();
-            if (keyChecksum == check) {
-                index = i;
+        Checksums check = checksumsCache.get(pointer, position -> {
+            var checksums = new long[DBConstant.CLUSTER_SIZE];
+            for (int i = 0; i < DBConstant.CLUSTER_SIZE; i++) {
+                checksums[i] = reader.getLong();
             }
+            return new Checksums(checksums);
+        });
+
+        int index = getIndex(check, keyChecksum);
+        if (index == -1) {
+            return null;
         }
 
+        return getLocation(key, keyChecksum, index, (int) pointer.position());
+    }
+
+    private int getIndex(Checksums check, long keyChecksum) {
+        long[] checksums = check.checksums();
+        for (int i = 0; i < checksums.length; i++) {
+            if (keyChecksum == checksums[i]) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private ValueUnit getLocation(byte[] key, long keyChecksum, int index, int initialPosition) throws IOException {
         if (index == -1) {
             return null;
         }

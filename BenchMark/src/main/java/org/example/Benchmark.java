@@ -7,7 +7,7 @@ import java.util.function.Supplier;
 public class Benchmark {
 
     public static void main(String[] args) throws Exception {
-        benchmarkWithRandomKVBytes(DBProvider.get(DB.LEVELDB),500000, 50, 500);
+        benchmarkWithRandomKVBytes(DBProvider.get(DB.LEVELDB_NATIVE),1000000, 50, 500);
     }
 
     private static void benchmarkWithRandomKVBytes(BenchmarkDB db, int totalEntryCount, int keyBytesLength, int valueBytesLength) throws Exception {
@@ -99,4 +99,13 @@ public class Benchmark {
  * memory utilised=307651760
  * Number of threads: 4
  * 6-7 compactions
+ *
+ *
+ * AtomDB for 500000
+ * writing time=10.9193016 , reading time=3.3202372
+ * 1000000
+ * writing time=78.9897571 , reading time=27.1927732
+ *
+ * LevelDB 1000000
+ * writing time=63.0487536 , reading time=23.4485624
  */

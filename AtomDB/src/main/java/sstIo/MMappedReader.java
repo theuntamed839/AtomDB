@@ -12,7 +12,7 @@ import static util.ByteBufferSupport.unmap;
 public class MMappedReader extends ChannelBackedReader{
     private MappedByteBuffer map;
     public MMappedReader(File file) throws IOException {
-        System.out.println("Constructor for file="+file.getName());
+        //System.out.println("Constructor for file="+file.getName());
         this.file = file;
         this.randomAccessFile = new RandomAccessFile(file, "r");
         this.channel = randomAccessFile.getChannel();

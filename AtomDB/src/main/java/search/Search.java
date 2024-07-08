@@ -1,13 +1,14 @@
 package search;
 
 import Checksum.Crc32cChecksum;
+import Compaction.Pointer;
 import Constants.DBConstant;
 import Mem.ImmutableMem;
 import Mem.ImmutableMemTable;
 import Table.SSTInfo;
+import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
-import com.github.benmanes.caffeine.cache.stats.CacheStats;
 import db.DBComparator;
 import db.KVUnit;
 import sst.ValueUnit;
@@ -15,7 +16,6 @@ import util.MaxMinAvg;
 
 import java.io.IOException;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListSet;
 
 /**
@@ -31,6 +31,7 @@ public class Search implements AutoCloseable{
 
     private final LoadingCache<byte[], ValueUnit> kvCache;
     private final LoadingCache<SSTInfo, Finder> readerCache;
+    private final Cache<Pointer, Checksums> checksumsCache;
     private final HashMap<Integer, Integer> removeMeAfterTestMap;
     private ImmutableMem<byte[], KVUnit> secondaryMem;
     private final SortedSet<SSTInfo> fileList = new ConcurrentSkipListSet<>();
@@ -42,8 +43,12 @@ public class Search implements AutoCloseable{
                 .weigher((byte[] k, ValueUnit v) -> k.length + v.getSize())
                 .build(key -> findKey(key));
         this.readerCache = Caffeine.newBuilder()
-                .maximumSize(500)
+                .maximumSize(900)
                 .build(sst -> getFinder(sst));
+        this.checksumsCache = Caffeine.newBuilder()
+                .maximumWeight(500 * 1024 * 1024)
+                .weigher((Pointer pos, Checksums check) -> DBConstant.CLUSTER_SIZE * Long.BYTES)
+                .build();
         this.secondaryMem = new ImmutableMemTable(new TreeMap<>(DBComparator.byteArrayComparator), 0);
         this.removeMeAfterTestMap = new HashMap<>();
     }
@@ -62,7 +67,7 @@ public class Search implements AutoCloseable{
     }
 
     private Finder getFinder(SSTInfo sst) throws IOException {
-        return new Finder(sst.getSst(), sst.getPointers());
+        return new Finder(sst.getSst(), sst.getPointers(), checksumsCache);
     }
 
     public ValueUnit findKey(byte[] key) throws IOException {
