@@ -1,22 +1,19 @@
-import com.google.common.base.Stopwatch;
 import db.DB;
 import db.DBImpl;
 import db.DBOptions;
-import org.xerial.snappy.Snappy;
 
+import java.io.File;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Scanner;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 
 import static util.BytesConverter.bytes;
-
+// todo, think/idea what if we store all the keys in memory, key -> file
 public class Main {
 //    public static void main1(String[] args) throws Exception {
 //        int total = 10;
 //        db.DBOptions opt = new db.DBOptions("ExampleDB");
-//        Mem.MemtableManager memtableManager = new Mem.MemtableManager(opt);
+//        Mem.SkipListMemtable memtableManager = new Mem.SkipListMemtable(opt);
 //
 //        for (int i = 0; i < total; i++) {
 //            memtableManager.put(bytes(i + ""),
@@ -61,8 +58,8 @@ public class Main {
         String value = Instant.now().toString().repeat(10);
         long a, b;
         a = System.nanoTime();
-        DBOptions opt = new DBOptions("Thread"+Thread.currentThread());
-        DB db = new DBImpl(opt);
+        DBOptions opt = new DBOptions();
+        DB db = new DBImpl(new File("Thread"+Thread.currentThread()), opt);
         diskAccessByThreadsSpeedTest(db, total, value);
         b = System.nanoTime();
         System.out.println(Thread.currentThread() + " took "+ (b -a));
@@ -80,8 +77,8 @@ public class Main {
 
     public static void main1(String[] args) throws Exception {
         int total = 10_000;
-        DBOptions opt = new DBOptions("ExampleDB");
-        DB db = new DBImpl(opt);
+        DBOptions opt = new DBOptions();
+        DB db = new DBImpl(new File("ExampleDB"), opt);
 //        String value = "the big value".repeat(40);
         String value = Instant.now().toString().repeat(10);
         System.out.println("User Input");
@@ -247,3 +244,66 @@ public class Main {
  * reading 3899
  * writing 3899
  */
+
+// firefly
+//Warm Up with 50k
+//Writing... 50000
+//Reading...
+//writing time=1199177900 , reading time=1393644400
+//Writing... 1000
+//Reading...
+//writing time=20145900 , reading time=35852900
+//Writing... 10000
+//Reading...
+//writing time=256371600 , reading time=234508600
+//Writing... 100000
+//Reading...
+//writing time=1272501300 , reading time=2226460200
+//Writing... 1000000
+//Reading...
+//writing time=15237828200 , reading time=22578177500
+// 15 and 22
+
+//leveldb
+//Warm Up with 50k
+//Writing... 50000
+//Reading...
+//writing time=477759600 , reading time=152400700
+//Writing... 1000
+//Reading...
+//writing time=9359800 , reading time=1390100
+//Writing... 10000
+//Reading...
+//writing time=79710100 , reading time=14241500
+//Writing... 100000
+//Reading...
+//writing time=780837900 , reading time=276792700
+//Writing... 1000000
+//Reading...
+//writing time=10130438600 , reading time=2697346200
+
+//atomDB
+//Warm Up with 50k
+//Writing... 50000
+//Reading...
+//writing time=961983000 , reading time=7546111700
+//Writing... 1000
+//Reading...
+//writing time=4872700 , reading time=414700
+//Writing... 10000
+//Reading...
+//writing time=44763700 , reading time=4071100
+//Writing... 10000_0
+//Reading...
+//writing time=3879929800 , reading time=18500214900
+//Writing... 10000_00
+//Reading...
+//writing time=95125721700 , reading time=204819288000
+//95 sec and 3.4 minutes
+//https://github.com/fusesource/leveldbjni
+//https://www.reddit.com/r/developersIndia/comments/1aj1s2d/i_built_fireflydb_a_fast_keyvalue_storage_engine/
+//https://github.com/godcrampy/fireflydb
+
+
+// todo ideas
+// instead of compressing key and value seperately, can directly compress key value while storing

@@ -1,6 +1,6 @@
 package Tools;
 
-import Checksum.CheckSum;
+import Checksum.CheckSumStatic;
 import sst.Header;
 import sst.MiddleBlock;
 import sst.ValueUnit;
@@ -23,7 +23,7 @@ public class Validate {
         try(FileInputStream outputStream = new FileInputStream(file);
             FileChannel channel = outputStream.getChannel();
         ) {
-            Header header = Header.getHeader(file.toPath().toString(), channel, byteBuffer);
+            Header header = null; //Header.getHeader(file.toPath().toString(), channel, byteBuffer);
 
             List<Long> myPointers = new ArrayList<>((int) header.getEntries());
 
@@ -113,7 +113,7 @@ public class Validate {
 
         verifyChecksum(byteBuffer, channel, key, value);
 
-        return Map.entry(key, new ValueUnit(value, isDelete));
+        return Map.entry(key, new ValueUnit(value, (byte) isDelete));
     }
 
     private static void verifyChecksum(ByteBuffer byteBuffer, FileChannel channel, byte[] key, byte[] value) throws Exception {
@@ -122,7 +122,7 @@ public class Validate {
         channel.read(byteBuffer);
         byteBuffer.flip();
         long checksum = byteBuffer.getLong();
-        if (CheckSum.compute(key, value) != checksum) {
+        if (CheckSumStatic.compute(key, value) != checksum) {
             throw new Exception("Checksum not matching");
         }
     }
@@ -133,7 +133,7 @@ public class Validate {
         channel.read(byteBuffer);
         byteBuffer.flip();
         long checksum = byteBuffer.getLong();
-        if (CheckSum.compute(key) != checksum) {
+        if (CheckSumStatic.compute(key) != checksum) {
             throw new Exception("Checksum not matching");
         }
     }

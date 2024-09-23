@@ -1,7 +1,9 @@
 package sst;
 
-import Checksum.CheckSum;
+import Checksum.CheckSumStatic;
 import com.google.common.hash.BloomFilter;
+import sstIo.ReaderInterface;
+import sstIo.PrimitiveWriter;
 import util.SizeOf;
 
 import java.io.EOFException;
@@ -21,41 +23,58 @@ public class MiddleBlock {
         if (entry.getValue().getIsDelete() != ValueUnit.DELETE) {
             byteBuffer.putLong(entry.getValue().getValue().length)
                     .put(entry.getValue().getValue())
-                    .putLong(CheckSum.compute(entry.getKey(), entry.getValue().getValue()));
+                    .putLong(CheckSumStatic.compute(entry.getKey(), entry.getValue().getValue()));
         } else {
-            byteBuffer.putLong(CheckSum.compute(entry.getKey()));
+            byteBuffer.putLong(CheckSumStatic.compute(entry.getKey()));
         }
         byteBuffer.flip();
         channel.write(byteBuffer);
     }
 
+    public static void writeMiddleBlock(PrimitiveWriter writer, byte[] key, ValueUnit value) {
+        if (value.getIsDelete() == ValueUnit.DELETE) {
+            writer.putInt(key.length)
+                    .putBytes(key)
+                    .putLong(CheckSumStatic.compute(key))
+                    .putByte(value.getIsDelete());
+        } else {
+            writer.putInt(key.length)
+                    .putBytes(key)
+                    .putLong(CheckSumStatic.compute(key))
+                    .putByte(value.getIsDelete())
+                    .putInt(value.getValue().length)
+                    .putBytes(value.getValue())
+                    .putLong(CheckSumStatic.compute(key, value.getValue()));
+        }
+    }
+
     public static void writePointers(FileChannel channel, ByteBuffer byteBuffer, List<Long> pointers) throws Exception {
         byteBuffer.clear();
-        int limit = byteBuffer.limit();
-        limit = (limit / SizeOf.LongLength) - 1;
-
-        for(int i = 0; i < pointers.size(); ) {
-            for (int j = 0; j < limit &&
-                    i < pointers.size() &&
-                    byteBuffer.remaining() > SizeOf.LongLength; j++, i++) {
-
-                byteBuffer.putLong(pointers.get(i));
+        for (Long pointer : pointers) {
+            if (byteBuffer.remaining() >= SizeOf.LongLength) {
+                byteBuffer.putLong(pointer);
+            } else {
+                byteBuffer.flip();
+                channel.write(byteBuffer);
+                byteBuffer.clear();
+                byteBuffer.putLong(pointer);
             }
-            byteBuffer.flip();
-            channel.write(byteBuffer);
-            byteBuffer.compact();
+            //instead of compact, clear can be used. or we can check for remaining() if > 0 then compact else clear()
         }
+        byteBuffer.flip();
+        channel.write(byteBuffer);
+        byteBuffer.clear();
+
         if (byteBuffer.position() != 0) {
             throw new Exception("pointers not written fully");
         }
-        // sure code that works
-//        byteBuffer.clear();
-//        for (Long pointer : pointers) {
-//            byteBuffer.clear()
-//                    .putLong(pointer)
-//                    .flip();
-//            channel.write(byteBuffer);
-//        }
+    }
+
+    public static void writePointers(PrimitiveWriter writer, List<Long> pointers) {
+        // todo can be improved.
+        for (Long pointer : pointers) {
+            writer.putLong(pointer);
+        }
     }
 
     /**
@@ -169,7 +188,7 @@ public class MiddleBlock {
         long checksumPosition = offset + Long.BYTES + key.length + Short.BYTES + Long.BYTES + value.length;
         verifyChecksum(byteBuffer, channel, checksumPosition, key, value);
 
-        return Map.entry(key, new ValueUnit(value, isDelete));
+        return Map.entry(key, new ValueUnit(value, (byte) isDelete));
     }
 
     private static void verifyChecksum(ByteBuffer byteBuffer, FileChannel channel,long position, byte[] key, byte[] value) throws Exception {
@@ -178,7 +197,7 @@ public class MiddleBlock {
         channel.read(byteBuffer, position); // previously it was channel.read(byteBuffer);
         byteBuffer.flip();
         long checksum = byteBuffer.getLong();
-        if (CheckSum.compute(key, value) != checksum) {
+        if (CheckSumStatic.compute(key, value) != checksum) {
             throw new Exception("Checksum not matching");
         }
     }
@@ -189,12 +208,46 @@ public class MiddleBlock {
         channel.read(byteBuffer, position);// previously it was channel.read(byteBuffer);
         byteBuffer.flip();
         long checksum = byteBuffer.getLong();
-        if (CheckSum.compute(key) != checksum) {
+        if (CheckSumStatic.compute(key) != checksum) {
             throw new Exception("Checksum not matching");
         }
     }
 
     public static void writeBloom(FileOutputStream outputStream, BloomFilter<byte[]> filter) throws IOException {
         filter.writeTo(outputStream);
+    }
+
+    public static KeyUnit getKeyUnit(ReaderInterface reader, long position) {
+        ByteBuffer byteBuffer = reader.readSize(new byte[SizeOf.IntLength], position, SizeOf.IntLength);
+        int keySize = byteBuffer.getInt();
+        int readSize = keySize + SizeOf.LongLength +  Byte.BYTES + SizeOf.IntLength;
+        byteBuffer = reader.readSize(new byte[readSize], readSize);
+        byte[] key = new byte[keySize];
+        byteBuffer.get(key);
+        long checkSum = byteBuffer.getLong();
+        byte isDelete = byteBuffer.get();
+        if (isDelete != KeyUnit.DELETE) {
+            return new KeyUnit(key, checkSum, isDelete, byteBuffer.getInt());
+        }
+        return new KeyUnit(key, checkSum, isDelete, -1);
+    }
+
+    public static byte[] getValueUnit(ReaderInterface reader, long position, KeyUnit keyUnit) {
+        int valueSize = keyUnit.getValueSize();
+        ByteBuffer byteBuffer = reader.readSize(new byte[valueSize + SizeOf.LongLength],
+                position + SizeOf.IntLength + keyUnit.getKey().length + SizeOf.LongLength + Byte.BYTES + SizeOf.IntLength,
+                valueSize + SizeOf.LongLength);
+        byte[] value = new byte[valueSize];
+        byteBuffer.get(value);
+        long checkSum = byteBuffer.getLong();
+        if (CheckSumStatic.compute(keyUnit.getKey(), value) != checkSum) {
+            throw new RuntimeException("Checksum mismatch");
+        }
+        return value;
+    }
+
+    public static KeyUnit getKeyUnit(byte[] bytes, ValueUnit valueUnit) {
+        return new KeyUnit(bytes, CheckSumStatic.compute(bytes), valueUnit.getIsDelete(),
+                valueUnit.getIsDelete() != ValueUnit.DELETE ? valueUnit.getValue().length : -1);
     }
 }

@@ -6,6 +6,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import static util.BytesConverter.bytes;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.*;
 
@@ -23,8 +24,8 @@ public class UpdationDeletionTest {
 
     @BeforeEach
     public void init() throws Exception {
-        opt = new DBOptions(this.getClass().getName() + "DB");
-        db = new DBImpl(opt);
+        opt = new DBOptions();
+        db = new DBImpl(new File(this.getClass().getName() + "DB"), opt);
         VALUE = "value".repeat(50);
         TOTAL = 10_000_0;
         NUM_OP = 10_000;
@@ -32,7 +33,7 @@ public class UpdationDeletionTest {
     }
 
     @AfterEach
-    public void closingSession() throws IOException {
+    public void closingSession() throws Exception {
         db.close();
         db.destroy();
     }

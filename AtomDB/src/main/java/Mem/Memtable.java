@@ -1,14 +1,15 @@
 package Mem;
 
-public interface Memtable {
+import db.KVUnit;
 
-    byte[] put(byte[] key, byte[] value) throws Exception;
+public interface Memtable<K, V> {
+    KVUnit get(byte[] key);
 
-    byte[] get(byte[] key) throws Exception;
+    long getMemTableSize();
 
-    void flush();
+    int getNumberOfEntries();
 
-    byte[] delete(byte[] key) throws Exception;
+    K getFirstKey();
 
-    boolean delete(byte[] key, byte[] value) throws Exception;
+    K getLastKey();
 }

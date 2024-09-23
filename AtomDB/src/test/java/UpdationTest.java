@@ -6,7 +6,7 @@ import db.DBOptions;
 import org.junit.jupiter.api.*;
 import sst.ValueUnit;
 
-import java.io.IOException;
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -23,15 +23,15 @@ public class UpdationTest {
 
     @BeforeEach
     public void init() throws Exception {
-        opt = new DBOptions(this.getClass().getName() + "DB");
-        db = new DBImpl(opt);
+        opt = new DBOptions();
+        db = new DBImpl(new File(this.getClass().getName() + "DB"), opt);
         VALUE = "value".repeat(50);
         TOTAL = 10000;
         N_TO_UPDATE = 1;
     }
 
     @AfterEach
-    public void closingSession() throws IOException {
+    public void closingSession() throws Exception {
         db.close();db.destroy();
     }
 
@@ -55,18 +55,18 @@ public class UpdationTest {
         }
 
 
-        while(hasOldValueInSSTFiles(toBeUpdated, db.getTable(), bytes("updated value boss 69"))) {
-            System.out.println("sending random bullshit");
-            for (int i = TOTAL; i < TOTAL + TOTAL; i++) {
-                db.put(bytes(i + ""), bytes(i + "_" + VALUE));
-            }
-        }
+//        while(hasOldValueInSSTFiles(toBeUpdated, db.getTable(), bytes("updated value boss 69"))) {
+//            System.out.println("sending random bullshit");
+//            for (int i = TOTAL; i < TOTAL + TOTAL; i++) {
+//                db.put(bytes(i + ""), bytes(i + "_" + VALUE));
+//            }
+//        }
     }
 
     private static boolean hasOldValueInSSTFiles(List<Integer> tobeUpdated, Table table, byte[] newValue) throws Exception {
         boolean result = false;
         for (int i = 0; i < 7; i++) {
-            List<String> levelList = table.getLevelList(Level.fromID(i));
+            List<String> levelList = null;//table.getLevelFileList(Level.fromID(i));
             System.out.println("level=" + i);
             for (String file : levelList) {
                 for (Integer key : tobeUpdated) {

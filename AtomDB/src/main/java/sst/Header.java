@@ -1,31 +1,31 @@
 package sst;
 
-import Checksum.CheckSum;
+import Checksum.CheckSumStatic;
 import Level.Level;
-import com.google.common.primitives.Longs;
 import db.DBComparator;
+import sstIo.ReaderInterface;
+import sstIo.PrimitiveWriter;
+import util.SizeOf;
 import util.Util;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
-import java.util.SortedMap;
 
 /**
  *  closing of header is important as it provided easy debugging and safety
  */
 
 public class Header implements AutoCloseable{
-    private static final int BS_POSITION = 16;
-    private static final int ENTRIES_POSITION = 24;
+    private static final long BS_POSITION = 2;
     private static final int HEADER_POSITION = 0;
-    private final long versionId;
-    private long entries = Long.MIN_VALUE;
+    private final byte versionId;
+    private String fileName;
+    private int entries = Integer.MIN_VALUE;
     private final byte[] sKey;
     private final byte[] lKey;
     private long binarySearchLocation = Long.MIN_VALUE;
     private final Level level;
-    private final String fileName;
     /**
      *  isWritten
      *  this bool is there for the safety for writing
@@ -40,48 +40,31 @@ public class Header implements AutoCloseable{
      *  to which a exception is thrown
      */
     private boolean isWritten = false;
-    public Header(SortedMap<byte[], ValueUnit> map, long verID, Level level, String fileName) {
-        this.entries = map.size();
-        this.versionId = verID;
-        sKey = map.firstKey();
-        lKey = map.lastKey();
-        this.level = level;
-        this.fileName = fileName;
-        validation();
-    }
 
-    private Header(long versionId,
-                  long entries,
-                  byte[] sKey,
-                  byte[] lKey,
-                  long binarySearchLocation,
-                  Level level,
-                  String fileName) {
+    public Header(byte versionId, Level level, long bs, int entries, byte[] sKey, byte[] lKey, long checksum) {
         this.versionId = versionId;
+        this.level = level;
+        this.binarySearchLocation = bs;
         this.entries = entries;
         this.sKey = sKey;
         this.lKey = lKey;
-        this.binarySearchLocation = binarySearchLocation;
-        this.level = level;
-        this.fileName = fileName;
+        validation(checksum);
+    }
+
+    public Header(byte[] firstKey, byte[] lastKey, int size, byte sstVersion, Level levelZero, String tempFileName) {
+        this.versionId = sstVersion;
+        this.entries = size;
+        this.sKey = firstKey;
+        this.lKey = lastKey;
+        this.level = levelZero;
+        this.fileName = tempFileName;
         this.isWritten = true; // this is used for safety of writing, since this constructor is used by reading there is writing required. that's why this is set to true
-        validation();
     }
 
-    public Header(long versionId,
-                  byte[] sKey,
-                  byte[] lKey,
-                  Level level,
-                  String fileName) {
-        this.versionId = versionId;
-        this.sKey = sKey;
-        this.lKey = lKey;
-        this.level = level;
-        this.fileName = fileName;
-        validation();
-    }
-
-    private void validation() {
+    private void validation(long checksum) {
+        if (checksum != getKeysChecksum()) {
+            throw new RuntimeException("Mismatch of checksum");
+        }
         Util.requireTrue(
                 DBComparator.byteArrayComparator.compare(
                 sKey, lKey
@@ -109,7 +92,7 @@ public class Header implements AutoCloseable{
         return level;
     }
 
-    public long getEntries() {
+    public int getEntries() {
         return entries;
     }
 
@@ -125,67 +108,48 @@ public class Header implements AutoCloseable{
         return binarySearchLocation;
     }
 
-    public static Header getHeader(String fileName, FileChannel channel, ByteBuffer byteBuffer) throws Exception {
-        byteBuffer.clear().limit(Long.BYTES * 5);
-        channel.position(HEADER_POSITION);
-        channel.read(byteBuffer);
-        byteBuffer.flip();
-        long verId = byteBuffer.getLong();
-//        System.out.println(verId);
-        long levelID = byteBuffer.getLong();
-//        System.out.println(lev);
+    public static Header getHeader(ReaderInterface sstReader) throws Exception {
+        var byteBuffer = sstReader.readSize(new byte[18], HEADER_POSITION, 18);
+        byte verId = byteBuffer.get();
+        byte levelID = byteBuffer.get();
         long bs = byteBuffer.getLong();
-//        System.out.println(bs);
-        long entries = byteBuffer.getLong();
-//        System.out.println(entries);
-        int sLength = (int) byteBuffer.getLong();
-//        System.out.println(sLength);
+        int entries = byteBuffer.getInt();
+        int nextBlockLength = byteBuffer.getInt();
+
+        byteBuffer = sstReader.readSize(new byte[(int) nextBlockLength], nextBlockLength);
+
+        // todo key and value sizes are int
+        int sLength = byteBuffer.getInt();
         byte[] sKey = new byte[sLength];
-        byteBuffer.clear().limit(sLength);
-        channel.read(byteBuffer);
-        byteBuffer.flip();
         byteBuffer.get(sKey);
 
-        byteBuffer.clear().limit(Longs.BYTES * 2);
-        channel.read(byteBuffer);
-        byteBuffer.flip();
-        long sCheckSum = byteBuffer.getLong();
-        int lLength = (int) byteBuffer.getLong();
+        int lLength = byteBuffer.getInt();
         byte[] lKey = new byte[lLength];
-        byteBuffer.clear().limit(lLength);
-        channel.read(byteBuffer);
-        byteBuffer.flip();
         byteBuffer.get(lKey);
 
-        byteBuffer.clear().limit(Longs.BYTES);
-        channel.read(byteBuffer);
-        byteBuffer.flip();
-        long lCheckSum = byteBuffer.getLong();
-        if (lCheckSum != CheckSum.compute(lKey) ||
-                sCheckSum != CheckSum.compute(sKey)) {
-            throw new Exception("wrong checksum for smallest and largest");
-        }
-        return new Header(verId, entries, sKey, lKey, bs, Level.fromID((int) levelID), fileName);
+        long checkSum = byteBuffer.getLong();
+
+        return new Header(verId, Level.fromID((int) levelID), bs, entries, sKey, lKey, checkSum);
     }
 
-    public void writeHeader(FileChannel channel, ByteBuffer byteBuffer) throws Exception{
-        byteBuffer.clear();
-        byteBuffer.putLong(versionId)
-                .putLong(Level.toID(level))
+    public void write(PrimitiveWriter writer) throws Exception{
+//        VID | LEV | BS | EN | Block_LEN | [ SK_LEN | SK | LK_LEN | LK | CH ]
+        // todo what about size exceeding bytebuffer length as well as the mappedBuffer length
+        writer.putByte(versionId)
+                .putByte(Level.toID(level))
                 .putLong(binarySearchLocation)
-                .putLong(entries)
-                .putLong(sKey.length)
-                .put(sKey)
-                .putLong(CheckSum.compute(sKey))
-                .putLong(lKey.length)
-                .put(lKey)
-                .putLong(CheckSum.compute(lKey))
-                .flip();
-        channel.position(HEADER_POSITION); // moved to 0 position
-        channel.write(byteBuffer);
+                .putInt(entries)
+                .putInt(SizeOf.IntLength + sKey.length + SizeOf.IntLength + lKey.length + SizeOf.LongLength)
+                .putInt(sKey.length)
+                .putBytes(sKey)
+                .putInt(lKey.length)
+                .putBytes(lKey)
+                .putLong(getKeysChecksum());
         isWritten = true;
-        System.out.println(this);
-        System.out.println("written header");
+    }
+
+    private long getKeysChecksum() {
+        return CheckSumStatic.compute(sKey, lKey);
     }
 
     public void writeBS(FileChannel channel, ByteBuffer byteBuffer, long binarySearchLocation) throws IOException {
@@ -195,16 +159,12 @@ public class Header implements AutoCloseable{
         byteBuffer.putLong(binarySearchLocation)
                   .flip();
         channel.write(byteBuffer, BS_POSITION);
-//        System.out.println("bs="+binarySearchLocation);
     }
 
-    public void writeEntries(FileChannel channel, ByteBuffer byteBuffer, long numberOfEntries) throws IOException {
-        Util.requireEquals(this.entries,  Long.MIN_VALUE, "overwriting of entries, file=" + fileName);
-        this.entries = numberOfEntries;
-        byteBuffer.clear();
-        byteBuffer.putLong(numberOfEntries)
-                .flip();
-        channel.write(byteBuffer, ENTRIES_POSITION);
+    public void writeBS(PrimitiveWriter writer, long binarySearchLocation) throws IOException {
+        Util.requireEquals(this.binarySearchLocation, Long.MIN_VALUE, "overwriting of binary search position, file="+ fileName);
+        this.binarySearchLocation = binarySearchLocation;
+//        writer.writeAtPositionInIsolation(BS_POSITION, binarySearchLocation);
     }
 
 

@@ -21,6 +21,8 @@ public class BytesConverter {
         return result;
     }
 
+
+
     public static long toLong(byte[] bytes, int inclusive, int exclusive) {
         requireNonNull(bytes);
         if (bytes.length < exclusive) {
@@ -74,6 +76,7 @@ public class BytesConverter {
     }
 
     // google guava
+    //https://github.com/google/guava/blob/d5fbccac90aba8501c633e896ea67e2b0bfb426d/guava/src/com/google/common/primitives/Longs.java#L284
     private static long fromBytesToLong(
             byte b1, byte b2, byte b3, byte b4, byte b5, byte b6, byte b7, byte b8) {
         return (b1 & 0xFFL) << 56

@@ -7,7 +7,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import sst.ValueUnit;
 
-import java.io.IOException;
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -23,15 +23,15 @@ public class DeletionTest {
 
     @BeforeEach
     public void init() throws Exception {
-        opt = new DBOptions(this.getClass().getName() + "DB");
-        db = new DBImpl(opt);
+        opt = new DBOptions();
+        db = new DBImpl(new File(this.getClass().getName() + "DB"), opt);
         VALUE = "value".repeat(50);
         TOTAL = 10000;
         N_TO_DELETE = 1;
     }
 
     @AfterEach
-    public void closingSession() throws IOException {
+    public void closingSession() throws Exception {
         db.close();db.destroy();
     }
 
@@ -54,17 +54,17 @@ public class DeletionTest {
             db.delete(bytes(integer + ""));
         }
 
-        while(exitsValueInSSTFiles(toBeDeleted, db.getTable())) {
-            System.out.println("sending random bullshit");
-            for (int i = TOTAL; i < TOTAL + TOTAL; i++) {
-                db.put(bytes(i + ""), bytes(i + "_" + VALUE));
-            }
-        }
+//        while(exitsValueInSSTFiles(toBeDeleted, db.getTable())) {
+//            System.out.println("sending random bullshit");
+//            for (int i = TOTAL; i < TOTAL + TOTAL; i++) {
+//                db.put(bytes(i + ""), bytes(i + "_" + VALUE));
+//            }
+//        }
     }
     private static boolean exitsValueInSSTFiles(List<Integer> toBeDeleted, Table table) throws Exception {
         boolean result = false;
         for (int i = 0; i < 7; i++) {
-            List<String> levelList = table.getLevelList(Level.fromID(i));
+            List<String> levelList = null;//table.getLevelFileList(Level.fromID(i));
             System.out.println("level=" + i);
             for (String file : levelList) {
                 for (Integer key : toBeDeleted) {

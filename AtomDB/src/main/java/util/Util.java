@@ -1,7 +1,11 @@
 package util;
 
+import java.io.File;
 import java.nio.ByteBuffer;
 import java.time.Instant;
+import java.util.concurrent.Callable;
+import java.util.function.Function;
+import java.util.regex.Pattern;
 
 public class Util {
 
@@ -60,5 +64,33 @@ public class Util {
         if (a == b)
             throw new RuntimeException(errMsg);
         return true;
+    }
+
+    public static boolean requiresNull(Object obj, String errMsg) {
+        if (obj != null)
+            throw new RuntimeException(errMsg);
+        return true;
+    }
+
+    public static String fileSeparatorForSplit = Pattern.quote(File.separator);
+
+    public static Object recordTimeTaken(Function<Object, Object> asd) {
+        long start = System.nanoTime();
+        var value =  asd.apply(new Object());
+        long end = System.nanoTime();
+        System.out.println("took="+(end - start)/1000_000_000.0);
+        return value;
+    }
+
+    public static <T> T recordTimeTaken(Callable<T> callable) {
+        long start = System.nanoTime();
+        try {
+            T result = callable.call();
+            long end = System.nanoTime();
+            System.out.println("took=" + (end - start) / 1_000_000_000.0 + " seconds");
+            return result;
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 }

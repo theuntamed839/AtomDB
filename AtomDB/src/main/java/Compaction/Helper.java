@@ -13,6 +13,8 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.*;
 
+import static util.Util.fileSeparatorForSplit;
+
 public class Helper implements Comparable<Helper>, Iterator<Map.Entry<byte[], ValueUnit>>, AutoCloseable {
     private final FileChannel channel;
     private final ByteBuffer byteBuffer;
@@ -27,12 +29,12 @@ public class Helper implements Comparable<Helper>, Iterator<Map.Entry<byte[], Va
         this.byteBuffer = ByteBuffer.allocate(4096);
         System.out.printf("helper file="+file);
         // file rank and level
-        String[] pieces = file.trim().split(File.separator);
+        String[] pieces = file.trim().split(fileSeparatorForSplit);
         pieces  = pieces[pieces.length - 1].trim().split("_");
         this.fileLevel = Short.parseShort(pieces[0].trim());
         this.fileRankInLevel = Long.parseLong(pieces[1].replace(".sst", ""));
 
-        this.header = Header.getHeader(file, channel, byteBuffer);
+        this.header = null; //Header.getHeader(file, channel, byteBuffer);
         // todo can be retrived from cache
         this.pointers = MiddleBlock.readPointers(channel,
                 byteBuffer,

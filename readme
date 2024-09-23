@@ -10,7 +10,7 @@ Theory
 
 Data is first stored in a skip list which is a memtable. there will be threshold size once exceeded the memtable is flushed as the sst file, in level 0
 
-sst is a immutable set offile
+sst is a immutable set of file.
 
 Deletion and updation are done using compaction
 since sst are immutable, we can't modify the files.
