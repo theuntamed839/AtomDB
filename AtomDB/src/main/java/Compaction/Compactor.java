@@ -5,11 +5,10 @@ import Mem.ImmutableMem;
 import Table.Table;
 import Table.SSTInfo;
 import db.DBComparator;
+import db.DbOptions;
 import db.KVUnit;
 import sstIo.MemTableBackedSSTReader;
 import sstIo.SSTKeyRange;
-import util.SizeOf;
-import util.Util;
 
 import java.io.IOException;
 import java.util.*;
@@ -26,10 +25,13 @@ import java.util.concurrent.*;
  */
 public class Compactor implements AutoCloseable{
     private final Table table;
+    private final DbOptions dbOptions;
     private ConcurrentMap<Level, Boolean> compactions = new ConcurrentHashMap<>();
     private ExecutorService executors = Executors.newCachedThreadPool();
-    public Compactor(Table table) {
+
+    public Compactor(Table table, DbOptions dbOptions) {
         this.table = table;
+        this.dbOptions = dbOptions;
     }
 
     public void persistLevelFile(ImmutableMem<byte[], KVUnit> memtable) throws IOException {
@@ -78,7 +80,7 @@ public class Compactor implements AutoCloseable{
         long start = System.nanoTime();
         System.out.println(level + " Compaction Started " + Thread.currentThread().getName());
         compactions.put(level, true);
-        var iterator = new CollectiveSStIterator(Collections.unmodifiableCollection(nextLevelOverlappingFiles));
+        var iterator = new CollectiveSStIterator(Collections.unmodifiableCollection(nextLevelOverlappingFiles), dbOptions);
 
         SSTPersist.writeManyFiles(level.next(), iterator, table);
 

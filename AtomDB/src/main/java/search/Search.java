@@ -29,7 +29,7 @@ import java.util.concurrent.ConcurrentSkipListSet;
 
 public class Search implements AutoCloseable{
 
-    private final LoadingCache<byte[], ValueUnit> kvCache;
+    private final LoadingCache<byte[], KVUnit> kvCache;
     private final LoadingCache<SSTInfo, Finder> readerCache;
     private final Cache<Pointer, Checksums> checksumsCache;
     private final HashMap<Integer, Integer> removeMeAfterTestMap;
@@ -40,11 +40,11 @@ public class Search implements AutoCloseable{
     public Search() {
         this.kvCache = Caffeine.newBuilder()
                 .maximumWeight(DBConstant.KEY_VALUE_CACHE_SIZE)
-                .weigher((byte[] k, ValueUnit v) -> k.length + v.getSize())
-                .build(key -> findKey(key));
+                .weigher((byte[] k, KVUnit v) -> k.length + v.getUnitSize())
+                .build(this::findKey);
         this.readerCache = Caffeine.newBuilder()
                 .maximumSize(900)
-                .build(sst -> getFinder(sst));
+                .build(this::getFinder);
         this.checksumsCache = Caffeine.newBuilder()
                 .maximumWeight(500 * 1024 * 1024)
                 .weigher((Pointer pos, Checksums check) -> DBConstant.CLUSTER_SIZE * Long.BYTES)
@@ -70,10 +70,10 @@ public class Search implements AutoCloseable{
         return new Finder(sst.getSst(), sst.getPointers(), checksumsCache);
     }
 
-    public ValueUnit findKey(byte[] key) throws IOException {
+    public KVUnit findKey(byte[] key) throws IOException {
         KVUnit kvUnit = secondaryMem.get(key);
         if (kvUnit != null) {
-            return new ValueUnit(kvUnit.getValue(), kvUnit.getIsDelete());
+            return kvUnit;
         }
         Crc32cChecksum crc32cChecksum = new Crc32cChecksum();
         long keyChecksum = crc32cChecksum.compute(key);
@@ -85,10 +85,10 @@ public class Search implements AutoCloseable{
                 fileRequiredToSearch++;
 
                 Finder finder = readerCache.get(sstInfo);
-                ValueUnit valueUnit = finder.find(key, keyChecksum);
-                if (valueUnit != null) {
+                var unit = finder.find(key, keyChecksum);
+                if (unit != null) {
                     removeMeAfterTestMap.put(fileRequiredToSearch, removeMeAfterTestMap.getOrDefault(fileRequiredToSearch, 0) + 1);
-                    return valueUnit;
+                    return unit;
                 }
             }
         }

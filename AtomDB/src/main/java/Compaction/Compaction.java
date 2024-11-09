@@ -16,7 +16,7 @@
 //
 //
 //import Table.Table;
-//import db.DBOptions;
+//import db.DbOptions;
 //
 //import java.io.File;
 //import java.time.Instant;
@@ -47,7 +47,7 @@
 //    private final File dbFolder;
 //
 //    private Table table;
-//    private DBOptions dbOptions;
+//    private DbOptions dbOptions;
 //    public Compaction(File dbFolder, Table table) {
 //        this.table = table;
 //        this.dbFolder = dbFolder;

@@ -1,6 +1,6 @@
 package sstIo;
 
-import Checksum.Checksum;
+import Checksum.AtomChecksum;
 import Checksum.Crc32cChecksum;
 import db.DBComparator;
 import util.Util;
@@ -15,7 +15,7 @@ public class SSTKeyRange {
         Validate(smallest, greatest);
         this.smallest = smallest;
         this.greatest = greatest;
-        Checksum checksumProvide = new Crc32cChecksum();
+        AtomChecksum checksumProvide = new Crc32cChecksum();
         this.checksum = checksumProvide.compute(smallest, greatest);
         this.size = smallest.length + greatest.length + Integer.BYTES * 2 + Long.BYTES;
     }
@@ -23,7 +23,7 @@ public class SSTKeyRange {
     public SSTKeyRange(byte[] smallest, byte[] greatest, long checksumProvided) {
         Validate(smallest, greatest);
         long computedChecksum = computeChecksum(smallest, greatest);
-        Util.requireTrue(checksumProvided == computedChecksum, "Checksum mismatch");
+        Util.requireTrue(checksumProvided == computedChecksum, "AtomChecksum mismatch");
         this.smallest = smallest;
         this.greatest = greatest;
         this.checksum = computedChecksum;
@@ -31,7 +31,7 @@ public class SSTKeyRange {
     }
 
     private static long computeChecksum(byte[] first, byte[] last) {
-        Checksum checksumProvide = new Crc32cChecksum();
+        AtomChecksum checksumProvide = new Crc32cChecksum();
         return checksumProvide.compute(first, last);
     }
 

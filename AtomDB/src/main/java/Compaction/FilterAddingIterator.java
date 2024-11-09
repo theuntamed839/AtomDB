@@ -28,7 +28,7 @@ public class FilterAddingIterator implements Iterator<KVUnit> {
     public KVUnit next() {
         var next = iterator.next();
         filter.put(next.getKey());
-        totalKVSize += next.unitSize();
+        totalKVSize += next.getUnitSize();
         count++;
         return next;
     }

@@ -1,5 +1,5 @@
 import db.DBImpl;
-import db.DBOptions;
+import db.DbOptions;
 import org.xerial.snappy.Snappy;
 
 import java.io.File;
@@ -20,7 +20,7 @@ public class Benchmark {
         //searchBenchMark(500000, "benchmarkWithRandomKVBytesWithCompaction");
         //searchBenchMark(500000, "benchmarkWithRandomKVBytesWithoutCompaction");
         //searchBenchMark(500000, "IssueDB");
-         //benchmark(inputString, 500000);
+         benchmark(inputString, 500000);
 //        benchmark(inputString, 1000);
 //        benchmark(inputString, 10000);
 //        benchmark(inputString, 100000);
@@ -28,7 +28,7 @@ public class Benchmark {
 //        benchmarkWriting(inputString, 1000_000);
 //        initialTest(inputString, 50000);
 //                benchmark(inputString, 15000);
-        benchmarkWithRandomKVBytes(1000000, 50, 500); //500000
+//        benchmarkWithRandomKVBytes(1000000, 50, 500); //500000
 //        benchmarkWithRandomLengthKVBytes(1000_000);
 //        benchmarkRandomRead(inputString, 1000_000, "asd"); //1000000
     }
@@ -40,7 +40,7 @@ public class Benchmark {
 
         System.out.println("Number of threads: " + Thread.activeCount());
         long beforeUsedMem = Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
-        var opt = new DBOptions();
+        var opt = new DbOptions();
         var db = new DBImpl(new File(dbName), opt);
         long startTime , endTime, readingTime, writingTime;
         try {
@@ -93,7 +93,7 @@ public class Benchmark {
 
         System.out.println("Number of threads: " + Thread.activeCount());
         long beforeUsedMem = Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
-        var opt = new DBOptions();
+        var opt = new DbOptions();
         var db = new DBImpl(new File(dbName), opt);
         long startTime , endTime, readingTime, writingTime;
         try {
@@ -165,7 +165,7 @@ public class Benchmark {
     private static void benchmarkRandomRead(String inputString, long totalEntryCount, String dbName) throws Exception {
         System.out.println("Number of threads: " + Thread.activeCount());
         long beforeUsedMem = Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
-        var opt = new DBOptions();
+        var opt = new DbOptions();
         var db = new DBImpl(new File(dbName), opt);
         long startTime , endTime, readingTime, writingTime;
         try {
@@ -205,7 +205,7 @@ public class Benchmark {
     }
 
     public static void initialTest(String inputString, long totalEntryCount) throws Exception {
-        var opt = new DBOptions();
+        var opt = new DbOptions();
         var db = new DBImpl(new File(Benchmark.class.getName() + "DB"), opt);
         var key = "somegood things";
         System.out.println("compressed keysize around ="+Snappy.compress(bytes(key)).length);
@@ -239,7 +239,7 @@ public class Benchmark {
     public static void benchmarkWriting(String inputString, long totalEntryCount) throws Exception {
         System.out.println("Number of threads: " + Thread.activeCount());
         long beforeUsedMem = Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
-        var opt = new DBOptions();
+        var opt = new DbOptions();
         var db = new DBImpl(new File(Benchmark.class.getName() + "DB"), opt);
         long startTime , endTime, readingTime, writingTime;
         try {
@@ -267,7 +267,7 @@ public class Benchmark {
     public static void benchmark(String inputString, long totalEntryCount) throws Exception {
         System.out.println("Number of threads: " + Thread.activeCount());
         long beforeUsedMem = Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
-        var opt = new DBOptions();
+        var opt = new DbOptions();
         var db = new DBImpl(new File(Benchmark.class.getName() + "DB"), opt);
         long startTime , endTime, readingTime, writingTime;
         try {
@@ -304,7 +304,7 @@ public class Benchmark {
     public static void searchBenchMark(long totalEntryCount, String DBName) throws Exception {
         System.out.println("Number of threads: " + Thread.activeCount());
         long beforeUsedMem = Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
-        var opt = new DBOptions();
+        var opt = new DbOptions();
         var db = new DBImpl(new File(DBName), opt);
         long startTime , endTime, readingTime, writingTime;
         try {

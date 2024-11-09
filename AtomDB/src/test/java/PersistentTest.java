@@ -1,12 +1,11 @@
 import db.DBImpl;
-import db.DBOptions;
+import db.DbOptions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -15,7 +14,7 @@ import java.util.Random;
 import static util.BytesConverter.bytes;
 
 public class PersistentTest {
-    DBOptions opt ;
+    DbOptions opt ;
     DBImpl db;
     String VALUE ;
     int TOTAL;
@@ -30,7 +29,7 @@ public class PersistentTest {
 
     @BeforeEach
     public void init() throws Exception {
-        opt = new DBOptions();
+        opt = new DbOptions();
         db = new DBImpl(new File(this.getClass().getName() + "DB"), opt);
         VALUE = "value".repeat(50);
         TOTAL = 10_000_0;

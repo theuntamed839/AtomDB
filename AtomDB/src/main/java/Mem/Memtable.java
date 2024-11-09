@@ -12,4 +12,6 @@ public interface Memtable<K, V> {
     K getFirstKey();
 
     K getLastKey();
+
+    boolean isFull();
 }

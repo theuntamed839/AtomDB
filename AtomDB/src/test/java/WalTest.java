@@ -1,5 +1,5 @@
 import db.DBImpl;
-import db.DBOptions;
+import db.DbOptions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -16,13 +16,13 @@ import static util.BytesConverter.bytes;
 
 public class WalTest {
     public static final String VALUE = "value".repeat(50);
-    DBOptions opt ;
+    DbOptions opt ;
     DBImpl db;
     private String dbDirectory;
 
     @BeforeEach
     public void init() throws Exception {
-        opt = new DBOptions();
+        opt = new DbOptions();
         dbDirectory = this.getClass().getName() + "_" + Instant.now().getEpochSecond() + "_DB";
         File directory = new File(dbDirectory);
         if (!directory.mkdir()) {

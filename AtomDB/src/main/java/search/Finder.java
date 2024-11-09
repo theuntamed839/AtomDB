@@ -30,7 +30,7 @@ public class Finder implements AutoCloseable{
         this.checksumsCache = checksumsCache;
     }
 
-    public ValueUnit find(byte[] key, long keyChecksum) throws IOException {
+    public KVUnit find(byte[] key, long keyChecksum) throws IOException {
         Pointer pointer = getPointer(key);
         reader.position((int) pointer.position());
 
@@ -60,7 +60,7 @@ public class Finder implements AutoCloseable{
         return -1;
     }
 
-    private ValueUnit getLocation(byte[] key, long keyChecksum, int index, int initialPosition) throws IOException {
+    private KVUnit getLocation(byte[] key, long keyChecksum, int index, int initialPosition) throws IOException {
         if (index == -1) {
             return null;
         }
@@ -85,12 +85,11 @@ public class Finder implements AutoCloseable{
         int keyLength = wrap.getInt();
         wrap.position(wrap.position() + keyLength);
         byte isDeleted = wrap.get();
-        if (isDeleted == KVUnit.DELETE) return new ValueUnit(ValueUnit.DELETE);
-
+        if (KVUnit.DeletionStatus.isDeleted(isDeleted)) return new KVUnit(key);
         int valueLength = wrap.getInt();
         byte[] bytes = new byte[valueLength];
         wrap.get(bytes);
-        return new ValueUnit(bytes, ValueUnit.ADDED);
+        return new KVUnit(key, bytes);
     }
 
     private Pointer getPointer(byte[] key) {

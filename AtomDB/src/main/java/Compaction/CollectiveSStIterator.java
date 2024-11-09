@@ -3,6 +3,7 @@ package Compaction;
 import Table.SSTInfo;
 import com.google.common.collect.PeekingIterator;
 import db.DBComparator;
+import db.DbOptions;
 import db.KVUnit;
 
 import java.io.IOException;
@@ -14,13 +15,15 @@ import java.util.List;
 public class CollectiveSStIterator implements Iterator<KVUnit>, AutoCloseable{
     private final Collection<SSTInfo> files;
     private final List<PeekingIterator<KVUnit>> iterators;
+    private final DbOptions dbOptions;
     private PeekingIterator<KVUnit> currentUnitIterator;
 
-    public CollectiveSStIterator(Collection<SSTInfo> collection) throws IOException {
+    public CollectiveSStIterator(Collection<SSTInfo> collection, DbOptions dbOptions) throws IOException {
         this.files = collection;
         this.iterators = new ArrayList<>(collection.size());
+        this.dbOptions = dbOptions;
         for (SSTInfo sstInfo : collection) {
-            iterators.add(new SSTIterator(sstInfo));
+            iterators.add(new SSTIterator(sstInfo, dbOptions));
         }
     }
 

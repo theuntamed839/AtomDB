@@ -40,6 +40,11 @@ public class ImmutableMemTable implements ImmutableMem<byte[], KVUnit> {
     }
 
     @Override
+    public boolean isFull() {
+        return false;
+    }
+
+    @Override
     public Iterator<KVUnit> getKeySetIterator() {
         return map.values().iterator();
     }

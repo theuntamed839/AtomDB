@@ -1,31 +1,32 @@
 package Mem;
 
+import db.DbOptions;
 import db.KVUnit;
 
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.SortedMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 
 public class SkipListMemtable implements MutableMem<byte[], KVUnit>{
-    public final Comparator<byte[]> comparator;
     private final ConcurrentSkipListMap<byte[], KVUnit> map;
+    private final int maxSize;
     private int currentSize;
 
-    public SkipListMemtable(Comparator<byte[]> comparator) {
-        this.comparator = comparator;
-        map = new ConcurrentSkipListMap<>(comparator);
+    public SkipListMemtable(DbOptions options) {
+        this.maxSize = options.memtableSize;
+        map = new ConcurrentSkipListMap<>(options.comparator);
         currentSize = 0;
     }
 
     @Override
     public void put(KVUnit kvUnit) {
-        addToMemtable(kvUnit);
+        map.put(kvUnit.getKey(), kvUnit);
+        currentSize += kvUnit.getUnitSize();
     }
 
     @Override
     public void delete(KVUnit kvUnit) {
-        addToMemtable(kvUnit);
+        put(kvUnit);
     }
 
     @Override
@@ -53,12 +54,12 @@ public class SkipListMemtable implements MutableMem<byte[], KVUnit>{
     }
 
     @Override
-    public SortedMap<byte[], KVUnit> getReadOnlyMap() {
-        return Collections.unmodifiableSortedMap(map);
+    public boolean isFull() {
+        return currentSize >= maxSize;
     }
 
-    private void addToMemtable(KVUnit kvUnit) {
-        map.put(kvUnit.getKey(), kvUnit);
-        currentSize += kvUnit.unitSize();
+    @Override
+    public SortedMap<byte[], KVUnit> getReadOnlyMap() {
+        return Collections.unmodifiableSortedMap(map);
     }
 }

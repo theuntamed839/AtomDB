@@ -27,6 +27,15 @@ make a wal as our first sst and then use compaction
 ]
 ```
 
+// todo shrink some value to its native size, like some places long is used
+// even though that thing is int
+
+// todo make all bytebuffer direct
+
+// todo change all arrays.compare to db comparator
+
+// todo improve error messages
+
 # The MVP
 - [ ] Unit tests
 - [ ] Integration tests

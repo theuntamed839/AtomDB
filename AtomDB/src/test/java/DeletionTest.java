@@ -1,7 +1,6 @@
-import Level.Level;
 import Table.Table;
 import db.DBImpl;
-import db.DBOptions;
+import db.DbOptions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -15,7 +14,7 @@ import java.util.Scanner;
 import static util.BytesConverter.*;
 
 public class DeletionTest {
-    DBOptions opt ;
+    DbOptions opt ;
     DBImpl db;
     String VALUE ;
     int TOTAL;
@@ -23,7 +22,7 @@ public class DeletionTest {
 
     @BeforeEach
     public void init() throws Exception {
-        opt = new DBOptions();
+        opt = new DbOptions();
         db = new DBImpl(new File(this.getClass().getName() + "DB"), opt);
         VALUE = "value".repeat(50);
         TOTAL = 10000;

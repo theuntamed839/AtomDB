@@ -10,7 +10,7 @@
 //import com.google.common.hash.BloomFilter;
 //import com.google.common.hash.Funnels;
 //import db.DBComparator;
-//import db.DBOptions;
+//import db.DbOptions;
 //import sstIo.ChannelBackedWriter;
 //import sstIo.ReaderInterface;
 //import sstIo.MMappedWriter;
@@ -75,7 +75,7 @@
 //public class SSTManager implements AutoCloseable{
 //    private final File dbFolder;
 //    //    private static final byte[] VersionIDBytes = bytes(VersionID);
-//    private DBOptions dbOptions;
+//    private DbOptions dbOptions;
 //    private Table table;
 //    // todo need to move cache to somewhere, maybe in table
 //    private Cache cache;

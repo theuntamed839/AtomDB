@@ -13,7 +13,7 @@ public enum Operations {
     private static final byte update = BytesConverter.bytes("U")[0];
     private static final byte delete = BytesConverter.bytes("D")[0];
 
-    public static Operations getOP(byte given) {
+    public static Operations getOperation(byte given) {
         if (given == write) return WRITE;
         if (given == delete) return DELETE;
         throw new RuntimeException("not of Constants.Operations type");

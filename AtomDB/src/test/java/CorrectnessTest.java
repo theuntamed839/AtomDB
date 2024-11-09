@@ -1,5 +1,5 @@
 import db.DBImpl;
-import db.DBOptions;
+import db.DbOptions;
 import org.junit.jupiter.api.*;
 
 import java.io.File;
@@ -7,7 +7,6 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Random;
 import java.util.stream.IntStream;
 
 import static util.BytesConverter.bytes;
@@ -20,12 +19,12 @@ import static util.BytesConverter.bytes;
 public class CorrectnessTest {
     public static final int TOTAL = 500000;
     public static final String VALUE = "value".repeat(50);
-    DBOptions opt ;
+    DbOptions opt ;
     DBImpl db;
 
     @BeforeEach
     public void init() throws Exception {
-        opt = new DBOptions();
+        opt = new DbOptions();
         db = new DBImpl(new File(this.getClass().getName() +"_"+ Instant.now().getEpochSecond()+ "_DB"), opt);
         for (int i = 0; i < TOTAL; i++) {
             db.put(bytes(i + ""), bytes(i + "_" + VALUE));

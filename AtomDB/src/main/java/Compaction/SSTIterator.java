@@ -2,6 +2,7 @@ package Compaction;
 
 import Table.SSTInfo;
 import com.google.common.collect.PeekingIterator;
+import db.DbOptions;
 import db.KVUnit;
 import sstIo.MMappedReader;
 import java.io.IOException;
@@ -16,7 +17,7 @@ class SSTIterator implements PeekingIterator<KVUnit>, AutoCloseable {
     private KVUnit peek;
     private int numberOfRetrievedClusterCount = 0;
 
-    public SSTIterator(SSTInfo sstInfo) throws IOException {
+    public SSTIterator(SSTInfo sstInfo, DbOptions dbOptions) throws IOException {
         this.reader = new MMappedReader(sstInfo.getSst());
         this.sstInfo = sstInfo;
         this.clusterEndPoint = (int) Math.abs(sstInfo.getPointers().get(sstInfo.getPointers().size() - 1).position());

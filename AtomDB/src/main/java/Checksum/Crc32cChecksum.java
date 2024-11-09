@@ -1,43 +1,50 @@
 package Checksum;
 
+import Constants.Operations;
+import db.KVUnit;
+
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.zip.CRC32C;
-public class Crc32cChecksum implements Checksum {
-    private final CRC32C crc32c = new CRC32C();
-    private long computeCheckSum(byte[] arr) {
-        crc32c.reset();
-        crc32c.update(arr);
-        return crc32c.getValue();
-    }
+import java.util.zip.Checksum;
 
-    private long computeCheckSum(byte arr) {
-        crc32c.reset();
-        crc32c.update(arr);
-        return crc32c.getValue();
-    }
 
-    @Override
-    public long logBlock(byte operation,
-                         byte[] key, byte[] value) {
-        crc32c.reset();
-        crc32c.update(operation);
-        crc32c.update(key);
-        crc32c.update(value);
-        return crc32c.getValue();
-    }
+public class Crc32cChecksum implements AtomChecksum {
+    private static final ThreadLocal<Checksum> crc32cThreadLocal = ThreadLocal.withInitial(CRC32C::new);
+    private static final int BUFFER_CAPACITY = 1024;
+
+    private static final ThreadLocal<ByteBuffer> byteBufferThreadLocal = ThreadLocal.withInitial(() ->
+            ByteBuffer.allocateDirect(BUFFER_CAPACITY)
+    );
+
 
     @Override
     public long compute(byte[] arr) {
+        var crc32c = crc32cThreadLocal.get();
+        ByteBuffer buffer = prepareBuffer(arr);
         crc32c.reset();
-        crc32c.update(arr);
+        crc32c.update(buffer);
         return crc32c.getValue();
     }
 
     @Override
     public long compute(byte[] key, byte[] value) {
+        var crc32c = crc32cThreadLocal.get();
         crc32c.reset();
-        crc32c.update(key);
-        crc32c.update(value);
+        crc32c.update(prepareBuffer(key));
+        crc32c.update(prepareBuffer(value));
         return crc32c.getValue();
     }
 
+    private ByteBuffer prepareBuffer(byte[] arr) {
+        ByteBuffer buffer = byteBufferThreadLocal.get();
+        buffer.clear();
+        if (arr.length > buffer.capacity()) {
+            buffer = ByteBuffer.allocateDirect(arr.length);
+            byteBufferThreadLocal.set(buffer);
+        }
+        buffer.put(arr);
+        buffer.flip();
+        return buffer;
+    }
 }

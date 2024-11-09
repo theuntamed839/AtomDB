@@ -2,6 +2,7 @@ package Compaction;
 
 import Compression.DataCompressionStrategy;
 import Compression.Lz4Compression;
+import db.DbOptions;
 import db.KVUnit;
 import sstIo.MMappedReader;
 import sstIo.ChannelBackedWriter;
@@ -47,9 +48,9 @@ public class IndexedCluster {
             System.arraycopy(pointer.key(), 0, key, 0, commonPrefix);
             wrap.get(key, commonPrefix, keyLength);
 
-            byte isDeleted = wrap.get();
-            if (isDeleted == KVUnit.DELETE) {
-                units.add(new KVUnit(key, KVUnit.DELETE));
+            var isDeleted = KVUnit.DeletionStatus.of(wrap.get());
+            if (KVUnit.DeletionStatus.DELETED == isDeleted) {
+                units.add(new KVUnit(key));
             }
             else {
                 int valueLength = wrap.getInt();
@@ -181,9 +182,9 @@ public class IndexedCluster {
         // todo code improvement, can be made more modular.
         byte[] key = entry.getKey();
         byte[] value = entry.getValue();
-        byte isDelete = entry.getIsDelete();
+        byte isDelete = entry.getDeletedStatus().value();
 
-        int requiredSize = getRequiredSize(key, value, isDelete);
+        int requiredSize = getRequiredSize(entry);
         // todo performance improvement, use a temp buffer.
         ByteBuffer buffer = ByteBuffer.allocate(requiredSize);
 
@@ -195,7 +196,7 @@ public class IndexedCluster {
                 .put(key, commonPrefix, key.length - commonPrefix)
                 .put(isDelete);
 
-        if (isDelete != KVUnit.DELETE) {
+        if (!entry.isDeleted()) {
             buffer.putInt(value.length)
                     .put(value);
             checksum.update(value);
@@ -211,9 +212,11 @@ public class IndexedCluster {
         return buffer;
     }
 
-    private int getRequiredSize(byte[] key, byte[] value, byte isDelete) {
+    private int getRequiredSize(KVUnit unit) {
+        byte[] key = unit.getKey();
+        byte[] value = unit.getValue();
         return Integer.BYTES + key.length + Byte.BYTES
-                + (isDelete != KVUnit.DELETE ? Integer.BYTES + value.length : 0)
+                + (!unit.isDeleted() ? Integer.BYTES + value.length : 0)
                 + Long.BYTES // checksum
                 - commonPrefix;
     }

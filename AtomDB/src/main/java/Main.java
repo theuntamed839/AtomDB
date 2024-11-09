@@ -1,6 +1,6 @@
 import db.DB;
 import db.DBImpl;
-import db.DBOptions;
+import db.DbOptions;
 
 import java.io.File;
 import java.time.Instant;
@@ -12,7 +12,7 @@ import static util.BytesConverter.bytes;
 public class Main {
 //    public static void main1(String[] args) throws Exception {
 //        int total = 10;
-//        db.DBOptions opt = new db.DBOptions("ExampleDB");
+//        db.DbOptions opt = new db.DbOptions("ExampleDB");
 //        Mem.SkipListMemtable memtableManager = new Mem.SkipListMemtable(opt);
 //
 //        for (int i = 0; i < total; i++) {
@@ -58,7 +58,7 @@ public class Main {
         String value = Instant.now().toString().repeat(10);
         long a, b;
         a = System.nanoTime();
-        DBOptions opt = new DBOptions();
+        DbOptions opt = new DbOptions();
         DB db = new DBImpl(new File("Thread"+Thread.currentThread()), opt);
         diskAccessByThreadsSpeedTest(db, total, value);
         b = System.nanoTime();
@@ -77,7 +77,7 @@ public class Main {
 
     public static void main1(String[] args) throws Exception {
         int total = 10_000;
-        DBOptions opt = new DBOptions();
+        DbOptions opt = new DbOptions();
         DB db = new DBImpl(new File("ExampleDB"), opt);
 //        String value = "the big value".repeat(40);
         String value = Instant.now().toString().repeat(10);

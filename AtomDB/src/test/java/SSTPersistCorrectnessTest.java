@@ -1,4 +1,4 @@
-//import Checksum.Crc32cChecksum;
+//import AtomChecksum.Crc32cChecksum;
 //import Compaction.Pointer;
 //import Compaction.PointerList;
 //import Compaction.SSTPersist;

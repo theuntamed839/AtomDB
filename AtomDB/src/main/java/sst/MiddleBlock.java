@@ -198,7 +198,7 @@ public class MiddleBlock {
         byteBuffer.flip();
         long checksum = byteBuffer.getLong();
         if (CheckSumStatic.compute(key, value) != checksum) {
-            throw new Exception("Checksum not matching");
+            throw new Exception("AtomChecksum not matching");
         }
     }
 
@@ -209,7 +209,7 @@ public class MiddleBlock {
         byteBuffer.flip();
         long checksum = byteBuffer.getLong();
         if (CheckSumStatic.compute(key) != checksum) {
-            throw new Exception("Checksum not matching");
+            throw new Exception("AtomChecksum not matching");
         }
     }
 
@@ -241,7 +241,7 @@ public class MiddleBlock {
         byteBuffer.get(value);
         long checkSum = byteBuffer.getLong();
         if (CheckSumStatic.compute(keyUnit.getKey(), value) != checkSum) {
-            throw new RuntimeException("Checksum mismatch");
+            throw new RuntimeException("AtomChecksum mismatch");
         }
         return value;
     }

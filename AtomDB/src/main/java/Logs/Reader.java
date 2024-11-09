@@ -10,4 +10,5 @@ public interface Reader extends AutoCloseable{
     ByteBuffer readFromCurrentPosition(int length);
     long fileSize() throws IOException;
     void setPosition(long position);
+    int getPosition();
 }

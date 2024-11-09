@@ -1,8 +1,7 @@
-import Level.Level;
 import Table.Table;
 import db.DBComparator;
 import db.DBImpl;
-import db.DBOptions;
+import db.DbOptions;
 import org.junit.jupiter.api.*;
 import sst.ValueUnit;
 
@@ -15,7 +14,7 @@ import java.util.Scanner;
 import static util.BytesConverter.bytes;
 
 public class UpdationTest {
-    DBOptions opt ;
+    DbOptions opt ;
     DBImpl db;
     String VALUE ;
     int TOTAL;
@@ -23,7 +22,7 @@ public class UpdationTest {
 
     @BeforeEach
     public void init() throws Exception {
-        opt = new DBOptions();
+        opt = new DbOptions();
         db = new DBImpl(new File(this.getClass().getName() + "DB"), opt);
         VALUE = "value".repeat(50);
         TOTAL = 10000;

@@ -1,15 +1,14 @@
 package db;
 
 import Compaction.Compactor;
-import Compression.CompressionStrategyFactory;
-import Compression.DataCompressionStrategy;
-import Constants.DBConstant;
 import Constants.Operations;
 import Level.Level;
 import Logs.WALManager;
 import Mem.ImmutableMem;
 import Mem.SkipListMemtable;
 import Table.Table;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import search.Search;
 import util.Util;
 
@@ -17,108 +16,109 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Objects;
 
-// todo shrink some value to its native size, like some places long is used
-// even though that thing is int
-
-// todo make all bytebuffer direct
-
-// todo change all arrays.compare to db comparator
-
-// todo improve error messages
-
 public class DBImpl implements DB{
+    private final Logger logger = LoggerFactory.getLogger(getClass());
     private final File dbFolder;
-    private final DataCompressionStrategy compression;
     private final WALManager walManager;
     private final Compactor compactor;
     private final Search search;
+    private final DbOptions options;
     private SkipListMemtable memtable;
     private Table table;
-    private int MEMTABLE_SIZE = DBConstant.MEMTABLE_SIZE;
 
-    public DBImpl(File dbFolder, DBOptions dbOptions) throws Exception {
-        ValidateDbFolder(dbFolder);
-        createDBFolder(dbFolder);
+    public DBImpl(File dbFolder, DbOptions dbOptions) throws Exception {
+        createDB(dbFolder);
         this.dbFolder = dbFolder;
-        this.compression = CompressionStrategyFactory.GetCompressionStrategy(dbOptions.isDisableCompression());
         this.walManager = new WALManager(dbFolder.getAbsolutePath());
-        this.memtable = new SkipListMemtable(DBComparator.byteArrayComparator);
+        this.memtable = new SkipListMemtable(dbOptions);
         this.search = new Search();
         this.table = new Table(dbFolder, search);
-        this.compactor = new Compactor(table);
+        this.compactor = new Compactor(table, dbOptions);
+        this.options = dbOptions;
         walManager.restore(this);
     }
 
-    private void ValidateDbFolder(File dbFolder) {
-        Objects.requireNonNull(dbFolder, "DB name not provided");
-        if (dbFolder.exists() && !dbFolder.isDirectory()) {
-            throw new RuntimeException("File name provided is not directory");
+    private void createDB(File dbFolder) {
+        if (dbFolder.isDirectory() || dbFolder.mkdirs()) {
+            new File(dbFolder, "ATOM_DB");
+        } else {
+            throw new RuntimeException("Unable to create db folder");
         }
     }
 
-    private void createDBFolder(File dbFolder) {
-        if (dbFolder.isDirectory()) {
-            // todo check if the folder is DB.
-        } else {
-            if (!dbFolder.mkdirs()) {
-                throw new RuntimeException("Unable to create db folder");
-            }
-        }
-    }
 
     @Override
     public void put(byte[] key, byte[] value) throws Exception {
         var kvUnit = new KVUnit(key, value);
+
         walManager.log(Operations.WRITE, kvUnit);
         memtable.put(kvUnit);
-        if (memtable.getMemTableSize() >= MEMTABLE_SIZE) {
-            compactor.persistLevelFile(ImmutableMem.of(memtable));
-            search.addSecondaryMemtable(ImmutableMem.of(memtable));
-            walManager.deleteOldLogAndCreateNewLog();
-            memtable = new SkipListMemtable(DBComparator.byteArrayComparator);
-            compactor.tryCompaction(Level.LEVEL_ZERO);
+
+        if (memtable.isFull()){
+            handleMemtableFull();
         }
+    }
+
+    private void handleMemtableFull() throws Exception {
+        var immutableMem = ImmutableMem.of(memtable);
+
+        compactor.persistLevelFile(immutableMem);
+        search.addSecondaryMemtable(immutableMem);
+
+        walManager.rotateLog();
+        memtable = new SkipListMemtable(options); // todo we can have more memtable
+
+        compactor.tryCompaction(Level.LEVEL_ZERO);
     }
 
     @Override
     public byte[] get(byte[] key) throws Exception {
         Objects.requireNonNull(key);
-        // todo search engine.
-        KVUnit kvUnit = memtable.get(key);
+        var kvUnit = memtable.get(key);
         if (kvUnit == null) {
-            return search.findKey(key).getValue();
+            kvUnit = search.findKey(key);
         }
-        if (kvUnit.getIsDelete() == KVUnit.DELETE) {
-            return null;
-        } else {
-            return kvUnit.getValue();
-        }
+        return kvUnit.isDeleted() ? null : kvUnit.getValue();
     }
 
     @Override
     public void delete(byte[] key) throws Exception {
-        walManager.log(Operations.DELETE, new KVUnit(key, KVUnit.DELETE));
-        memtable.delete(new KVUnit(key, KVUnit.DELETE));
+        KVUnit kvUnit = new KVUnit(key);
+        walManager.log(Operations.DELETE, kvUnit);
+        memtable.delete(kvUnit);
     }
-
 
     @Override
     public void close() throws Exception {
-        walManager.close();
-        search.close();
-        compactor.close();
-        // todo remove this and find bugs
-        System.gc();
+        try {
+            walManager.close();
+            search.close();
+            compactor.close();
+        } catch (IOException e) {
+            logger.error("Failed to close resources: {}", e.getMessage(), e);
+            throw e;
+        }
     }
 
     @Override
     public void destroy() {
-        Util.requireTrue(dbFolder.exists(), "folder="+dbFolder.toPath()+" does not exits");
-        Util.requireTrue(dbFolder.isDirectory(), "file="+dbFolder.toPath()+" is not a folder");
+        validateFolder(dbFolder);
+        deleteFolderContents(dbFolder);
+    }
 
-        for (File listFile : dbFolder.listFiles()) {
-            Util.requireTrue(listFile.delete(), "unable to delete file="+listFile.getAbsolutePath());
+    private void validateFolder(File folder) {
+        Util.requireTrue(folder.exists(), "Folder " + folder.getPath() + " does not exist");
+        Util.requireTrue(folder.isDirectory(), "File " + folder.getPath() + " is not a folder");
+    }
+
+    private void deleteFolderContents(File folder) {
+        for (File file : Objects.requireNonNull(folder.listFiles())) {
+            if (!file.delete()) {
+                logger.warn("Unable to delete file: {}", file.getAbsolutePath());
+            }
         }
-        Util.requireTrue(dbFolder.delete(), "unable to delete folder="+dbFolder.toPath());
+        if (!folder.delete()) {
+            logger.warn("Unable to delete folder: {}", folder.getPath());
+        }
     }
 }

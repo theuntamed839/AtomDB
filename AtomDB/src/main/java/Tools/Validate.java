@@ -123,7 +123,7 @@ public class Validate {
         byteBuffer.flip();
         long checksum = byteBuffer.getLong();
         if (CheckSumStatic.compute(key, value) != checksum) {
-            throw new Exception("Checksum not matching");
+            throw new Exception("AtomChecksum not matching");
         }
     }
 
@@ -134,7 +134,7 @@ public class Validate {
         byteBuffer.flip();
         long checksum = byteBuffer.getLong();
         if (CheckSumStatic.compute(key) != checksum) {
-            throw new Exception("Checksum not matching");
+            throw new Exception("AtomChecksum not matching");
         }
     }
 }
