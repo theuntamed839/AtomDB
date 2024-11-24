@@ -12,6 +12,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.zip.CRC32C;
+import db.ExpandingByteBuffer;
 
 public class IndexedCluster {
     private static final int NOT_CALCULATED_YET = -1;
@@ -191,7 +192,6 @@ public class IndexedCluster {
         checksum.reset();
         checksum.update(key, commonPrefix, key.length - commonPrefix);
         checksum.update(isDelete);
-
         buffer.putInt(key.length - commonPrefix)
                 .put(key, commonPrefix, key.length - commonPrefix)
                 .put(isDelete);

@@ -7,7 +7,6 @@ import Table.SSTInfo;
 import db.DBComparator;
 import db.DbOptions;
 import db.KVUnit;
-import sstIo.MemTableBackedSSTReader;
 import sstIo.SSTKeyRange;
 
 import java.io.IOException;
@@ -15,8 +14,6 @@ import java.util.*;
 import java.util.concurrent.*;
 
 /**
- * 1. select the more who is sparse (large-small) > others and has less entries.
- * 2. overlap, Sk and LK falls other false falls in another single sst. basically the other sst contains this sst.
  * 3. choose the one which has many deleted entries. ( we have count the number of deleted entries in sst and store in the header.)
  * 4. we can have a hit count for sst, which can tell us how optimized the sst is. if more success hits then we might not consider
  *  the file for compaction and choose the one with less hit success. (hit success is finding and getting data)
@@ -35,8 +32,7 @@ public class Compactor implements AutoCloseable{
     }
 
     public void persistLevelFile(ImmutableMem<byte[], KVUnit> memtable) throws IOException {
-        MemTableBackedSSTReader sstReader = new MemTableBackedSSTReader(memtable);
-        SSTPersist.writeSingleFile(Level.LEVEL_ZERO, sstReader.getEntries(), sstReader.getIterator(), table);
+        SSTPersist.writeSingleFile(Level.LEVEL_ZERO, memtable.getNumberOfEntries(), memtable.getKeySetIterator(), table);
     }
 
     public synchronized void tryCompaction(Level level) throws Exception {

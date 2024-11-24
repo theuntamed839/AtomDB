@@ -7,8 +7,6 @@ import Table.Table;
 import com.google.common.hash.BloomFilter;
 import com.google.common.hash.Funnels;
 import db.KVUnit;
-import sstIo.BufferedMMappedWriter;
-import sstIo.ChannelBackedWriter;
 import sstIo.FullFileBufferedWriter;
 import sstIo.SSTHeader;
 
@@ -37,51 +35,10 @@ public class SSTPersist {
         table.saveLastCompactedKey(last.getSstKeyRange().getGreatest(), level);
     }
 
-    public static SSTInfo writeSingleFile(Level level, int upperLimitOfEntries, Iterator<KVUnit> iterator, Table table) throws IOException {
-        var sstInfo = writeOptimized(table.getNewSST(level), level, upperLimitOfEntries, iterator, Integer.MAX_VALUE);
+    public static SSTInfo writeSingleFile(Level level, int maxEntries, Iterator<KVUnit> iterator, Table table) throws IOException {
+        var sstInfo = writeOptimized(table.getNewSST(level), level, maxEntries, iterator, Integer.MAX_VALUE);
         table.addSST(level, sstInfo);
         return sstInfo;
-    }
-
-    public static SSTInfo write(File file, Level level, int upperLimitOfEntries, Iterator<KVUnit> iterator, int SST_SIZE) {
-        try (
-                ChannelBackedWriter writer = new BufferedMMappedWriter(file);
-        ) {
-            BloomFilter<byte[]> filter = BloomFilter.create(
-                    Funnels.byteArrayFunnel(),
-                    upperLimitOfEntries,
-                    0.01);
-            FilterAddingIterator customIterator = new FilterAddingIterator(iterator, filter);
-            var pointers = new PointerList(upperLimitOfEntries);
-
-            var sstHeader = createHeader(level);
-            sstHeader.storeAsBytes(writer);
-            // middle block
-            IndexedCluster indexedCluster = null;
-            while(customIterator.hasNext() && customIterator.getTotalKVSize() < SST_SIZE) {
-                indexedCluster = getNextCluster(customIterator);
-                pointers.add(new Pointer(indexedCluster.getFirstKey(), writer.position()));
-                indexedCluster.storeAsBytes(writer);
-            }
-            pointers.add(new Pointer(indexedCluster.getLastKey(), Math.negateExact(writer.position())));
-            // footer
-            sstHeader.setEntries(customIterator.getCount());
-            sstHeader.setFilterPosition((int) writer.position());
-            filter.writeTo(writer);
-
-            sstHeader.setPointersPosition((int) writer.position());
-            pointers.storeAsBytes(writer);
-
-            writer.putLong(DBConstant.MARK_FILE_END); // todo need confirm this while reading file.
-
-            sstHeader.writeRemaining(writer);
-            sstHeader.close(); // important to close
-            writer.close();
-            var sstInfo = new SSTInfo(file, sstHeader, pointers, filter);
-            return sstInfo;
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
     }
 
     public static SSTInfo writeOptimized(File file, Level level, int upperLimitOfEntries, Iterator<KVUnit> iterator, int SST_SIZE) {

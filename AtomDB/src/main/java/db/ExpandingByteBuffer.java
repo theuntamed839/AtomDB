@@ -1,5 +1,7 @@
 package db;
+import java.nio.BufferOverflowException;
 import java.nio.ByteBuffer;
+import java.util.Objects;
 
 public class ExpandingByteBuffer {
     private static final int DEFAULT_CAPACITY = 1024;
@@ -25,6 +27,12 @@ public class ExpandingByteBuffer {
     public ExpandingByteBuffer putInt(int data) {
         makeSpaceIfNeeded(4);
         buffer.putInt(data);
+        return this;
+    }
+
+    public ExpandingByteBuffer putLong(long data) {
+        makeSpaceIfNeeded(Long.BYTES);
+        buffer.putLong(data);
         return this;
     }
 
@@ -61,5 +69,15 @@ public class ExpandingByteBuffer {
     public ExpandingByteBuffer flip() {
         buffer.flip();
         return this;
+    }
+
+    public ExpandingByteBuffer put(byte[] src, int offset, int length) {
+        makeSpaceIfNeeded(length);
+        buffer.put(src, offset, length);
+        return this;
+    }
+
+    public int position() {
+        return this.buffer.position();
     }
 }
