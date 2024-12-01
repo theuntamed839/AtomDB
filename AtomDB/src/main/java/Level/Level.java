@@ -21,7 +21,7 @@ public enum Level {
             LEVEL_SIX,
             LEVEL_SEVEN};
 
-    public Level next() {
+    public Level nextLevel() {
         return switch (this) {
             case LEVEL_ZERO -> LEVEL_ONE;
             case LEVEL_ONE -> LEVEL_TWO;

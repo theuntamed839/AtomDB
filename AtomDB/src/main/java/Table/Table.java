@@ -3,11 +3,9 @@ package Table;
 import Constants.DBConstant;
 import Level.Level;
 import com.google.common.base.Preconditions;
-import db.KVUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import search.Search;
-import util.FileUtil;
 
 import java.io.File;
 import java.io.IOException;
@@ -22,7 +20,7 @@ public class Table implements AutoCloseable {
     private final Map<Level, byte[]> lastCompactedKV;
     private Map<Level, SortedSet<SSTInfo>>  table;
     // todo this should be set at start
-    private AtomicLong currentFileName = new AtomicLong(0);
+    private final AtomicLong currentFileName = new AtomicLong(0);
     private final File dbFolder;
     private final String fileSeparatorForSplit =  Pattern.quote(File.separator);
     public Table(File dbFolder, Search search) {
@@ -134,7 +132,7 @@ public class Table implements AutoCloseable {
         });
     }
 
-    public SortedSet<SSTInfo> getLevelFileList(Level level) {
+    public SortedSet<SSTInfo> getSSTInfoSet(Level level) {
         return table.get(level);
     }
 
@@ -143,14 +141,7 @@ public class Table implements AutoCloseable {
     }
 
     public byte[] getLastCompactedKey(Level level) {
-        if (lastCompactedKV.containsKey(level)) {
-            return lastCompactedKV.get(level);
-        }
-        SortedSet<SSTInfo> sstofLevel = table.get(level);
-        if (sstofLevel.isEmpty()) {
-            return null;
-        }
-        return sstofLevel.getLast().getSstKeyRange().getGreatest();
+        return lastCompactedKV.get(level);
     }
 
     public synchronized void  saveLastCompactedKey(byte[] last, Level level) {

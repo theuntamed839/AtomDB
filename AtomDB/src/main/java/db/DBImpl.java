@@ -62,7 +62,7 @@ public class DBImpl implements DB{
     private void handleMemtableFull() throws Exception {
         var immutableMem = ImmutableMem.of(memtable);
 
-        compactor.persistLevelFile(immutableMem);
+        compactor.persistLevel0(immutableMem);
         search.addSecondaryMemtable(immutableMem);
 
         walManager.rotateLog();

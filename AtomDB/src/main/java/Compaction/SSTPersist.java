@@ -15,6 +15,13 @@ import java.io.IOException;
 import java.util.Iterator;
 
 public class SSTPersist {
+
+    private final Table table;
+
+    public SSTPersist(Table table) {
+        this.table = table;
+    }
+
     private static SSTHeader createHeader(Level level) {
         return new SSTHeader(
                 DBConstant.SST_VERSION,
@@ -25,23 +32,21 @@ public class SSTPersist {
                 DBConstant.SHORTEST_COMMON_PREFIX_USED);
     }
 
-    public static void writeManyFiles(Level level, CollectiveSStIterator iterator, Table table) throws Exception {
+    public void writeManyFiles(Level level, CollectiveSStIterator iterator) throws Exception {
         SSTInfo last = null;
         while(iterator.hasNext()) {
             last = writeOptimized(table.getNewSST(level), level, 100000, iterator, DBConstant.COMPACTED_SST_FILE_SIZE);
             table.addSST(level, last);
         }
-        iterator.close();
         table.saveLastCompactedKey(last.getSstKeyRange().getGreatest(), level);
     }
 
-    public static SSTInfo writeSingleFile(Level level, int maxEntries, Iterator<KVUnit> iterator, Table table) throws IOException {
+    public void writeSingleFile(Level level, int maxEntries, Iterator<KVUnit> iterator) throws IOException {
         var sstInfo = writeOptimized(table.getNewSST(level), level, maxEntries, iterator, Integer.MAX_VALUE);
         table.addSST(level, sstInfo);
-        return sstInfo;
     }
 
-    public static SSTInfo writeOptimized(File file, Level level, int upperLimitOfEntries, Iterator<KVUnit> iterator, int SST_SIZE) {
+    public SSTInfo writeOptimized(File file, Level level, int upperLimitOfEntries, Iterator<KVUnit> iterator, int SST_SIZE) {
         try
         {
             var writer = new FullFileBufferedWriter(file);
@@ -83,7 +88,7 @@ public class SSTPersist {
         }
     }
 
-    private static IndexedCluster getNextCluster(Iterator<KVUnit> customIterator) {
+    private IndexedCluster getNextCluster(Iterator<KVUnit> customIterator) {
         var cluster = new IndexedCluster(DBConstant.CLUSTER_SIZE);
         for (int i = 0; i < DBConstant.CLUSTER_SIZE && customIterator.hasNext(); i++) {
             KVUnit current = customIterator.next();

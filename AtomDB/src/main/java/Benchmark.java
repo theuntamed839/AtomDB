@@ -2,7 +2,7 @@ import db.DBImpl;
 import db.DbOptions;
 import org.xerial.snappy.Snappy;
 
-import java.io.File;
+import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
@@ -20,7 +20,7 @@ public class Benchmark {
         //searchBenchMark(500000, "benchmarkWithRandomKVBytesWithCompaction");
         //searchBenchMark(500000, "benchmarkWithRandomKVBytesWithoutCompaction");
         //searchBenchMark(500000, "IssueDB");
-         benchmark(inputString, 500000);
+//         benchmark(inputString, 1000000);
 //        benchmark(inputString, 1000);
 //        benchmark(inputString, 10000);
 //        benchmark(inputString, 100000);
@@ -29,8 +29,32 @@ public class Benchmark {
 //        initialTest(inputString, 50000);
 //                benchmark(inputString, 15000);
 //        benchmarkWithRandomKVBytes(1000000, 50, 500); //500000
+        var map = readOrCreateRandomKV(1000000, 50, 500, "KEY_VALUE_LENGTH_FIXED.trash");
+        benchmarkWithRandomKVBytes(map);
 //        benchmarkWithRandomLengthKVBytes(1000_000);
 //        benchmarkRandomRead(inputString, 1000_000, "asd"); //1000000
+    }
+
+    private static Map<byte[], byte[]> readOrCreateRandomKV(int iterationCount, int keySize, int valueSize, String fileName) throws IOException, ClassNotFoundException {
+        File file = new File(iterationCount + "_" + keySize + "_" + valueSize + "_" + fileName);
+        Map<byte[], byte[]> randomKV;
+        if (!file.exists()) {
+            randomKV = getRandomKV(iterationCount, () -> keySize, () -> valueSize);
+            FileOutputStream fos =new FileOutputStream(file);
+            ObjectOutputStream oos =new ObjectOutputStream(fos);
+            oos.writeObject(randomKV);
+            oos.flush();
+            oos.close();
+            fos.close();
+        }else {
+            System.out.println("reading KV from system");
+            FileInputStream fis=new FileInputStream(file);
+            ObjectInputStream ois=new ObjectInputStream(fis);
+            randomKV = (HashMap<byte[], byte[]>)ois.readObject();
+            ois.close();
+            fis.close();
+        }
+        return randomKV;
     }
 
     private static void benchmarkWithRandomLengthKVBytes(int totalEntryCount) throws Exception {
@@ -98,6 +122,65 @@ public class Benchmark {
         long startTime , endTime, readingTime, writingTime;
         try {
             System.out.println("Writing... " + totalEntryCount);
+            startTime = System.nanoTime();
+            AtomicInteger i = new AtomicInteger();
+            map.entrySet().forEach(each -> {
+                try {
+                    if (i.get() % 10000 == 0) {
+                        System.out.println("progress="+i);
+                    }
+                    i.getAndIncrement();
+                    db.put(each.getKey(), each.getValue());
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+            });
+            endTime = System.nanoTime();
+
+            writingTime = endTime - startTime;
+
+            var list = new ArrayList<>(map.keySet());
+            Collections.shuffle(list);
+
+
+            System.out.println("Reading... ");
+            startTime = System.nanoTime();
+            list.forEach(each -> {
+                try {
+                    db.get(each);
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+            });
+            endTime = System.nanoTime();
+
+            readingTime = endTime - startTime;
+            System.out.println("writing time=" + writingTime/1000_000_000.0 + " , reading time=" + readingTime/1000_000_000.0);
+            long afterUsedMem=Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
+            long actualMemUsed=afterUsedMem-beforeUsedMem;
+            System.out.println("memory utilised="+actualMemUsed);
+            System.out.println("Number of threads: " + Thread.activeCount());
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            db.close();
+            Files.walk(Path.of(dbName ))
+                    .sorted(Comparator.reverseOrder())
+                    .map(Path::toFile)
+                    .forEach(File::delete);
+        }
+    }
+
+    private static void benchmarkWithRandomKVBytes(Map<byte[], byte[]> map) throws Exception {
+        var dbName = "benchmarkWithRandomKVBytes";
+
+        System.out.println("Number of threads: " + Thread.activeCount());
+        long beforeUsedMem = Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
+        var opt = new DbOptions();
+        var db = new DBImpl(new File(dbName), opt);
+        long startTime , endTime, readingTime, writingTime;
+        try {
+            System.out.println("Writing... " + map.size());
             startTime = System.nanoTime();
             AtomicInteger i = new AtomicInteger();
             map.entrySet().forEach(each -> {
@@ -297,7 +380,7 @@ public class Benchmark {
             e.printStackTrace();
         } finally {
             db.close();
-            db.destroy();
+            //db.destroy();
         }
     }
 
@@ -497,3 +580,75 @@ public class Benchmark {
  * Number of threads: 2
  */
 
+
+/**
+ * Important
+ * benchmarkWithRandomKVBytes(DBProvider.get(DB.LEVELDB_NATIVE),1000000, 50, 500);
+ * writing time=93.0521691 , reading time=16.5716184
+ * memory utilised=708003848
+ * Number of threads: 4
+ *
+ * benchmarkWithRandomKVBytes(DBProvider.get(DB.LEVELDB),1000000, 50, 500);
+ * memory utilised=676719848
+ * writing time=75.4093294 , reading time=22.438489
+ * memory utilised=676719848
+ * Number of threads: 2
+ *
+ * benchmarkWithRandomKVBytes(DBProvider.get(DB.FIREFLYDB),1000000, 50, 500);
+ * writing time=14.2588117 , reading time=32.790273
+ * memory utilised=496074880
+ * Number of threads: 2
+ *
+ * ATOMDB
+ * writing time=17.8601132 , reading time=22.0283714
+ * memory utilised=889973640
+ * Number of threads: 7
+ * numberOfFilesRequiredToSearch=1 numberOfTimesThisHappened=985518
+ * numberOfFilesRequiredToSearch=2 numberOfTimesThisHappened=9936
+ *
+ writing time=25.6880718 , reading time=6.0737237
+ memory utilised=634179168
+ Number of threads: 10
+ numberOfFilesRequiredToSearch=1 numberOfTimesThisHappened=966622
+ numberOfFilesRequiredToSearch=2 numberOfTimesThisHappened=28525
+ numberOfFilesRequiredToSearch=3 numberOfTimesThisHappened=303
+ numberOfFilesRequiredToSearch=4 numberOfTimesThisHappened=4
+
+ writing time=22.1107311 , reading time=6.3042568
+ memory utilised=311031168
+ Number of threads: 8
+ numberOfFilesRequiredToSearch=1 numberOfTimesThisHappened=975473
+ numberOfFilesRequiredToSearch=2 numberOfTimesThisHappened=19890
+ numberOfFilesRequiredToSearch=3 numberOfTimesThisHappened=91
+
+ writing time=16.721739 , reading time=6.9919566 (last)
+ memory utilised=777919944
+ Number of threads: 9
+ numberOfFilesRequiredToSearch=1 numberOfTimesThisHappened=956064
+ numberOfFilesRequiredToSearch=2 numberOfTimesThisHappened=38839
+ numberOfFilesRequiredToSearch=3 numberOfTimesThisHappened=543
+ numberOfFilesRequiredToSearch=4 numberOfTimesThisHappened=8
+
+ writing time=19.1802351 , reading time=6.2431539 (Executors service)
+ memory utilised=182085760
+ Number of threads: 9
+ numberOfFilesRequiredToSearch=1 numberOfTimesThisHappened=975473
+ numberOfFilesRequiredToSearch=2 numberOfTimesThisHappened=19890
+ numberOfFilesRequiredToSearch=3 numberOfTimesThisHappened=91
+
+ writing time=19.640476 , reading time=5.8344966(Inline completableFuture)
+ memory utilised=631710240
+ Number of threads: 9
+ numberOfFilesRequiredToSearch=1 numberOfTimesThisHappened=975473
+ numberOfFilesRequiredToSearch=2 numberOfTimesThisHappened=19890
+ numberOfFilesRequiredToSearch=3 numberOfTimesThisHappened=91
+
+ writing time=17.7529537 , reading time=6.2738548
+ memory utilised=586745584
+ Number of threads: 7
+ numberOfFilesRequiredToSearch=1 numberOfTimesThisHappened=956467
+ numberOfFilesRequiredToSearch=2 numberOfTimesThisHappened=38370
+ numberOfFilesRequiredToSearch=3 numberOfTimesThisHappened=608
+ numberOfFilesRequiredToSearch=4 numberOfTimesThisHappened=8
+ numberOfFilesRequiredToSearch=5 numberOfTimesThisHappened=1
+ */

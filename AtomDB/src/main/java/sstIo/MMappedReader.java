@@ -16,6 +16,7 @@ public class MMappedReader extends ChannelBackedReader{
         this.file = file;
         this.randomAccessFile = new RandomAccessFile(file, "r");
         this.channel = randomAccessFile.getChannel();
+
         this.map = channel.map(FileChannel.MapMode.READ_ONLY, 0, channel.size());
     }
 

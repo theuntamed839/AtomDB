@@ -25,6 +25,8 @@ public class Finder implements AutoCloseable{
 
     public Finder(File file, PointerList pointerList, Cache<Pointer, Checksums> checksumsCache) throws IOException {
         this.file = file;
+        // todo
+        // we need not mapp the whole file rather map only required potion, ie we  dont need header and pointers region
         this.reader = new MMappedReader(file);
         this.pointerList = pointerList;
         this.checksumsCache = checksumsCache;
