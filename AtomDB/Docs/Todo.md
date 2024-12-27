@@ -1,17 +1,17 @@
 # Todo
 
-make a wal as our first sst and then use compaction
+make a wal as our first org.g2n.atomdb.sst and then use compaction
 
-# current sst architecture
+# current org.g2n.atomdb.sst architecture
 * current SST Structure
 * BS-> Binary Search position pointer
 * CH-> checksum
-* EN-> number of entries in the sst
-* VID-> version id of that sst
+* EN-> number of entries in the org.g2n.atomdb.sst
+* VID-> version id of that org.g2n.atomdb.sst
 * LEN-> length
 * SK-> smallest Key
 * LK-> largest Key
-* LEV-> level of that sst
+* LEV-> level of that org.g2n.atomdb.sst
 * K-> key
 * V-> value
 * MAR-> MARKER
@@ -22,7 +22,7 @@ make a wal as our first sst and then use compaction
  {VID | LEV | BS | EN | SK_LEN | SK | SK_CH | LK_LEN | LK | LK_CH} = header
  {K_LEN | K | MAR | V_LEN | V | CH} = middleBlock, multiple such block
  {K_LEN | K | MAR | CH} = middleBlock, when key is deleted
- {P1,P2,P3....Pn} = Key positions for binary search
+ {P1,P2,P3....Pn} = Key positions for binary org.g2n.atomdb.search
  {Bloom filter} = Bloom filter
 ]
 ```
@@ -32,14 +32,14 @@ make a wal as our first sst and then use compaction
 
 // todo make all bytebuffer direct
 
-// todo change all arrays.compare to db comparator
+// todo change all arrays.compare to org.g2n.atomdb.db comparator
 
 // todo improve error messages
 
 # The MVP
 - [ ] Unit tests
 - [ ] Integration tests
-- [ ] Benchmark
+- [ ] org.g2n.atomdb.Benchmark
 - [ ] Maven release
 - [ ] GitHub readme page
 - [ ] Document for me, about every aspect of the code
@@ -55,15 +55,15 @@ make a wal as our first sst and then use compaction
 3. Use of MappedByteBuffer
 4. Batch Read of header (2 times read will retrieve the whole header). Adding of a long 
 5. Replace Long with Int
-6. Performing partial binary search 
+6. Performing partial binary org.g2n.atomdb.search 
 7. Increase ByteBuffer size (400KB is max item size in dynamoDB)
 8. use a single byte for Marker.
 9. We keep a extra memtable in memory since recently written data is frequenctly used.
 10. utlising threads to create compaction.
-11. can use binary search to find in level files.
+11. can use binary org.g2n.atomdb.search to find in level files.
 
 # Think tank for this for **Branch Optimization RoadMap**
-1. fast key search in the segment. segment is the block divided by 10. 10% rule.
+1. fast key org.g2n.atomdb.search in the segment. segment is the block divided by 10. 10% rule.
    1. LevelDB use restart points in the SST file.
    2. Cache Obvious data structures
    3. Fractal tree
@@ -83,7 +83,7 @@ make a wal as our first sst and then use compaction
 
 
 ## Elaboration of features used in Optimization Roadmap
-### 1. Performing partial binary search
+### 1. Performing partial binary org.g2n.atomdb.search
 First we calculate how many reads will be required to fully retrieve the pointers.
 now do NumberOfPointers/(TotalNumberOfReadsToReadWholePointerList) = partials
 Now get the keys at every partials and store them together.(Compress them together)
@@ -112,8 +112,8 @@ New
 5. we can make block of 4-5 keys or values depending upon bytebuffer size and mmap. so that we bulk retrieve
 
 # Think tank
-1. we have wal, and then we have level one sst. Basically writing of same data twice. can we improve
-2. Storing all the values smallest then keys, basically when binary search done we can improve the disk needle movement
+1. we have wal, and then we have level one org.g2n.atomdb.sst. Basically writing of same data twice. can we improve
+2. Storing all the values smallest then keys, basically when binary org.g2n.atomdb.search done we can improve the disk needle movement
 since now the needle need not move to a huge gap as we reduced the values inbetween its jumps.
 3. We need now get the whole byte array key in to the memory, look at how the comparison is done in the code.
 basically it compares each bytes so partial key can be retrieved and checked.

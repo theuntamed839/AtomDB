@@ -8,19 +8,19 @@ AtomDB Release 1.0
    2. To improve on for 1 disk seek per request.
       1. Bloom
          1. Global Bloom filter to discard any non-existent key.
-         2. Level wise Bloom filter.
-         3. File wise bloom filter. (here we are good with binary search on 10% keys).
+         2. org.g2n.atomdb.Level wise Bloom filter.
+         3. File wise bloom filter. (here we are good with binary org.g2n.atomdb.search on 10% keys).
       2. Upper and lower bound check (SK and LK)
-      3. Then binary search from the latest file to the older files
+      3. Then binary org.g2n.atomdb.search from the latest file to the older files
       4. Can same the crc32c of keys in memory (Future)
 4. Cache all the open file descriptors.
 5. Minimize the number of files being accessed, need a better predictor and cache.
 6. improvement of Read, write
 7. improvement of compaction
-8. Making two sst in memory to write as one.
+8. Making two org.g2n.atomdb.sst in memory to write as one.
 9. Let's implement the WAL, MEM, SST, TABLE, COMPACTION, CACHE correctly and then add on with multithreading, lock free, virtual thread, SIMD, etc.
 10. can use treeset to find the overlapping intervals. and use posix_fadvise for compaction.
-11. can use posix_fadvise for writing sst.
+11. can use posix_fadvise for writing org.g2n.atomdb.sst.
 12. can use posix_fadvise for sequential reads.
 13. for random reads use mmap.
 14. Implement Manifest file https://github.com/google/leveldb/blob/main/doc/impl.md#manifest
@@ -28,7 +28,7 @@ AtomDB Release 1.0
     1. smallest the primary cache which will cache k-v directly.
     2. File blocks
     3. File descriptor, which will be evicted based on the avaliable descriptors.
-16. Reading of sst metadata when db restarts. Thinking needed.
+16. Reading of org.g2n.atomdb.sst metadata when org.g2n.atomdb.db restarts. Thinking needed.
 17. Batch writing and reading.
 18. MMap the whole file for compaction.
 19. we mandatorily not store the 10% keys in memory, we can flush based on memory available and reread when required. but this will have some performance impact.
@@ -37,11 +37,11 @@ AtomDB Release 1.0
 22. benchmark between partial mapping and full mapping of file.
 23. https://github.com/google/jimfs can be used for testing, its a in-memory files.
 24. Performances Tuning can be done with
-    1. using of better hash class for table in the sst chunks
+    1. using of better hash class for table in the org.g2n.atomdb.sst chunks
     2. use of full mmap of reading files.
 25. remove of contributors list.
 26. wherever possible convert to the latest java features. makes class and record and using sealed. 
-27. can we utilize the async file io to read the block and keep while searching. so while searching we might encounter 2-3 files to search, here we can load in a async was. and the reading wont go waste as they will be cache and will be used by someone else.
+27. can we utilize the async file io to read the block and keep while searching. so while searching we might encounter 2-3 files to org.g2n.atomdb.search, here we can load in a async was. and the reading wont go waste as they will be cache and will be used by someone else.
 28. before release do benchmark based on the different writers and readers, see if the bufferedWriter is of any help when we have mmapped the file. since mmap does the same thing.
 29. can we use cleaner and cleanable apis for unmapping ? and also does unmap calls the gc ? and also can't we just learn all the maping and unmapping be done and call System.gc() when we close the class ?
 30. is common prefix adding any value ? need to do benchmark.
@@ -55,16 +55,16 @@ AtomDB Release 1.0
 35. we should cache the checksum & location block.
 36. all position var should be int and file should be limited.
 37. we should only map only the blocks. rather than mmapping whole file since we already have read the pointers. and header.
-38. we can write checksums in sorted order so that we can retrive checksums together (cache them) and perform binary search.
+38. we can write checksums in sorted order so that we can retrive checksums together (cache them) and perform binary org.g2n.atomdb.search.
 39. can we share a mmaped file with other readers ? or is it that we do share internally.
 
 # Bottlenecks
-1. multiple sst reads. (Partially solved by Objective->3)
+1. multiple org.g2n.atomdb.sst reads. (Partially solved by Objective->3)
 2. heavy compaction.
 3. No proper caching for recently retrieved block, k-v,
-4. multiple disk seeks and reads for single request. **(Many sst)**
+4. multiple disk seeks and reads for single request. **(Many org.g2n.atomdb.sst)**
 5. multiple jumps in a **single SST**
-6. N sst -> N bloom filter reads. in worst case N SST binary search. ( can't we unify things)
+6. N org.g2n.atomdb.sst -> N bloom filter reads. in worst case N SST binary org.g2n.atomdb.search. ( can't we unify things)
 7. Compacting random files with any patterns.
 8. Do not compress the plain primitives, they are not compressible.
 
@@ -72,7 +72,7 @@ AtomDB Release 1.0
 
 
 ### TODO:
-- [ ] **IMP** we can implement the shared keys in sst block down the list but need to understand the cost to write sst and also compaction cost and also does it help in reading.
+- [ ] **IMP** we can implement the shared keys in org.g2n.atomdb.sst block down the list but need to understand the cost to write org.g2n.atomdb.sst and also compaction cost and also does it help in reading.
   - basically when we have n keys in a sorted order, some keys will have thier prefix similar which can taken common out.
   - we need not store the prefix since we already have the smallest key in the memory, we just need to prefix length.
   - this will help in comparing as well as storing, since we will store less now.
@@ -85,11 +85,11 @@ AtomDB Release 1.0
   - If a file doesn't generate positive results for reads then it can be taken for compaction.
     this file has very sparse data, for reading efficiency we need concentrated data.
 - [ ] Read, Write improvement.
-- [ ] Compaction Improvement.
+- [ ] org.g2n.atomdb.Compaction Improvement.
 - [ ] Cache.
 - [ ] Use of LevelDB interfaces.
-- [ ] Faster Log writing and reader, is there a way were we convert the log into sst ?
-- [ ] Table, basically all the meta data storage. 
+- [ ] Faster Log writing and reader, is there a way were we convert the log into org.g2n.atomdb.sst ?
+- [ ] org.g2n.atomdb.Table, basically all the meta data storage. 
 - [ ] Only block or big chunks compression.
 - [x] LZ4 at use.
 - [ ] recently read blog cache.
@@ -109,7 +109,7 @@ AtomDB Release 1.0
   - don't know the creation and restoration cost of the bloom filter.
 - [x] Check what works best, the hashes or bloom filter.
   - hash seems good. and that took crc32c seems perfect.
-- [ ] compaction, the sst file which close to each other based on the overlaps. here the idea is to find a sst which has a big range and then compact it with other sst which has small ranges together.
+- [ ] compaction, the org.g2n.atomdb.sst file which close to each other based on the overlaps. here the idea is to find a org.g2n.atomdb.sst which has a big range and then compact it with other org.g2n.atomdb.sst which has small ranges together.
 - [ ] Providing ACID
 - [ ] OPTIMIZATION THINK: creating of tree of the spare keys to find the correct file.
 - [ ] OPTIMIZATION THINK: in a block we can store partial keys, for example maybe the smallest key defines the commons prefix and further keys has suffix.
@@ -124,9 +124,9 @@ AtomDB Release 1.0
 - [ ] what if we manage the block of pages by our own ? just like wiredTiger (mongodb)
   - https://source.wiredtiger.com/develop/arch-index.html
 - [ ] posix_fadvise seems viable option for compaction, where we give hint to the OS that we will read the ssts in sequential manner.
-  - search on chatgpt, database basic channel "posix_fadvise vs mmap" 
-- [ ] before writing the new sst, just check if there is a need for compaction and see if the file overlaps with other. so that directly compacted these files.
-- [ ] need to add magic number at the end of the sst. to mark the end of sst.
+  - org.g2n.atomdb.search on chatgpt, database basic channel "posix_fadvise vs mmap" 
+- [ ] before writing the new org.g2n.atomdb.sst, just check if there is a need for compaction and see if the file overlaps with other. so that directly compacted these files.
+- [ ] need to add magic number at the end of the org.g2n.atomdb.sst. to mark the end of org.g2n.atomdb.sst.
 - [ ] Think on what we can cache.
 - [ ] what really is cache obvious data structure.
 - cant we apply common prefix to values.
@@ -167,11 +167,11 @@ AtomDB Release 1.0
   * https://github.com/hopshadoop/hops/blob/master/hadoop-common-project/hadoop-common/src/main/java/org/apache/hadoop/io/nativeio/NativeIO.java
 * LevelDB explanation
   * https://segmentfault.com/a/1190000040286395/en (Very well written)
-  * https://docs.riak.com/riak/kv/latest/setup/planning/backend/leveldb/index.html#:~:text=Comparison%20of%20eLevelDB%20and%20Bitcask&text=Bitcask%20stores%20keys%20in%20memory,LevelDB%20will%20need%20two%20seeks. (Compaction)
+  * https://docs.riak.com/riak/kv/latest/setup/planning/backend/leveldb/index.html#:~:text=Comparison%20of%20eLevelDB%20and%20Bitcask&text=Bitcask%20stores%20keys%20in%20memory,LevelDB%20will%20need%20two%20seeks. (org.g2n.atomdb.Compaction)
   * https://axlgrep.github.io/tech/leveldb-sst-file.html
   * https://chenju2k6.github.io/blog/2018/11/leveldb
   * https://rocksdb.org/blog/
-* Compaction
+* org.g2n.atomdb.Compaction
   * https://smalldatum.blogspot.com/2018/08/name-that-compaction-algorithm.html
   * https://github.com/facebook/rocksdb/wiki/Compaction
 * Sysetm programming 

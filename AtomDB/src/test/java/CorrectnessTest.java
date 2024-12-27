@@ -1,5 +1,6 @@
-import db.DBImpl;
-import db.DbOptions;
+
+import org.g2n.atomdb.db.DBImpl;
+import org.g2n.atomdb.db.DbOptions;
 import org.junit.jupiter.api.*;
 
 import java.io.File;
@@ -9,23 +10,23 @@ import java.util.Collections;
 import java.util.List;
 import java.util.stream.IntStream;
 
-import static util.BytesConverter.bytes;
+import static org.g2n.atomdb.util.BytesConverter.bytes;
 
 /**
- *  1. write records and read sequentially (forward and backward)
- *  2. write records and read randomly (all)
- *
+ * 1. write records and read sequentially (forward and backward)
+ * 2. write records and read randomly (all)
  */
 public class CorrectnessTest {
-    public static final int TOTAL = 500000;
+        public static final int TOTAL = 500000;
+//    public static final int TOTAL = 1000000;
     public static final String VALUE = "value".repeat(50);
-    DbOptions opt ;
+    DbOptions opt;
     DBImpl db;
 
     @BeforeEach
     public void init() throws Exception {
         opt = new DbOptions();
-        db = new DBImpl(new File(this.getClass().getName() +"_"+ Instant.now().getEpochSecond()+ "_DB"), opt);
+        db = new DBImpl(new File(this.getClass().getName() + "_" + Instant.now().getEpochSecond() + "_DB"), opt);
         for (int i = 0; i < TOTAL; i++) {
             db.put(bytes(i + ""), bytes(i + "_" + VALUE));
         }
@@ -33,7 +34,8 @@ public class CorrectnessTest {
 
     @AfterEach
     public void closingSession() throws Exception {
-        db.close();db.destroy();
+        db.close();
+        db.destroy();
     }
 
     @Test

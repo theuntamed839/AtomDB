@@ -1,4 +1,4 @@
-# Table
+# org.g2n.atomdb.Table
 
 ## Role
 * Holding files of different levels

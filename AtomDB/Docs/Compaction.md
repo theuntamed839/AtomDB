@@ -1,14 +1,14 @@
 The idea around compaction.
 
-* It about creating overlapping free and compact sst.
-  * Compact SST meaning is that we should have sst which holds all the keys which lies in the min and max key.
-  * By making it compact we gonna reduce the overlap. so if there is a sst having keys 10-50 range and has all the elements in it. the for searching we only gonna access this sst.
-  * if there is overlapping then we will have ssts which are like 10-70 and 30-70. here for search we will need to access 2 ssts.
+* It about creating overlapping free and compact org.g2n.atomdb.sst.
+  * Compact SST meaning is that we should have org.g2n.atomdb.sst which holds all the keys which lies in the min and max key.
+  * By making it compact we gonna reduce the overlap. so if there is a org.g2n.atomdb.sst having keys 10-50 range and has all the elements in it. the for searching we only gonna access this org.g2n.atomdb.sst.
+  * if there is overlapping then we will have ssts which are like 10-70 and 30-70. here for org.g2n.atomdb.search we will need to access 2 ssts.
 
 
 
 Plan:
-table, search engine, and benchmark.
+table, org.g2n.atomdb.search engine, and benchmark.
 benchmark should yield super fast results. 
 then we optimize and clean our existing code.
 then we work compaction by planning on smallest how things will move and then implementations.
@@ -21,9 +21,9 @@ write improved unit test, integration test, crash test, performance test under d
 LevelDB compaction:
 1. 4mb file is level0
 2. pick one file from level L and all overlapping files from level L+1.
-3. While Level 0 -> 1, we take all the overlapping files from 0 and 1 as well. since this is very special level.
-4. New create a new sst for every 2 mb file.
-5. we also switch to a new sst when we have grown enough to cover 10 level+2 files. (so that we wont pickup more files from l+2 for next compaction)
+3. While org.g2n.atomdb.Level 0 -> 1, we take all the overlapping files from 0 and 1 as well. since this is very special level.
+4. New create a new org.g2n.atomdb.sst for every 2 mb file.
+5. we also switch to a new org.g2n.atomdb.sst when we have grown enough to cover 10 level+2 files. (so that we wont pickup more files from l+2 for next compaction)
 6. we remember greatest key of level l so that next time we pick files from greatest key.
 
 
@@ -31,13 +31,13 @@ TODO:
 1. Stable compaction
 2. Value updating and delete.
 3. Scheduling compaction in background thread.
-4. Table recreation and manifest file.
+4. org.g2n.atomdb.Table recreation and manifest file.
 5. Search improvement (Cache of blocks)
 6. Improve overall code and clean up.
 7. Unit test & integration test
-8. Benchmark
+8. org.g2n.atomdb.Benchmark
 9. Maven deploy
-10. Great readme, explaining how to install, use, benchmarks, limitations, ideas, motivation and future work, Pictorial representation of architecture and sst.
+10. Great readme, explaining how to install, use, benchmarks, limitations, ideas, motivation and future work, Pictorial representation of architecture and org.g2n.atomdb.sst.
 11. Handling architecture shortcoming, for example the checksum check.
 
 For updation, we can make the iteration in sorted order of latest -> old.

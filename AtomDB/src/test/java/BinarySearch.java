@@ -1,6 +1,8 @@
-import sst.Header;
-import sst.MiddleBlock;
-import sst.ValueUnit;
+package java;
+
+import org.g2n.atomdb.sst.Header;
+import org.g2n.atomdb.sst.MiddleBlock;
+import org.g2n.atomdb.sst.ValueUnit;
 
 import java.io.FileInputStream;
 import java.nio.ByteBuffer;
@@ -17,7 +19,7 @@ public class BinarySearch {
         try(FileInputStream inputStream = new FileInputStream(file);
             FileChannel channel = inputStream.getChannel();
         ) {
-            Header header = null; //Header.getHeader(file, channel, byteBuffer);
+            Header header = null; //Header.getHeader(fileToWrite, channel, byteBuffer);
 
             // bound check
             if (Arrays.compare(key, header.getSmallestKey()) < 0) {
@@ -43,7 +45,7 @@ public class BinarySearch {
             if (entry == null) return null;
             return entry.getValue();
         }catch (Exception e) {
-            throw new RuntimeException("while accessing file=" + file, e);
+            throw new RuntimeException("while accessing fileToWrite=" + file, e);
         }
     }
 

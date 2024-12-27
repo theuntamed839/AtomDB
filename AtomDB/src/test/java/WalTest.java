@@ -1,5 +1,7 @@
-import db.DBImpl;
-import db.DbOptions;
+package java;
+
+import org.g2n.atomdb.db.DBImpl;
+import org.g2n.atomdb.db.DbOptions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -12,7 +14,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
 
-import static util.BytesConverter.bytes;
+import static org.g2n.atomdb.util.BytesConverter.bytes;
 
 public class WalTest {
     public static final String VALUE = "value".repeat(50);

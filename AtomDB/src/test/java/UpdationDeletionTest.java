@@ -1,10 +1,12 @@
-import db.DBImpl;
-import db.DbOptions;
+package java;
+
+import org.g2n.atomdb.db.DBImpl;
+import org.g2n.atomdb.db.DbOptions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import static util.BytesConverter.bytes;
+import static org.g2n.atomdb.util.BytesConverter.bytes;
 
 import java.io.File;
 import java.util.*;
@@ -45,7 +47,7 @@ public class UpdationDeletionTest {
             db.put(bytes(i + ""), bytes(i + "_" + VALUE));
         }
 
-        System.out.println("Writing more data so that sst's are flushed");
+        System.out.println("Writing more data so that org.g2n.atomdb.sst's are flushed");
         var trashValue = "eulav".repeat(50);
         for (int i = TOTAL; i < TOTAL + 10_000; i++) {
             db.put(bytes(i + ""), bytes(i + "_" + trashValue));
@@ -68,7 +70,7 @@ public class UpdationDeletionTest {
                         );
             }
         }
-        System.out.println("Writing more data so that sst's are flushed");
+        System.out.println("Writing more data so that org.g2n.atomdb.sst's are flushed");
 
         for (int i = TOTAL + 10_000; i < TOTAL + 20_000; i++) {
             db.put(bytes(i + ""), bytes(i + "_" + trashValue));

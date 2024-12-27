@@ -1,0 +1,157 @@
+package org.g2n.atomdb.Compaction;
+
+import org.g2n.atomdb.Constants.DBConstant;
+import org.g2n.atomdb.Level.Level;
+import org.g2n.atomdb.Table.SSTInfo;
+import org.g2n.atomdb.Table.Table;
+import com.google.common.hash.BloomFilter;
+import com.google.common.hash.Funnels;
+import org.g2n.atomdb.db.ExpandingByteBuffer;
+import org.g2n.atomdb.db.KVUnit;
+import org.g2n.atomdb.sstIo.SSTHeader;
+
+import java.io.File;
+import java.io.IOException;
+import java.lang.foreign.Arena;
+import java.nio.channels.FileChannel;
+import java.nio.file.StandardOpenOption;
+import java.util.Iterator;
+
+import static java.nio.channels.FileChannel.MapMode.READ_WRITE;
+
+public class SSTPersist {
+    private final Table table;
+    private final ThreadLocal<ExpandingByteBuffer> bufferThreadLocal = ThreadLocal.withInitial(ExpandingByteBuffer::new);
+
+    public SSTPersist(Table table) {
+        this.table = table;
+    }
+
+    public void writeManyFiles(Level level, CollectiveSStIterator iterator, int avgNumberOfEntriesInSST) throws IOException {
+        SSTInfo sstInfo = null;
+        while (iterator.hasNext()) {
+            sstInfo = writeOptimized(table.getNewSST(level), level, avgNumberOfEntriesInSST, iterator, DBConstant.COMPACTED_SST_FILE_SIZE);
+            table.addSST(level, sstInfo);
+        }
+        table.saveLastCompactedKey(level, sstInfo.getSstKeyRange().getGreatest());
+    }
+
+    public void writeSingleFile(Level level, int maxEntries, Iterator<KVUnit> iterator) throws IOException {
+        var sstInfo = writeOptimized(table.getNewSST(level), level, maxEntries, iterator, Integer.MAX_VALUE);
+        table.addSST(level, sstInfo);
+        System.out.println(sstInfo);
+    }
+
+    public SSTInfo writeOptimized(File file, Level level, int upperLimitOfEntries, Iterator<KVUnit> iterator, int SST_SIZE) throws IOException {
+        var sstHeader = SSTHeader.getDefault(level);
+        var writer = bufferThreadLocal.get();
+        writer.clear();
+        writer.position(SSTHeader.TOTAL_HEADER_SIZE);
+        var filter = BloomFilter.create(Funnels.byteArrayFunnel(), upperLimitOfEntries, 0.01);
+
+        // middle block
+        var pointers = new PointerList(upperLimitOfEntries);
+        var customIterator = new FilterAddingIterator(iterator, filter);
+        IndexedCluster indexedCluster = null;
+        while (customIterator.hasNext() && customIterator.getTotalKVSize() < SST_SIZE) {
+            indexedCluster = getNextCluster(customIterator);
+            pointers.add(new Pointer(indexedCluster.getFirstKey(), writer.position()));
+            System.out.println("pointer position"+ writer.position());
+            indexedCluster.storeAsBytes(writer);
+        }
+        pointers.add(new Pointer(indexedCluster.getLastKey(), Math.negateExact(writer.position())));
+        sstHeader.setEntries(customIterator.getCount());
+        sstHeader.setFilterPosition(writer.position());
+
+        // footer
+        filter.writeTo(writer);
+        sstHeader.setPointersPosition(writer.position());
+        System.out.println("pointer possition"+ writer.position());
+        pointers.storeAsBytes(writer);
+        writer.putLong(DBConstant.MARK_FILE_END); // todo need confirm this while reading fileToWrite.
+        var lastLeftPosition = writer.position();
+
+        // header
+        writer.position(0);
+        sstHeader.writeSSTHeaderData(writer);
+        sstHeader.check();
+        writer.position(lastLeftPosition);
+
+        save(file);
+        return new SSTInfo(file, sstHeader, pointers, filter);
+    }
+
+    public void save(File file) throws IOException {
+        var buffer = bufferThreadLocal.get();
+        buffer.flip();
+        try (
+                var fileChannel = FileChannel.open(file.toPath(), StandardOpenOption.READ, StandardOpenOption.WRITE);
+                var arena = Arena.ofConfined()
+        ) {
+            var fileSegment = fileChannel.map(READ_WRITE, 0, buffer.remaining(), arena);
+            fileSegment.asByteBuffer().put(buffer.getBuffer());
+        } finally {
+            buffer.clear();
+        }
+    }
+
+    private IndexedCluster getNextCluster(Iterator<KVUnit> customIterator) {
+        var cluster = new IndexedCluster(DBConstant.CLUSTER_SIZE);
+        for (int i = 0; i < DBConstant.CLUSTER_SIZE && customIterator.hasNext(); i++) {
+            KVUnit current = customIterator.next();
+            cluster.add(current);
+        }
+        return cluster;
+    }
+
+    public void writeManyFiles(Level level, CollectiveIndexedClusterIterator iterator, int avgNumberOfEntriesInSST) throws IOException {
+        SSTInfo sstInfo = null;
+        while (iterator.hasNext()) {
+            sstInfo = writeOptimized(table.getNewSST(level), level, avgNumberOfEntriesInSST, iterator, DBConstant.COMPACTED_SST_FILE_SIZE);
+            table.addSST(level, sstInfo);
+            System.out.println(sstInfo);
+        }
+        table.saveLastCompactedKey(level, sstInfo.getSstKeyRange().getGreatest());
+    }
+
+    private SSTInfo writeOptimized(File file, Level level, int upperLimitOfEntries, CollectiveIndexedClusterIterator iterator, int compactedSstFileSize) throws IOException {
+        var sstHeader = SSTHeader.getDefault(level);
+        var writer = bufferThreadLocal.get();
+        writer.clear();
+        writer.position(SSTHeader.TOTAL_HEADER_SIZE);
+        var filter = BloomFilter.create(Funnels.byteArrayFunnel(), upperLimitOfEntries, 0.01);
+
+        // middle block
+        var pointers = new PointerList(upperLimitOfEntries);
+        var customIterator = new ClusterFilterAddingIterator(iterator, filter);
+        IndexedCluster indexedCluster = null;
+        while (customIterator.hasNext() && customIterator.getTotalKVSize() < compactedSstFileSize) {
+            indexedCluster = customIterator.next();
+            pointers.add(new Pointer(indexedCluster.getFirstKey(), writer.position()));
+            System.out.println("pointer position"+ writer.position());
+            indexedCluster.storeAsBytes(writer);
+        }
+        System.out.println("customIterator.getTotalKVSize() < compactedSstFileSize" + (customIterator.getTotalKVSize() < compactedSstFileSize));
+        System.out.println("customIterator.hasNext()" + (customIterator.hasNext()));
+        pointers.add(new Pointer(indexedCluster.getLastKey(), Math.negateExact(writer.position())));
+        sstHeader.setEntries(customIterator.getCount());
+        sstHeader.setFilterPosition(writer.position());
+
+        // footer
+        filter.writeTo(writer);
+        sstHeader.setPointersPosition(writer.position());
+        System.out.println("pointer possition"+ writer.position());
+        pointers.storeAsBytes(writer);
+        writer.putLong(DBConstant.MARK_FILE_END); // todo need confirm this while reading fileToWrite.
+        var lastLeftPosition = writer.position();
+
+        // header
+        writer.position(0);
+        sstHeader.writeSSTHeaderData(writer);
+        sstHeader.check();
+        writer.position(lastLeftPosition);
+
+        save(file);
+        return new SSTInfo(file, sstHeader, pointers, filter);
+    }
+}
