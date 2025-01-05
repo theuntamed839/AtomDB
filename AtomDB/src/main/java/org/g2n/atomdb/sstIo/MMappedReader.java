@@ -19,7 +19,7 @@ public class MMappedReader extends InputStream {
     public MMappedReader(File file) throws IOException {
         //System.out.println("Constructor for fileToWrite="+fileToWrite.getName());
         this.channel = FileChannel.open(file.toPath(), StandardOpenOption.READ);
-        this.arena = Arena.ofConfined();
+        this.arena = Arena.ofShared();
         this.map = this.channel.map(FileChannel.MapMode.READ_ONLY, 0, channel.size(), arena).asByteBuffer();
     }
 

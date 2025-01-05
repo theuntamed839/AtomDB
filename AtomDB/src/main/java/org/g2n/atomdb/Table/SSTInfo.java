@@ -60,6 +60,7 @@ public class SSTInfo extends SSTHeader implements Comparable<SSTInfo> {
     }
 
     public int getFileTorsoSize() {
+        // todo change this name
         return (int) (getPointersPosition() - pointers.getLast().position());
     }
 

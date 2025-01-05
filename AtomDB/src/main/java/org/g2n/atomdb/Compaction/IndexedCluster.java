@@ -2,6 +2,7 @@ package org.g2n.atomdb.Compaction;
 
 import org.g2n.atomdb.Compression.DataCompressionStrategy;
 import org.g2n.atomdb.Compression.Lz4Compression;
+import org.g2n.atomdb.db.DBComparator;
 import org.g2n.atomdb.db.ExpandingByteBuffer;
 import org.g2n.atomdb.db.KVUnit;
 import org.g2n.atomdb.sstIo.MMappedReader;
@@ -12,20 +13,22 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Queue;
 import java.util.zip.CRC32C;
 
 public class IndexedCluster {
     private static final int NOT_CALCULATED_YET = -1;
-    private final int clusterSize;
+    private final int MAX_NUM_OF_ENTRIES_IN_CLUSTER;
     private final CRC32C checksum;
     private final DataCompressionStrategy compression;
+    private int totatKVSize = 0;
     private int commonPrefix;
     private final List<KVUnit> entries;
     private static final long DUMMY_CHECKSUM = Long.MIN_VALUE;
     private static final int DUMMY_LOCATION = Integer.MIN_VALUE;
 
     public IndexedCluster(int clusterSize) {
-        this.clusterSize = clusterSize;
+        this.MAX_NUM_OF_ENTRIES_IN_CLUSTER = clusterSize;
         this.entries = new ArrayList<>(clusterSize);
         this.commonPrefix = NOT_CALCULATED_YET;
         this.checksum = new CRC32C(); // todo using naked crc32c
@@ -63,14 +66,43 @@ public class IndexedCluster {
         return new Cluster(units);
     }
 
+    public static void fillQueue(MMappedReader reader, Pointer pointer, byte numberOfKeysInSingleCluster, Queue<KVUnit> queue) throws IOException {
+        reader.position((int) (pointer.position() + Long.BYTES * numberOfKeysInSingleCluster));
+        List<Integer> locations = getLocationList(getBytes(reader, Integer.BYTES * (numberOfKeysInSingleCluster + 1)), numberOfKeysInSingleCluster);
+        int commonPrefix = reader.getInt();
+        ByteBuffer bytes = getBytes(reader, getTotalSizeToReadForKVs(locations));
+
+        for (int i = 0; i < numberOfKeysInSingleCluster && bytes.hasRemaining(); i++) {
+            byte[] block = new byte[locations.get(i + 1) - locations.get(i)];
+            bytes.get(block);
+            byte[] decompress = Lz4Compression.getInstance().decompress(block);
+            var wrap = ByteBuffer.wrap(decompress);
+            int keyLength = wrap.getInt();
+
+            byte[] key = new byte[keyLength + commonPrefix];
+            System.arraycopy(pointer.key(), 0, key, 0, commonPrefix);
+            wrap.get(key, commonPrefix, keyLength);
+
+            var isDeleted = KVUnit.DeletionStatus.of(wrap.get());
+            if (KVUnit.DeletionStatus.DELETED == isDeleted) {
+                queue.add(new KVUnit(key));
+            } else {
+                int valueLength = wrap.getInt();
+                byte[] value = new byte[valueLength];
+                wrap.get(value);
+                queue.add(new KVUnit(key, value));
+            }
+        }
+    }
+
     public Cluster read(MMappedReader reader, Pointer pointer) throws IOException {
-        reader.position((int) (pointer.position() + Long.BYTES * clusterSize));
-        List<Integer> locations = getLocationList(getBytes(reader, Integer.BYTES * (clusterSize + 1)), clusterSize);
+        reader.position((int) (pointer.position() + Long.BYTES * MAX_NUM_OF_ENTRIES_IN_CLUSTER));
+        List<Integer> locations = getLocationList(getBytes(reader, Integer.BYTES * (MAX_NUM_OF_ENTRIES_IN_CLUSTER + 1)), MAX_NUM_OF_ENTRIES_IN_CLUSTER);
         int commonPrefix = reader.getInt();
         ByteBuffer bytes = getBytes(reader, getTotalSizeToReadForKVs(locations));
 
         List<KVUnit> units = new ArrayList<>();
-        for (int i = 0; i < clusterSize && bytes.hasRemaining(); i++) {
+        for (int i = 0; i < MAX_NUM_OF_ENTRIES_IN_CLUSTER && bytes.hasRemaining(); i++) {
             byte[] block = new byte[locations.get(i + 1) - locations.get(i)];
             bytes.get(block);
             byte[] decompress = compression.decompress(block);
@@ -119,18 +151,27 @@ public class IndexedCluster {
     }
 
     private List<Long> getChecksumList(ByteBuffer wrap) {
-        List<Long> checksums = new ArrayList<>(clusterSize);
-        for (int i = 0; i < clusterSize; i++) {
+        List<Long> checksums = new ArrayList<>(MAX_NUM_OF_ENTRIES_IN_CLUSTER);
+        for (int i = 0; i < MAX_NUM_OF_ENTRIES_IN_CLUSTER; i++) {
             checksums.add(wrap.getLong());
         }
         return checksums;
     }
 
     public void add(KVUnit kv) {
-        if (entries.size() >= clusterSize) {
+        if (entries.size() >= MAX_NUM_OF_ENTRIES_IN_CLUSTER) {
             throw new IllegalStateException("IndexedCluster is full");
         }
+
+        // todo remove this check
+        List<byte[]> list = entries.stream().map(KVUnit::getKey).toList();
+        if (Math.abs(Collections.binarySearch(list, kv.getKey(), DBComparator.byteArrayComparator)) < entries.size()) {
+            System.out.println("Math.abs(Collections.binarySearch(validatorList, kvUnit.getKey(), DBComparator.byteArrayComparator))" + Math.abs(Collections.binarySearch(list, kv.getKey(), DBComparator.byteArrayComparator)));
+            System.out.println("validatorList.size()" + list.size());
+            throw new RuntimeException("Got a lesser key than previous key");
+        }
         entries.add(kv);
+        totatKVSize += kv.getUnitSize();
         calculateCommonPrefix(kv.getKey());
     }
 
@@ -173,9 +214,9 @@ public class IndexedCluster {
         if (entries.isEmpty()) {
             throw new RuntimeException("Indexed Cluster entries are empty");
         }
-        List<Long> checksums = new ArrayList<>(clusterSize);
-        List<byte[]> kvs = new ArrayList<>(clusterSize);
-        List<Integer> locations = new ArrayList<>(clusterSize);
+        List<Long> checksums = new ArrayList<>(MAX_NUM_OF_ENTRIES_IN_CLUSTER);
+        List<byte[]> kvs = new ArrayList<>(MAX_NUM_OF_ENTRIES_IN_CLUSTER);
+        List<Integer> locations = new ArrayList<>(MAX_NUM_OF_ENTRIES_IN_CLUSTER);
 
         int location = 0;
         for (KVUnit entry : entries) {
@@ -191,7 +232,7 @@ public class IndexedCluster {
         }
         locations.add(location); // will be used to get the last block data.
 
-        if (checksums.size() != clusterSize) {
+        if (checksums.size() != MAX_NUM_OF_ENTRIES_IN_CLUSTER) {
             fillDummyData(checksums, locations);
         }
         checksums.forEach(writer::putLong);
@@ -204,9 +245,9 @@ public class IndexedCluster {
         if (entries.isEmpty()) {
             throw new RuntimeException("Indexed Cluster entries are empty");
         }
-        List<Long> checksums = new ArrayList<>(clusterSize);
-        List<byte[]> kvs = new ArrayList<>(clusterSize);
-        List<Integer> locations = new ArrayList<>(clusterSize);
+        List<Long> checksums = new ArrayList<>(MAX_NUM_OF_ENTRIES_IN_CLUSTER);
+        List<byte[]> kvs = new ArrayList<>(MAX_NUM_OF_ENTRIES_IN_CLUSTER);
+        List<Integer> locations = new ArrayList<>(MAX_NUM_OF_ENTRIES_IN_CLUSTER);
 
         int location = 0;
         for (KVUnit entry : entries) {
@@ -222,7 +263,7 @@ public class IndexedCluster {
         }
         locations.add(location); // will be used to get the last block data.
 
-        if (checksums.size() != clusterSize) {
+        if (checksums.size() != MAX_NUM_OF_ENTRIES_IN_CLUSTER) {
             fillDummyData(checksums, locations);
         }
         checksums.forEach(writer::putLong);
@@ -232,7 +273,7 @@ public class IndexedCluster {
     }
 
     private void fillDummyData(List<Long> checksums, List<Integer> locations) {
-        for (int i = checksums.size(); i < clusterSize; i++) {
+        for (int i = checksums.size(); i < MAX_NUM_OF_ENTRIES_IN_CLUSTER; i++) {
             checksums.add(DUMMY_CHECKSUM);
             locations.add(DUMMY_LOCATION);
         }
@@ -284,5 +325,13 @@ public class IndexedCluster {
                 + (!unit.isDeleted() ? Integer.BYTES + value.length : 0)
                 + Long.BYTES // checksum
                 - commonPrefix;
+    }
+
+    public int getTotalSize() {
+        return totatKVSize;
+    }
+
+    public int getNumberOfEntries() {
+        return entries.size();
     }
 }

@@ -63,4 +63,8 @@ public class PointerList {
                 ", LastPointer=" + pointers.getLast().toString() +
                 '}';
     }
+
+    public List<Pointer> getList() {
+        return Collections.unmodifiableList(pointers);
+    }
 }

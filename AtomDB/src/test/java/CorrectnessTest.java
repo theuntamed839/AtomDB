@@ -17,8 +17,8 @@ import static org.g2n.atomdb.util.BytesConverter.bytes;
  * 2. write records and read randomly (all)
  */
 public class CorrectnessTest {
-        public static final int TOTAL = 500000;
-//    public static final int TOTAL = 1000000;
+//        public static final int TOTAL = 500000;
+    public static final int TOTAL = 1000000;
     public static final String VALUE = "value".repeat(50);
     DbOptions opt;
     DBImpl db;

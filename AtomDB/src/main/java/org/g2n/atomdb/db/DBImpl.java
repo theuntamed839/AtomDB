@@ -78,7 +78,7 @@ public class DBImpl implements DB{
         if (kvUnit == null) {
             kvUnit = search.findKey(key);
         }
-        return kvUnit.isDeleted() ? null : kvUnit.getValue();
+        return kvUnit == null || kvUnit.isDeleted() ?  null : kvUnit.getValue();
     }
 
     @Override

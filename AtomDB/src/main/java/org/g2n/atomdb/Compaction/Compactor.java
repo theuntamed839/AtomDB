@@ -6,12 +6,10 @@ import org.g2n.atomdb.Table.Table;
 import org.g2n.atomdb.Table.SSTInfo;
 import org.g2n.atomdb.db.DbOptions;
 import org.g2n.atomdb.db.KVUnit;
-import org.g2n.atomdb.sstIo.SSTHeader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.io.PrintStream;
 import java.util.*;
 import java.util.concurrent.*;
 
@@ -120,12 +118,15 @@ public class Compactor implements AutoCloseable {
         System.out.println(level + " org.g2n.atomdb.Compaction Started " + Thread.currentThread().getName());
 
         try (var iterator = new CollectiveIndexedClusterIterator(Collections.unmodifiableCollection(overlappingFiles))) {
-            sstPersist.writeManyFiles(level.nextLevel(), iterator, getAvgNumberOfEntriesInSST(overlappingFiles));
+            sstPersist.writeManyFiles(level.nextLevel(), iterator, getAverageNumOfEntriesInSST(overlappingFiles));
             overlappingFiles.forEach(table::removeSST);
         } catch (Exception e) {
+
             logger.error("Error during compaction for level {}: {}", level, e.getMessage());
-            e.printStackTrace((PrintStream) logger);
-            return level;
+            e.printStackTrace();
+            System.exit(123);
+//            throw new RuntimeException(e);
+//            return level;
         } finally {
             ongoingCompactions.remove(level);
         }
@@ -139,7 +140,7 @@ public class Compactor implements AutoCloseable {
 //        System.out.println(level + " org.g2n.atomdb.Compaction Started " + Thread.currentThread().getName());
 //
 //        try (var iterator = new CollectiveSStIterator(Collections.unmodifiableCollection(overlappingFiles), dbOptions)) {
-//            sstPersist.writeManyFiles(level.nextLevel(), iterator, getAvgNumberOfEntriesInSST(overlappingFiles));
+//            sstPersist.writeManyFiles(level.nextLevel(), iterator, getMaxNumOfEntriesInSingleSST(overlappingFiles));
 //            overlappingFiles.forEach(table::removeSST);
 //        } catch (Exception e) {
 //            logger.error("Error during compaction for level {}: {}", level, e.getMessage());
@@ -151,7 +152,7 @@ public class Compactor implements AutoCloseable {
 //        return level;
 //    }
 
-    private int getAvgNumberOfEntriesInSST(Collection<SSTInfo> overlappingFiles) {
+    private int getAverageNumOfEntriesInSST(Collection<SSTInfo> overlappingFiles) {
         return (int) overlappingFiles.stream()
                 .map(SSTInfo::getNumberOfEntries)
                 .mapToInt(Integer::intValue)

@@ -19,6 +19,12 @@ import java.util.Iterator;
 
 import static java.nio.channels.FileChannel.MapMode.READ_WRITE;
 
+/*
+*
+* TODO:
+*  1) we can actually keep record the numberOfEntries in sst for that level, which can improve the bloom filter.
+*
+* */
 public class SSTPersist {
     private final Table table;
     private final ThreadLocal<ExpandingByteBuffer> bufferThreadLocal = ThreadLocal.withInitial(ExpandingByteBuffer::new);
@@ -54,9 +60,8 @@ public class SSTPersist {
         var customIterator = new FilterAddingIterator(iterator, filter);
         IndexedCluster indexedCluster = null;
         while (customIterator.hasNext() && customIterator.getTotalKVSize() < SST_SIZE) {
-            indexedCluster = getNextCluster(customIterator);
+            indexedCluster = getNextCluster(customIterator, filter);
             pointers.add(new Pointer(indexedCluster.getFirstKey(), writer.position()));
-            System.out.println("pointer position"+ writer.position());
             indexedCluster.storeAsBytes(writer);
         }
         pointers.add(new Pointer(indexedCluster.getLastKey(), Math.negateExact(writer.position())));
@@ -95,11 +100,12 @@ public class SSTPersist {
         }
     }
 
-    private IndexedCluster getNextCluster(Iterator<KVUnit> customIterator) {
+    private IndexedCluster getNextCluster(Iterator<KVUnit> customIterator, BloomFilter<byte[]> filter) {
         var cluster = new IndexedCluster(DBConstant.CLUSTER_SIZE);
         for (int i = 0; i < DBConstant.CLUSTER_SIZE && customIterator.hasNext(); i++) {
             KVUnit current = customIterator.next();
             cluster.add(current);
+            filter.put(current.getKey());
         }
         return cluster;
     }
@@ -108,33 +114,38 @@ public class SSTPersist {
         SSTInfo sstInfo = null;
         while (iterator.hasNext()) {
             sstInfo = writeOptimized(table.getNewSST(level), level, avgNumberOfEntriesInSST, iterator, DBConstant.COMPACTED_SST_FILE_SIZE);
+            avgNumberOfEntriesInSST = (sstInfo.getNumberOfEntries() + avgNumberOfEntriesInSST) / 2;
+            Validator.validateSST(sstInfo);
             table.addSST(level, sstInfo);
             System.out.println(sstInfo);
         }
         table.saveLastCompactedKey(level, sstInfo.getSstKeyRange().getGreatest());
     }
 
-    private SSTInfo writeOptimized(File file, Level level, int upperLimitOfEntries, CollectiveIndexedClusterIterator iterator, int compactedSstFileSize) throws IOException {
+    private SSTInfo writeOptimized(File file, Level level, int avgNumberOfEntriesInSST, CollectiveIndexedClusterIterator iterator, int compactedSstFileSize) throws IOException {
+        System.out.println("new compaction file name ="+ file.getName());
         var sstHeader = SSTHeader.getDefault(level);
         var writer = bufferThreadLocal.get();
         writer.clear();
         writer.position(SSTHeader.TOTAL_HEADER_SIZE);
-        var filter = BloomFilter.create(Funnels.byteArrayFunnel(), upperLimitOfEntries, 0.01);
+        var filter = BloomFilter.create(Funnels.byteArrayFunnel(), avgNumberOfEntriesInSST, 0.01);
 
         // middle block
-        var pointers = new PointerList(upperLimitOfEntries);
-        var customIterator = new ClusterFilterAddingIterator(iterator, filter);
+        var pointers = new PointerList(avgNumberOfEntriesInSST);
         IndexedCluster indexedCluster = null;
-        while (customIterator.hasNext() && customIterator.getTotalKVSize() < compactedSstFileSize) {
-            indexedCluster = customIterator.next();
+        int totalKVSize = 0;
+        int numberOfEntries = 0;
+        while (iterator.hasNext() && (totalKVSize < compactedSstFileSize || avgNumberOfEntriesInSST * 0.10 >= iterator.approxRemainingNumOfEntries())) {
+            indexedCluster = getNextCluster(iterator, filter);
+            totalKVSize += indexedCluster.getTotalSize();
+            numberOfEntries += indexedCluster.getNumberOfEntries();
             pointers.add(new Pointer(indexedCluster.getFirstKey(), writer.position()));
-            System.out.println("pointer position"+ writer.position());
+//            System.out.println("pointer position"+ writer.position());
             indexedCluster.storeAsBytes(writer);
         }
-        System.out.println("customIterator.getTotalKVSize() < compactedSstFileSize" + (customIterator.getTotalKVSize() < compactedSstFileSize));
-        System.out.println("customIterator.hasNext()" + (customIterator.hasNext()));
+
         pointers.add(new Pointer(indexedCluster.getLastKey(), Math.negateExact(writer.position())));
-        sstHeader.setEntries(customIterator.getCount());
+        sstHeader.setEntries(numberOfEntries);
         sstHeader.setFilterPosition(writer.position());
 
         // footer

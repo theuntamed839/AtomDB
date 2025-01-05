@@ -2,6 +2,7 @@ package org.g2n.atomdb.search;
 
 import org.g2n.atomdb.Checksum.Crc32cChecksum;
 import org.g2n.atomdb.Compaction.Pointer;
+import org.g2n.atomdb.Compaction.Validator;
 import org.g2n.atomdb.Constants.DBConstant;
 import org.g2n.atomdb.Mem.ImmutableMem;
 import org.g2n.atomdb.Mem.ImmutableMemTable;
@@ -82,7 +83,8 @@ public class Search implements AutoCloseable{
         for (SSTInfo sstInfo : fileList) {
             if (sstInfo.getSstKeyRange().inRange(key) && sstInfo.mightContainElement(key)) {
                 fileRequiredToSearch++;
-
+//                System.out.println("trying sstInfo="+sstInfo);
+//                Validator.validateSSTBasedOnSearch(sstInfo, key);
                 Finder finder = readerCache.get(sstInfo);
                 var unit = finder.find(key, keyChecksum);
                 if (unit != null) {
@@ -92,6 +94,14 @@ public class Search implements AutoCloseable{
             }
         }
         removeMeAfterTestMap.put(fileRequiredToSearch, removeMeAfterTestMap.getOrDefault(fileRequiredToSearch, 0) + 1);
+//        System.out.println(this.getClass().getName() + " :Key not found in any file");
+//        fileList.forEach(each -> {
+//            try {
+//                Validator.validateSSTBasedOnSearch(each, key);
+//            } catch (IOException e) {
+//                throw new RuntimeException(e);
+//            }
+//        });
         return null;
     }
 

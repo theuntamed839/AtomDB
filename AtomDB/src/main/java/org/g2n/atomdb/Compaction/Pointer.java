@@ -39,7 +39,6 @@ public record Pointer(byte[] key, long position) implements Comparable<Pointer> 
         buffer.get(key);
         return new Pointer(key, pos);
     }
-
 //    @Override
 //    public boolean equals(Object o) {
 //        if (this == o) return true;
