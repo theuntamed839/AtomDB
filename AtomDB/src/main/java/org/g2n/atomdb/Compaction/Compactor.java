@@ -116,12 +116,11 @@ public class Compactor implements AutoCloseable {
         ongoingCompactions.add(level);
         long start = System.nanoTime();
         System.out.println(level + " org.g2n.atomdb.Compaction Started " + Thread.currentThread().getName());
-
-        try (var iterator = new CollectiveIndexedClusterIterator(Collections.unmodifiableCollection(overlappingFiles))) {
+        try {
+            var iterator = new MergedClusterIterator(Collections.unmodifiableCollection(overlappingFiles));
             sstPersist.writeManyFiles(level.nextLevel(), iterator, getAverageNumOfEntriesInSST(overlappingFiles));
             overlappingFiles.forEach(table::removeSST);
         } catch (Exception e) {
-
             logger.error("Error during compaction for level {}: {}", level, e.getMessage());
             e.printStackTrace();
             System.exit(123);
@@ -133,24 +132,6 @@ public class Compactor implements AutoCloseable {
         System.out.println(level + " org.g2n.atomdb.Compaction Ended   " + Thread.currentThread().getName() + " took=" + (System.nanoTime() - start) / 1_000_000_000.0 + " Seconds");
         return level;
     }
-
-//    private Level performCompaction(Level level, Collection<SSTInfo> overlappingFiles) {
-//        ongoingCompactions.add(level);
-//        long start = System.nanoTime();
-//        System.out.println(level + " org.g2n.atomdb.Compaction Started " + Thread.currentThread().getName());
-//
-//        try (var iterator = new CollectiveSStIterator(Collections.unmodifiableCollection(overlappingFiles), dbOptions)) {
-//            sstPersist.writeManyFiles(level.nextLevel(), iterator, getMaxNumOfEntriesInSingleSST(overlappingFiles));
-//            overlappingFiles.forEach(table::removeSST);
-//        } catch (Exception e) {
-//            logger.error("Error during compaction for level {}: {}", level, e.getMessage());
-//            return level;
-//        } finally {
-//            ongoingCompactions.remove(level);
-//        }
-//        System.out.println(level + " org.g2n.atomdb.Compaction Ended   " + Thread.currentThread().getName() + " took=" + (System.nanoTime() - start) / 1_000_000_000.0 + " Seconds");
-//        return level;
-//    }
 
     private int getAverageNumOfEntriesInSST(Collection<SSTInfo> overlappingFiles) {
         return (int) overlappingFiles.stream()

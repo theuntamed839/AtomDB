@@ -16,6 +16,7 @@ import java.lang.foreign.Arena;
 import java.nio.channels.FileChannel;
 import java.nio.file.StandardOpenOption;
 import java.util.Iterator;
+import java.util.function.BooleanSupplier;
 
 import static java.nio.channels.FileChannel.MapMode.READ_WRITE;
 
@@ -33,57 +34,10 @@ public class SSTPersist {
         this.table = table;
     }
 
-    public void writeManyFiles(Level level, CollectiveSStIterator iterator, int avgNumberOfEntriesInSST) throws IOException {
-        SSTInfo sstInfo = null;
-        while (iterator.hasNext()) {
-            sstInfo = writeOptimized(table.getNewSST(level), level, avgNumberOfEntriesInSST, iterator, DBConstant.COMPACTED_SST_FILE_SIZE);
-            table.addSST(level, sstInfo);
-        }
-        table.saveLastCompactedKey(level, sstInfo.getSstKeyRange().getGreatest());
-    }
-
     public void writeSingleFile(Level level, int maxEntries, Iterator<KVUnit> iterator) throws IOException {
-        var sstInfo = writeOptimized(table.getNewSST(level), level, maxEntries, iterator, Integer.MAX_VALUE);
+        var sstInfo = writeOptimized1(table.getNewSST(level), level, maxEntries, iterator, () -> true, Integer.MAX_VALUE);
         table.addSST(level, sstInfo);
         System.out.println(sstInfo);
-    }
-
-    public SSTInfo writeOptimized(File file, Level level, int upperLimitOfEntries, Iterator<KVUnit> iterator, int SST_SIZE) throws IOException {
-        var sstHeader = SSTHeader.getDefault(level);
-        var writer = bufferThreadLocal.get();
-        writer.clear();
-        writer.position(SSTHeader.TOTAL_HEADER_SIZE);
-        var filter = BloomFilter.create(Funnels.byteArrayFunnel(), upperLimitOfEntries, 0.01);
-
-        // middle block
-        var pointers = new PointerList(upperLimitOfEntries);
-        var customIterator = new FilterAddingIterator(iterator, filter);
-        IndexedCluster indexedCluster = null;
-        while (customIterator.hasNext() && customIterator.getTotalKVSize() < SST_SIZE) {
-            indexedCluster = getNextCluster(customIterator, filter);
-            pointers.add(new Pointer(indexedCluster.getFirstKey(), writer.position()));
-            indexedCluster.storeAsBytes(writer);
-        }
-        pointers.add(new Pointer(indexedCluster.getLastKey(), Math.negateExact(writer.position())));
-        sstHeader.setEntries(customIterator.getCount());
-        sstHeader.setFilterPosition(writer.position());
-
-        // footer
-        filter.writeTo(writer);
-        sstHeader.setPointersPosition(writer.position());
-        System.out.println("pointer possition"+ writer.position());
-        pointers.storeAsBytes(writer);
-        writer.putLong(DBConstant.MARK_FILE_END); // todo need confirm this while reading fileToWrite.
-        var lastLeftPosition = writer.position();
-
-        // header
-        writer.position(0);
-        sstHeader.writeSSTHeaderData(writer);
-        sstHeader.check();
-        writer.position(lastLeftPosition);
-
-        save(file);
-        return new SSTInfo(file, sstHeader, pointers, filter);
     }
 
     public void save(File file) throws IOException {
@@ -110,10 +64,14 @@ public class SSTPersist {
         return cluster;
     }
 
-    public void writeManyFiles(Level level, CollectiveIndexedClusterIterator iterator, int avgNumberOfEntriesInSST) throws IOException {
+    public void writeManyFiles(Level level, MergedClusterIterator iterator, int avgNumberOfEntriesInSST) throws IOException {
         SSTInfo sstInfo = null;
+
         while (iterator.hasNext()) {
-            sstInfo = writeOptimized(table.getNewSST(level), level, avgNumberOfEntriesInSST, iterator, DBConstant.COMPACTED_SST_FILE_SIZE);
+            int finalAvgNumberOfEntriesInSST = avgNumberOfEntriesInSST;
+            BooleanSupplier piggyBackingPredicate = () -> finalAvgNumberOfEntriesInSST * 0.10 >= iterator.approximateRemainingEntries();
+
+            sstInfo = writeOptimized1(table.getNewSST(level), level, avgNumberOfEntriesInSST, iterator, piggyBackingPredicate, DBConstant.COMPACTED_SST_FILE_SIZE);
             avgNumberOfEntriesInSST = (sstInfo.getNumberOfEntries() + avgNumberOfEntriesInSST) / 2;
             Validator.validateSST(sstInfo);
             table.addSST(level, sstInfo);
@@ -122,7 +80,7 @@ public class SSTPersist {
         table.saveLastCompactedKey(level, sstInfo.getSstKeyRange().getGreatest());
     }
 
-    private SSTInfo writeOptimized(File file, Level level, int avgNumberOfEntriesInSST, CollectiveIndexedClusterIterator iterator, int compactedSstFileSize) throws IOException {
+    private SSTInfo writeOptimized1(File file, Level level, int avgNumberOfEntriesInSST, Iterator<KVUnit> iterator, BooleanSupplier piggyBackingPredicate, int compactedSstFileSize) throws IOException {
         System.out.println("new compaction file name ="+ file.getName());
         var sstHeader = SSTHeader.getDefault(level);
         var writer = bufferThreadLocal.get();
@@ -135,7 +93,7 @@ public class SSTPersist {
         IndexedCluster indexedCluster = null;
         int totalKVSize = 0;
         int numberOfEntries = 0;
-        while (iterator.hasNext() && (totalKVSize < compactedSstFileSize || avgNumberOfEntriesInSST * 0.10 >= iterator.approxRemainingNumOfEntries())) {
+        while (iterator.hasNext() && (totalKVSize < compactedSstFileSize || piggyBackingPredicate.getAsBoolean())) {
             indexedCluster = getNextCluster(iterator, filter);
             totalKVSize += indexedCluster.getTotalSize();
             numberOfEntries += indexedCluster.getNumberOfEntries();

@@ -24,7 +24,7 @@ public class Benchmark {
         //searchBenchMark(500000, "IssueDB");
 
 //        benchmark(inputString, 500000);
-        correctnessCheck(inputString, 500000);
+//        correctnessCheck(inputString, 500000);
 
         //        benchmark(inputString, 1000);
 //        benchmark(inputString, 10000);
@@ -35,8 +35,8 @@ public class Benchmark {
 //                benchmark(inputString, 15000);
 //        benchmarkWithRandomKVBytes(1000000, 50, 500); //500000
 
-//        var map = readOrCreateRandomKV(1000000, 50, 500, "KEY_VALUE_LENGTH_FIXED.org.g2n.atomdb.trash");
-//        benchmarkWithRandomKVBytes(map);
+        var map = readOrCreateRandomKV(1000000, 50, 500, "KEY_VALUE_LENGTH_FIXED.org.g2n.atomdb.trash");
+        benchmarkWithRandomKVBytes(map);
 
 //        benchmarkWithRandomLengthKVBytes(1000_000);
 //        benchmarkRandomRead(inputString, 1000_000, "asd"); //1000000

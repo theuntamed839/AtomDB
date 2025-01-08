@@ -1,5 +1,6 @@
 package org.g2n.atomdb.Compaction;
 
+import org.g2n.atomdb.Compression.Lz4Compression;
 import org.g2n.atomdb.Level.Level;
 import org.g2n.atomdb.Table.SSTFileHelper;
 import org.g2n.atomdb.Table.SSTInfo;
@@ -7,9 +8,13 @@ import org.g2n.atomdb.db.KVUnit;
 import org.g2n.atomdb.sstIo.MMappedReader;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+
+import static org.g2n.atomdb.Compaction.IndexedCluster.DUMMY_LOCATION;
 
 public class Validator {
 
@@ -50,8 +55,8 @@ public class Validator {
         System.out.println("Found: pointerList="+ sstInfo.getPointers().size()+" position going to look is=" + found.position());
         var reader = new MMappedReader(sstInfo.getSst());
         reader.position((int) found.position());
-        Cluster cluster = IndexedCluster.readSimpleCluster(reader, found, sstInfo.getNumberOfKeysInSingleCluster());
-        for (KVUnit unit : cluster.getUnits()) {
+        Cluster cluster = readSimpleCluster(reader, found, sstInfo.getNumberOfKeysInSingleCluster());
+        for (KVUnit unit : cluster.units()) {
             if (Arrays.compare(key, unit.getKey()) == 0) {
                 System.out.println("Key found");
                 return;
@@ -72,12 +77,12 @@ public class Validator {
 
         List<Cluster> clusterList = new ArrayList<>();
         while (!(reader.position() == clusterEndPoint || numberOfRetrievedClusterCount == sstInfo.getPointers().size())) {
-            Cluster cluster = IndexedCluster.readSimpleCluster(reader, sstInfo.getPointers().get(numberOfRetrievedClusterCount++), numberOfKeysInSingleCluster);
+            Cluster cluster = readSimpleCluster(reader, sstInfo.getPointers().get(numberOfRetrievedClusterCount++), numberOfKeysInSingleCluster);
             clusterList.add(cluster);
         }
 
         for (Cluster cluster : clusterList) {
-            for (KVUnit unit : cluster.getUnits()) {
+            for (KVUnit unit : cluster.units()) {
                 if (Arrays.compare(key, unit.getKey()) == 0) {
                     System.out.println("Linear search: Key found");
                     return unit;
@@ -114,7 +119,7 @@ public class Validator {
 
         List<Cluster> clusterList = new ArrayList<>();
         while (!(reader.position() == clusterEndPoint || numberOfRetrievedClusterCount == sstInfo.getPointers().size())) {
-            Cluster cluster = IndexedCluster.readSimpleCluster(reader, sstInfo.getPointers().get(numberOfRetrievedClusterCount++), numberOfKeysInSingleCluster);
+            Cluster cluster = readSimpleCluster(reader, sstInfo.getPointers().get(numberOfRetrievedClusterCount++), numberOfKeysInSingleCluster);
             clusterList.add(cluster);
         }
 
@@ -140,11 +145,11 @@ public class Validator {
 //        }
 //        System.out.println("");
 
-        if (Arrays.compare(clusterList.getFirst().getUnits().getFirst().getKey(), sstInfo.getSstKeyRange().getSmallest()) != 0) {
+        if (Arrays.compare(clusterList.getFirst().units().getFirst().getKey(), sstInfo.getSstKeyRange().getSmallest()) != 0) {
             throw new RuntimeException("Smallest key is invalid");
         }
 
-        if (Arrays.compare(clusterList.getLast().getUnits().getLast().getKey(), sstInfo.getSstKeyRange().getGreatest()) != 0) {
+        if (Arrays.compare(clusterList.getLast().units().getLast().getKey(), sstInfo.getSstKeyRange().getGreatest()) != 0) {
             throw new RuntimeException("Greatest key is invalid");
         }
 
@@ -230,4 +235,75 @@ public class Validator {
             }
         }
     }
+
+    public static Cluster readSimpleCluster(MMappedReader reader, Pointer pointer, byte numberOfKeysInSingleCluster) throws IOException {
+        reader.position((int) (pointer.position() + Long.BYTES * numberOfKeysInSingleCluster));
+        List<Integer> locations = getLocationList(getBytes(reader, Integer.BYTES * (numberOfKeysInSingleCluster + 1)), numberOfKeysInSingleCluster);
+        int commonPrefix = reader.getInt();
+        ByteBuffer bytes = getBytes(reader, getTotalSizeToReadForKVs(locations));
+
+        List<KVUnit> units = new ArrayList<>();
+        for (int i = 0; i < numberOfKeysInSingleCluster && bytes.hasRemaining(); i++) {
+            byte[] block = new byte[locations.get(i + 1) - locations.get(i)];
+            bytes.get(block);
+            byte[] decompress = Lz4Compression.getInstance().decompress(block);
+            var wrap = ByteBuffer.wrap(decompress);
+            int keyLength = wrap.getInt();
+
+            byte[] key = new byte[keyLength + commonPrefix];
+            System.arraycopy(pointer.key(), 0, key, 0, commonPrefix);
+            wrap.get(key, commonPrefix, keyLength);
+
+            var isDeleted = KVUnit.DeletionStatus.of(wrap.get());
+            if (KVUnit.DeletionStatus.DELETED == isDeleted) {
+                units.add(new KVUnit(key));
+            } else {
+                int valueLength = wrap.getInt();
+                byte[] value = new byte[valueLength];
+                wrap.get(value);
+                units.add(new KVUnit(key, value));
+            }
+        }
+        return new Cluster(units);
+    }
+
+    private static int getTotalSizeToReadForKVs(List<Integer> locations) {
+        for (int i = 0; i < locations.size(); i++) {
+            if (locations.get(i) == DUMMY_LOCATION) {
+                return locations.get(i - 1);
+            }
+        }
+        return locations.getLast();
+    }
+
+    private static ByteBuffer getBytes(MMappedReader reader, int size) throws IOException {
+        byte[] bytes = new byte[size];
+        reader.read(bytes);
+        ByteBuffer wrap = ByteBuffer.wrap(bytes);
+        return wrap;
+    }
+
+    private static List<Integer> getLocationList(ByteBuffer wrap, int sizeOfCluster) {
+        List<Integer> locations = new ArrayList<>();
+        for (int i = 0; i < sizeOfCluster + 1; i++) {
+            locations.add(wrap.getInt());
+        }
+        return locations;
+    }
+
+    record Cluster(List<KVUnit> units) {
+
+        @Override
+        public List<KVUnit> units() {
+                return Collections.unmodifiableList(units);
+            }
+
+            public byte[] getSmallestKeyInCluster() {
+                return units.getFirst().getKey();
+            }
+
+            public byte[] getGreatestKeyInCluster() {
+                return units.getLast().getKey();
+            }
+        }
 }
