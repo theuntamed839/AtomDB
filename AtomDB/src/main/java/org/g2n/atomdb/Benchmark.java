@@ -35,33 +35,10 @@ public class Benchmark {
 //                benchmark(inputString, 15000);
 //        benchmarkWithRandomKVBytes(1000000, 50, 500); //500000
 
-        var map = readOrCreateRandomKV(1000000, 50, 500, "KEY_VALUE_LENGTH_FIXED.org.g2n.atomdb.trash");
-        benchmarkWithRandomKVBytes(map);
+        benchmarkWithRandomKVBytes(getRandomKV(1000000, () -> 50, () -> 500));
 
 //        benchmarkWithRandomLengthKVBytes(1000_000);
 //        benchmarkRandomRead(inputString, 1000_000, "asd"); //1000000
-    }
-
-    private static Map<byte[], byte[]> readOrCreateRandomKV(int iterationCount, int keySize, int valueSize, String fileName) throws IOException, ClassNotFoundException {
-        File file = new File(iterationCount + "_" + keySize + "_" + valueSize + "_" + fileName);
-        Map<byte[], byte[]> randomKV;
-        if (!file.exists()) {
-            randomKV = getRandomKV(iterationCount, () -> keySize, () -> valueSize);
-            FileOutputStream fos =new FileOutputStream(file);
-            ObjectOutputStream oos =new ObjectOutputStream(fos);
-            oos.writeObject(randomKV);
-            oos.flush();
-            oos.close();
-            fos.close();
-        }else {
-            System.out.println("reading KV from system");
-            FileInputStream fis=new FileInputStream(file);
-            ObjectInputStream ois=new ObjectInputStream(fis);
-            randomKV = (HashMap<byte[], byte[]>)ois.readObject();
-            ois.close();
-            fis.close();
-        }
-        return randomKV;
     }
 
     private static void benchmarkWithRandomLengthKVBytes(int totalEntryCount) throws Exception {

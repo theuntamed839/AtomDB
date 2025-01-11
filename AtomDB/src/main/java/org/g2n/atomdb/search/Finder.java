@@ -98,7 +98,6 @@ public class Finder implements AutoCloseable{
         if (index == pointerList.size() -1) {
             index--; // finding the last element.
         }
-        System.out.println("looking in cluster: " + index);
         return pointerList.get(index);
     }
 

@@ -62,6 +62,14 @@ public class SSTKeyRange {
         return greatest;
     }
 
+    public byte[] start() {
+        return smallest;
+    }
+
+    public byte[] end() {
+        return greatest;
+    }
+
     public long getChecksum() {
         return checksum;
     }

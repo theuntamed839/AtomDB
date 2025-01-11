@@ -37,7 +37,6 @@ public class SSTPersist {
     public void writeSingleFile(Level level, int maxEntries, Iterator<KVUnit> iterator) throws IOException {
         var sstInfo = writeOptimized1(table.getNewSST(level), level, maxEntries, iterator, () -> true, Integer.MAX_VALUE);
         table.addSST(level, sstInfo);
-        System.out.println(sstInfo);
     }
 
     public void save(File file) throws IOException {
@@ -73,15 +72,12 @@ public class SSTPersist {
 
             sstInfo = writeOptimized1(table.getNewSST(level), level, avgNumberOfEntriesInSST, iterator, piggyBackingPredicate, DBConstant.COMPACTED_SST_FILE_SIZE);
             avgNumberOfEntriesInSST = (sstInfo.getNumberOfEntries() + avgNumberOfEntriesInSST) / 2;
-            Validator.validateSST(sstInfo);
             table.addSST(level, sstInfo);
-            System.out.println(sstInfo);
         }
         table.saveLastCompactedKey(level, sstInfo.getSstKeyRange().getGreatest());
     }
 
     private SSTInfo writeOptimized1(File file, Level level, int avgNumberOfEntriesInSST, Iterator<KVUnit> iterator, BooleanSupplier piggyBackingPredicate, int compactedSstFileSize) throws IOException {
-        System.out.println("new compaction file name ="+ file.getName());
         var sstHeader = SSTHeader.getDefault(level);
         var writer = bufferThreadLocal.get();
         writer.clear();
@@ -109,7 +105,6 @@ public class SSTPersist {
         // footer
         filter.writeTo(writer);
         sstHeader.setPointersPosition(writer.position());
-        System.out.println("pointer possition"+ writer.position());
         pointers.storeAsBytes(writer);
         writer.putLong(DBConstant.MARK_FILE_END); // todo need confirm this while reading fileToWrite.
         var lastLeftPosition = writer.position();

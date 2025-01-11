@@ -4,8 +4,10 @@ import org.g2n.atomdb.Level.Level;
 import org.g2n.atomdb.Mem.ImmutableMem;
 import org.g2n.atomdb.Table.Table;
 import org.g2n.atomdb.Table.SSTInfo;
+import org.g2n.atomdb.db.DBComparator;
 import org.g2n.atomdb.db.DbOptions;
 import org.g2n.atomdb.db.KVUnit;
+import org.g2n.atomdb.sstIo.SSTKeyRange;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,11 +38,29 @@ public class Compactor implements AutoCloseable {
         sstPersist.writeSingleFile(Level.LEVEL_ZERO, memtable.getNumberOfEntries(), memtable.getKeySetIterator());
     }
 
+    /**
+     *
+     * TODO:
+     * Compactions needs more thought
+     * we have to make sure that we always compact the old files and those files which doesn't overlap with the same level file.
+     *
+     * consider that level 1 has 2 files named A and B. where B is the new file and A is the old file.
+     * B has 23 and 29 number in it.
+     * A has 23 number in it.
+     * consider that we choose the files having 29 to compact, and we search for files having 29 and compact to Level 2.
+     * Now the issue starts, when we try to find number 23 we first look into the Level 1 and since we have file named A containing 23 in it we return that.
+     * But turns out the newest value for 23 was in B which is now compacted to Level 2
+     *
+     * So we have to make sure that all the olds files are compacted first and if we can't compact the old files, then we should choose the files which are not overlapping
+     * with the old files.
+     */
+
     public synchronized void tryCompaction(Level level) {
         if (shouldSkipCompaction(level)) {
             return;
         }
         Collection<SSTInfo> overlapping = getOverlappingSSTs(level);
+
         if (overlapping.size() <= 1) {
             System.out.println("WOW".repeat(100));
             return;
@@ -53,21 +73,178 @@ public class Compactor implements AutoCloseable {
         });
     }
 
+    private Collection<SSTInfo> alternative3(Level level) {
+        System.out.println("Alternative 2");
+        SortedSet<SSTInfo> currentLevelSSTSet = table.getSSTInfoSet(level);
+        SortedSet<SSTInfo> nextLevelSSTSet = table.getSSTInfoSet(level.nextLevel());
+
+        var set = new TreeSet<SSTInfo>();
+        for (SSTInfo sst1: currentLevelSSTSet) {
+            for (SSTInfo sst2: currentLevelSSTSet) {
+                if (sst1.equals(sst2)) continue;
+                int overlap = calculateOverlap(sst1.getSstKeyRange(), sst2.getSstKeyRange());
+                if (overlap > 0) {
+                    set.add(sst1);
+                    set.add(sst2);
+                }
+            }
+        }
+        var finalSet = new TreeSet<SSTInfo>();
+        for (SSTInfo currLevelSST : set) {
+            for (SSTInfo nextLevelSST : nextLevelSSTSet) {
+                int overlap = calculateMaxNumOfKeysOverlap(currLevelSST.getSstKeyRange(), nextLevelSST.getSstKeyRange());
+                if (overlap > 0) {
+                    finalSet.add(nextLevelSST);
+                }
+            }
+        }
+        set.addAll(finalSet);
+        System.out.println("number of selected files=" + set.size());
+        return set;
+    }
+
+    private Collection<SSTInfo> alternative2(Level level) {
+        System.out.println("Alternative 2");
+        SortedSet<SSTInfo> currentLevelSSTSet = table.getSSTInfoSet(level);
+        SortedSet<SSTInfo> nextLevelSSTSet = table.getSSTInfoSet(level.nextLevel());
+
+
+        for (SSTInfo currLevelSST : currentLevelSSTSet.reversed()) {
+            var map = new HashMap<SSTInfo, Integer>();
+            for (SSTInfo nextLevelSST : nextLevelSSTSet) {
+                int overlap = calculateMaxNumOfKeysOverlap(currLevelSST.getSstKeyRange(), nextLevelSST.getSstKeyRange());
+                if (overlap > 0) {
+//                    finalSet.add(nextLevelSST);
+                    map.put(nextLevelSST, overlap);
+                }
+            }
+            if (!map.isEmpty()) {
+                int avg = map.values().stream().mapToInt(each -> each).sum() / map.size();
+                var myset = new TreeSet<SSTInfo>();
+                myset.add(currLevelSST);
+                map.entrySet().stream().filter(each -> each.getValue() >= avg).forEach(each -> myset.add(each.getKey()));
+                return myset;
+            }
+        }
+
+        var finalSet = new TreeSet<SSTInfo>();
+        for (SSTInfo currLevelSST : currentLevelSSTSet) {
+            for (SSTInfo nextLevelSST : currentLevelSSTSet) {
+                if (currLevelSST.equals(nextLevelSST)) continue;
+                int overlap = calculateMaxNumOfKeysOverlap(currLevelSST.getSstKeyRange(), nextLevelSST.getSstKeyRange());
+                if (overlap > 0) {
+                    finalSet.add(nextLevelSST);
+                }
+            }
+        }
+
+        return finalSet;
+    }
+
+    private int calculateMaxNumOfKeysOverlap(SSTKeyRange r1, SSTKeyRange r2) {
+        Comparator<byte[]> comparator = DBComparator.byteArrayComparator;
+        if (comparator.compare(r1.end(), r2.start()) <= 0 || comparator.compare(r2.end(), r1.start()) <= 0) {
+            return 0; // No overlap
+        }
+
+        byte[] left = (comparator.compare(r1.start(), r2.start()) > 0) ? r1.start() : r2.start();
+        byte[] right = (comparator.compare(r1.end(), r2.end()) < 0) ? r1.end() : r2.end();
+
+        int keysOverlap = 0;
+        int minLength = Math.min(left.length, right.length);
+        for (int i = 0; i < minLength; i++) {
+            int result = left[i] - right[i];
+            if (result != 0) {
+                keysOverlap += 128 + ( -1 * Math.min(left[i], right[i]));
+                break;
+            }
+        }
+        if (minLength < left.length) {
+            keysOverlap += (minLength - left.length) * 256;
+        }
+        if (minLength < right.length) {
+            keysOverlap += (minLength - right.length) * 256;
+        }
+        return keysOverlap;
+    }
+
+
+    private Collection<SSTInfo> getOverlappingSSTsAlternative(Level level) {
+        System.out.println("Finding overlapping files for level" + level);
+        SortedSet<SSTInfo> currentLevelSSTSet = table.getSSTInfoSet(level);
+        SortedSet<SSTInfo> nextLevelSSTSet = table.getSSTInfoSet(level.nextLevel());
+
+        var map = new HashMap<Map.Entry<SSTInfo, SSTInfo>, Integer>();
+        var sum = 0;
+        var count = 0;
+        for (SSTInfo currLevelSST : currentLevelSSTSet) {
+            for (SSTInfo nextLevelSST : nextLevelSSTSet) {
+                int overlap = calculateOverlap(currLevelSST.getSstKeyRange(), nextLevelSST.getSstKeyRange());
+                if (overlap > 0) {
+                    map.put(Map.entry(currLevelSST, nextLevelSST), overlap);
+                    sum = sum + overlap;
+                    count++;
+                }
+            }
+        }
+
+        for (SSTInfo sst1: currentLevelSSTSet) {
+            for (SSTInfo sst2: currentLevelSSTSet) {
+                if (sst1.equals(sst2)) continue;
+                int overlap = calculateOverlap(sst1.getSstKeyRange(), sst2.getSstKeyRange());
+                if (overlap < 0) System.exit(123123);
+                if (overlap > 0) {
+                    map.put(Map.entry(sst1, sst2), overlap);
+                    sum = sum + overlap;
+                    count++;
+                }
+            }
+        }
+
+
+        var avg = sum / count;
+        var set = new TreeSet<SSTInfo>();
+        for (Map.Entry<Map.Entry<SSTInfo, SSTInfo>, Integer> entryIntegerEntry : map.entrySet()) {
+            if (entryIntegerEntry.getValue() >= avg) {
+                set.add(entryIntegerEntry.getKey().getKey());
+                set.add(entryIntegerEntry.getKey().getValue());
+            }
+        }
+
+        return set;
+    }
+
+    private static int calculateOverlap(SSTKeyRange r1, SSTKeyRange r2) {
+        // Check if ranges overlap
+        Comparator<byte[]> comparator = DBComparator.byteArrayComparator;
+        if (comparator.compare(r1.end(), r2.start()) <= 0 || comparator.compare(r2.end(), r1.start()) <= 0) {
+            return 0; // No overlap
+        }
+
+        // Calculate overlap
+        byte[] overlapStart = (comparator.compare(r1.start(), r2.start()) > 0) ? r1.start() : r2.start();
+        byte[] overlapEnd = (comparator.compare(r1.end(), r2.end()) < 0) ? r1.end() : r2.end();
+
+        return Math.abs(comparator.compare(overlapEnd, overlapStart));
+    }
+
     private Collection<SSTInfo> getOverlappingSSTs(Level level) {
-        SortedSet<SSTInfo> currentLevelSet = table.getSSTInfoSet(level);
-        SortedSet<SSTInfo> nextLevelSet = table.getSSTInfoSet(level.nextLevel());
+        SortedSet<SSTInfo> currentLevelSSTSet = table.getSSTInfoSet(level);
+        SortedSet<SSTInfo> nextLevelSSTSet = table.getSSTInfoSet(level.nextLevel());
 
         byte[] lastCompactedKey = table.getLastCompactedKey(level);
 
         Collection<SSTInfo> overlapping = (lastCompactedKey != null)
-                ? findOverlapping(lastCompactedKey, currentLevelSet, nextLevelSet)
+                ? findOverlapping(lastCompactedKey, currentLevelSSTSet, nextLevelSSTSet)
                 : Collections.emptyList();
 
         if (overlapping.size() > 1) {
+            System.out.println("we took A, size="+overlapping.size());
             return overlapping;
         }
-
-        return findOverlapsByBoundaryKeys(currentLevelSet, nextLevelSet);
+        Collection<SSTInfo> overlapsByBoundaryKeys = findOverlapsByBoundaryKeys(currentLevelSSTSet, nextLevelSSTSet);
+        System.out.println("we took B, size="+overlapsByBoundaryKeys.size());
+        return overlapsByBoundaryKeys;
     }
 
     private Collection<SSTInfo> findOverlapsByBoundaryKeys(SortedSet<SSTInfo> currentLevelSet, SortedSet<SSTInfo> nextLevelSet) {
