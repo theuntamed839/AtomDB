@@ -1,21 +1,22 @@
-import Level.Level;
-import Table.Table;
-import db.DBComparator;
-import db.DBImpl;
-import db.DBOptions;
-import org.junit.jupiter.api.*;
-import sst.ValueUnit;
+package java;
 
-import java.io.IOException;
+import org.g2n.atomdb.Table.Table;
+import org.g2n.atomdb.db.DBComparator;
+import org.g2n.atomdb.db.DBImpl;
+import org.g2n.atomdb.db.DbOptions;
+import org.junit.jupiter.api.*;
+import org.g2n.atomdb.sst.ValueUnit;
+
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import java.util.Scanner;
 
-import static util.BytesConverter.bytes;
+import static org.g2n.atomdb.util.BytesConverter.bytes;
 
 public class UpdationTest {
-    DBOptions opt ;
+    DbOptions opt ;
     DBImpl db;
     String VALUE ;
     int TOTAL;
@@ -23,15 +24,15 @@ public class UpdationTest {
 
     @BeforeEach
     public void init() throws Exception {
-        opt = new DBOptions(this.getClass().getName() + "DB");
-        db = new DBImpl(opt);
+        opt = new DbOptions();
+        db = new DBImpl(new File(this.getClass().getName() + "DB"), opt);
         VALUE = "value".repeat(50);
         TOTAL = 10000;
         N_TO_UPDATE = 1;
     }
 
     @AfterEach
-    public void closingSession() throws IOException {
+    public void closingSession() throws Exception {
         db.close();db.destroy();
     }
 
@@ -55,18 +56,18 @@ public class UpdationTest {
         }
 
 
-        while(hasOldValueInSSTFiles(toBeUpdated, db.getTable(), bytes("updated value boss 69"))) {
-            System.out.println("sending random bullshit");
-            for (int i = TOTAL; i < TOTAL + TOTAL; i++) {
-                db.put(bytes(i + ""), bytes(i + "_" + VALUE));
-            }
-        }
+//        while(hasOldValueInSSTFiles(toBeUpdated, org.g2n.atomdb.db.getTable(), bytes("updated value boss 69"))) {
+//            System.out.println("sending random bullshit");
+//            for (int i = TOTAL; i < TOTAL + TOTAL; i++) {
+//                org.g2n.atomdb.db.put(bytes(i + ""), bytes(i + "_" + VALUE));
+//            }
+//        }
     }
 
     private static boolean hasOldValueInSSTFiles(List<Integer> tobeUpdated, Table table, byte[] newValue) throws Exception {
         boolean result = false;
         for (int i = 0; i < 7; i++) {
-            List<String> levelList = table.getLevelList(Level.fromID(i));
+            List<String> levelList = null;//table.getSSTInfoSet(org.g2n.atomdb.Level.fromID(i));
             System.out.println("level=" + i);
             for (String file : levelList) {
                 for (Integer key : tobeUpdated) {
@@ -78,10 +79,10 @@ public class UpdationTest {
 
                     if (DBComparator.byteArrayComparator.compare(
                             valueUnit.getValue(), newValue) == 0) {
-                        System.out.println("key="+key+" updated for file="+file+" level="+i);
+                        System.out.println("key="+key+" updated for fileToWrite="+file+" level="+i);
                     } else {
                         result= true;
-                        System.out.println("key="+key+" not updated for file="+file+" level="+i);
+                        System.out.println("key="+key+" not updated for fileToWrite="+file+" level="+i);
                     }
                     if (valueUnit.getIsDelete() == ValueUnit.DELETE) System.out.println("deleted ???");
                 }

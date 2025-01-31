@@ -1,0 +1,97 @@
+
+/**
+ *  optimized Champion, without compaction and 0.8 sparse binary search
+ *  basically we have 2^(log(n) * 0.8) keys in memory.
+ *  writing ~5sec for all cases and reading ~2sec and for random reading ~23
+ *  need to work on random searches as this is the real world scenario.
+ *     Warm Up with 50k
+ *         Number of threads: 2
+ *         Writing... 500000
+ *         Writing =3381345200
+ *         Reading...
+ *         writing time=3381345200 , reading time=1014120400
+ *         memory utilised=181201096
+ *         Number of threads: 2
+ *         Number of threads: 2
+ *         Writing... 1000
+ *         Writing =19922100
+ *         Reading...
+ *         writing time=19922100 , reading time=751600
+ *         memory utilised=8125712
+ *         Number of threads: 2
+ *         Number of threads: 2
+ *         Writing... 10000
+ *         Writing =48545900
+ *         Reading...
+ *         writing time=48545900 , reading time=7901400
+ *         memory utilised=25168168
+ *         Number of threads: 2
+ *         Number of threads: 2
+ *         Writing... 100000
+ *         Writing =776112400
+ *         Reading...
+ *         writing time=776112400 , reading time=133118300
+ *         memory utilised=36181552
+ *         Number of threads: 2
+ *         Number of threads: 2
+ *         Writing... 1000000
+ *         Writing =5863752200
+ *         Reading...
+ *         writing time=5863752200 , reading time=2089110800
+ *         memory utilised=415614712
+ *         Number of threads: 2
+ *         Number of threads: 2
+ *         Writing... 1000000
+ *         Reading...
+ *         writing time=5419208300 , reading time=23297950100
+ *         memory utilised=196422816
+ *         Number of threads: 2
+ */
+
+
+/**
+ * Optimized branch, with full key -> pointer in memory. read is less than 2sec and for less than 20 sec for random
+ * Warm Up with 50k
+ * Number of threads: 2
+ * Writing... 500000
+ * Writing =3738520700
+ * Reading...
+ * writing time=3738520700 , reading time=856879800
+ * memory utilised=270531856
+ * Number of threads: 2
+ * Number of threads: 2
+ * Writing... 1000
+ * Writing =5127700
+ * Reading...
+ * writing time=5127700 , reading time=705500
+ * memory utilised=7937344
+ * Number of threads: 2
+ * Number of threads: 2
+ * Writing... 10000
+ * Writing =48499300
+ * Reading...
+ * writing time=48499300 , reading time=7948100
+ * memory utilised=25168168
+ * Number of threads: 2
+ * Number of threads: 2
+ * Writing... 100000
+ * Writing =604777900
+ * Reading...
+ * writing time=604777900 , reading time=152224100
+ * memory utilised=106527624
+ * Number of threads: 2
+ * Number of threads: 2
+ * Writing... 1000000
+ * Writing =5834791600
+ * Reading...
+ * writing time=5834791600 , reading time=1988543400
+ * memory utilised=265655992
+ * Number of threads: 2
+ * Number of threads: 2
+ * Writing... 1000000
+ * Reading...
+ * writing time=5660492600 , reading time=19979041500
+ * memory utilised=321943400
+ * Number of threads: 2
+ */
+

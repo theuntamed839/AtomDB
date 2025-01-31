@@ -1,20 +1,22 @@
-import db.DBImpl;
-import db.DBOptions;
+package java;
+
+import org.g2n.atomdb.db.DBImpl;
+import org.g2n.atomdb.db.DbOptions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.io.IOException;
+import java.io.File;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
 
-import static util.BytesConverter.bytes;
+import static org.g2n.atomdb.util.BytesConverter.bytes;
 
 public class PersistentTest {
-    DBOptions opt ;
+    DbOptions opt ;
     DBImpl db;
     String VALUE ;
     int TOTAL;
@@ -29,8 +31,8 @@ public class PersistentTest {
 
     @BeforeEach
     public void init() throws Exception {
-        opt = new DBOptions(this.getClass().getName() + "DB");
-        db = new DBImpl(opt);
+        opt = new DbOptions();
+        db = new DBImpl(new File(this.getClass().getName() + "DB"), opt);
         VALUE = "value".repeat(50);
         TOTAL = 10_000_0;
         NUM_OP = 10_000;
@@ -38,7 +40,7 @@ public class PersistentTest {
     }
 
     @AfterEach
-    public void closingSession() throws IOException {
+    public void closingSession() throws Exception {
         db.close();
         db.destroy();
     }
@@ -48,12 +50,12 @@ public class PersistentTest {
         System.out.println("loading data, along with deletion and updates");
         StartToEndLimits startToEndLimits = putData();
 
-        System.out.println("closing db");
-        // closing db
+        System.out.println("closing org.g2n.atomdb.db");
+        // closing org.g2n.atomdb.db
         db.close();
         System.gc();
 
-        System.out.println("reInit db");
+        System.out.println("reInit org.g2n.atomdb.db");
         // restarting
         init();
 
@@ -81,7 +83,7 @@ public class PersistentTest {
             db.put(bytes(i + ""), bytes(i + "_" + VALUE));
         }
 
-        System.out.println("Writing more data so that sst's are flushed");
+        System.out.println("Writing more data so that org.g2n.atomdb.sst's are flushed");
         for (int i = TOTAL; i < TOTAL + 10_000; i++) {
             db.put(bytes(i + ""), bytes(i + "_" + VALUE));
         }
@@ -102,7 +104,7 @@ public class PersistentTest {
                 );
             }
         }
-        System.out.println("Writing more data so that sst's are flushed");
+        System.out.println("Writing more data so that org.g2n.atomdb.sst's are flushed");
 
         for (int i = TOTAL + 10_000; i < TOTAL + 20_000; i++) {
             db.put(bytes(i + ""), bytes(i + "_" + VALUE));
