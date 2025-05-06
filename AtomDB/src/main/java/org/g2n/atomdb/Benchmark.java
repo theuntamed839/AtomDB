@@ -18,6 +18,7 @@ public class Benchmark {
 
     public static void main(String[] args) throws Exception {
         var inputString = "qwertyuiopasdfghjklzxcvbnm<>?:}{+_)(*&^%$#@!)}1234567890`~".repeat(5);
+
         System.out.println("Warm Up with 50k");
         //searchBenchMark(500000, "benchmarkWithRandomKVBytesWithCompaction");
         //searchBenchMark(500000, "benchmarkWithRandomKVBytesWithoutCompaction");
@@ -34,11 +35,83 @@ public class Benchmark {
 //        initialTest(inputString, 50000);
 //                benchmark(inputString, 15000);
 //        benchmarkWithRandomKVBytes(1000000, 50, 500); //500000
+        benchmarkWithRandomKVBytes(2000000, 50, 500);
 
-        benchmarkWithRandomKVBytes(getRandomKV(1000000, () -> 50, () -> 500));
+//        benchmarkWithRandomKVBytes(getRandomKV(1000000, () -> 50, () -> 500));
 
 //        benchmarkWithRandomLengthKVBytes(1000_000);
 //        benchmarkRandomRead(inputString, 1000_000, "asd"); //1000000
+    }
+
+    static String getSaltString() {
+        String SALTCHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890";
+        StringBuilder salt = new StringBuilder();
+        Random rnd = new Random();
+        while (salt.length() < 18) { // length of the random string.
+            int index = (int) (rnd.nextFloat() * SALTCHARS.length());
+            salt.append(SALTCHARS.charAt(index));
+        }
+        String saltStr = salt.toString();
+        return saltStr;
+
+    }
+
+    private static void benchmarkWithRandomKVBytes(int totalEntryCount, int keyBytesLength, int valueBytesLength) throws Exception {
+        var map = getRandomKV(totalEntryCount, () -> keyBytesLength, () -> valueBytesLength);
+        var opt = new DbOptions();
+        var dbName = "benchmarkWithRandomKVBytes_" + getSaltString();
+        var db = new DBImpl(new File(dbName), opt);
+        System.out.println("Number of threads: " + Thread.activeCount());
+        long beforeUsedMem = Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
+        long startTime , endTime, readingTime, writingTime;
+        try {
+            System.out.println("Writing... " + totalEntryCount);
+            startTime = System.nanoTime();
+            AtomicInteger i = new AtomicInteger();
+            map.forEach((key, value) -> {
+                try {
+                    if (i.get() % 10000 == 0) {
+                        System.out.println("progress=" + i);
+                    }
+                    i.getAndIncrement();
+                    db.put(key, value);
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+            });
+            endTime = System.nanoTime();
+
+            writingTime = endTime - startTime;
+
+            var list = new ArrayList<>(map.keySet());
+            Collections.shuffle(list);
+
+            System.out.println("Reading... ");
+            startTime = System.nanoTime();
+            list.forEach(each -> {
+                try {
+                    db.get(each);
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+            });
+            endTime = System.nanoTime();
+
+            readingTime = endTime - startTime;
+            System.out.println("writing time=" + writingTime/1000_000_000.0 + " , reading time=" + readingTime/1000_000_000.0);
+            long afterUsedMem=Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
+            long actualMemUsed=afterUsedMem-beforeUsedMem;
+            System.out.println("memory utilised="+actualMemUsed);
+            System.out.println("Number of threads: " + Thread.activeCount());
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            db.close();
+            Files.walk(Path.of(dbName ))
+                    .sorted(Comparator.reverseOrder())
+                    .map(Path::toFile)
+                    .forEach(File::delete);
+        }
     }
 
     private static void benchmarkWithRandomLengthKVBytes(int totalEntryCount) throws Exception {
@@ -80,66 +153,6 @@ public class Benchmark {
 
             readingTime = endTime - startTime;
             System.out.println("writing time=" + writingTime + " , reading time=" + readingTime);
-            long afterUsedMem=Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
-            long actualMemUsed=afterUsedMem-beforeUsedMem;
-            System.out.println("memory utilised="+actualMemUsed);
-            System.out.println("Number of threads: " + Thread.activeCount());
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-            db.close();
-            Files.walk(Path.of(dbName ))
-                    .sorted(Comparator.reverseOrder())
-                    .map(Path::toFile)
-                    .forEach(File::delete);
-        }
-    }
-
-    private static void benchmarkWithRandomKVBytes(int totalEntryCount, int keyBytesLength, int valueBytesLength) throws Exception {
-        var dbName = "benchmarkWithRandomKVBytes";
-        var map = getRandomKV(totalEntryCount, () -> keyBytesLength, () -> valueBytesLength);
-
-        System.out.println("Number of threads: " + Thread.activeCount());
-        long beforeUsedMem = Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
-        var opt = new DbOptions();
-        var db = new DBImpl(new File(dbName), opt);
-        long startTime , endTime, readingTime, writingTime;
-        try {
-            System.out.println("Writing... " + totalEntryCount);
-            startTime = System.nanoTime();
-            AtomicInteger i = new AtomicInteger();
-            map.entrySet().forEach(each -> {
-                try {
-                    if (i.get() % 10000 == 0) {
-                        System.out.println("progress="+i);
-                    }
-                    i.getAndIncrement();
-                    db.put(each.getKey(), each.getValue());
-                } catch (Exception e) {
-                    throw new RuntimeException(e);
-                }
-            });
-            endTime = System.nanoTime();
-
-            writingTime = endTime - startTime;
-
-            var list = new ArrayList<>(map.keySet());
-            Collections.shuffle(list);
-
-
-            System.out.println("Reading... ");
-            startTime = System.nanoTime();
-            list.forEach(each -> {
-                try {
-                    db.get(each);
-                } catch (Exception e) {
-                    throw new RuntimeException(e);
-                }
-            });
-            endTime = System.nanoTime();
-
-            readingTime = endTime - startTime;
-            System.out.println("writing time=" + writingTime/1000_000_000.0 + " , reading time=" + readingTime/1000_000_000.0);
             long afterUsedMem=Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
             long actualMemUsed=afterUsedMem-beforeUsedMem;
             System.out.println("memory utilised="+actualMemUsed);
@@ -448,242 +461,215 @@ public class Benchmark {
     }
 }
 
-// firefly
-//Warm Up with 50k
-//Writing... 50000
-//Reading...
-//writing time=1199177900 , reading time=1393644400
-//Writing... 1000
-//Reading...
-//writing time=20145900 , reading time=35852900
-//Writing... 10000
-//Reading...
-//writing time=256371600 , reading time=234508600
-//Writing... 100000
-//Reading...
-//writing time=1272501300 , reading time=2226460200
-//Writing... 1000000
-//Reading...
-//writing time=15237828200 , reading time=22578177500
-// 15 and 22
-
-//leveldb
-//Warm Up with 50k
-//Writing... 50000
-//Reading...
-//writing time=477759600 , reading time=152400700
-//Writing... 1000
-//Reading...
-//writing time=9359800 , reading time=1390100
-//Writing... 10000
-//Reading...
-//writing time=79710100 , reading time=14241500
-//Writing... 100000
-//Reading...
-//writing time=780837900 , reading time=276792700
-//Writing... 1000000
-//Reading...
-//writing time=10130438600 , reading time=2697346200
-// 10 sec and 2.69 sec
-
-//atomDB
-//Warm Up with 50k
-//Writing... 50000
-//Reading...
-//writing time=961983000 , reading time=7546111700
-//Writing... 1000
-//Reading...
-//writing time=4872700 , reading time=414700
-//Writing... 10000
-//Reading...
-//writing time=44763700 , reading time=4071100
-//Writing... 10000_0
-//Reading...
-//writing time=3879929800 , reading time=18500214900
-//Writing... 10000_00
-//Reading...
-//writing time=95125721700 , reading time=204819288000
-//95 sec and 3.4 minutes
-
-//writing time=75009226700 , reading time=159444240000
-// 75 sec and 2.65 minutes with snappy
-
-// levelDB writing 10.13 sec and 2.69 sec reading
-// 15 and 22 firefly
-
-//writing time=93463754000 , reading time=167366800200 without snappy
-// 93 sec and 167
-//writing time=54990968100 , reading time=162650142200 with snappy
-//54 sec and 162 secs
-
-// levelDB writing 10.13 sec and 2.69 sec reading
-// 15 and 22 firefly
-
 /**
- *  optimized Champion, without compaction and 0.8 sparse binary org.g2n.atomdb.search
- *  basically we have 2^(log(n) * 0.8) keys in memory.
- *  writing ~5sec for all cases and reading ~2sec and for random reading ~23
- *  need to work on random searches as this is the real world scenario.
- *     Warm Up with 50k
- *         Number of threads: 2
- *         Writing... 500000
- *         Writing =3381345200
- *         Reading...
- *         writing time=3381345200 , reading time=1014120400
- *         memory utilised=181201096
- *         Number of threads: 2
- *         Number of threads: 2
- *         Writing... 1000
- *         Writing =19922100
- *         Reading...
- *         writing time=19922100 , reading time=751600
- *         memory utilised=8125712
- *         Number of threads: 2
- *         Number of threads: 2
- *         Writing... 10000
- *         Writing =48545900
- *         Reading...
- *         writing time=48545900 , reading time=7901400
- *         memory utilised=25168168
- *         Number of threads: 2
- *         Number of threads: 2
- *         Writing... 100000
- *         Writing =776112400
- *         Reading...
- *         writing time=776112400 , reading time=133118300
- *         memory utilised=36181552
- *         Number of threads: 2
- *         Number of threads: 2
- *         Writing... 1000000
- *         Writing =5863752200
- *         Reading...
- *         writing time=5863752200 , reading time=2089110800
- *         memory utilised=415614712
- *         Number of threads: 2
- *         Number of threads: 2
- *         Writing... 1000000
- *         Reading...
- *         writing time=5419208300 , reading time=23297950100
- *         memory utilised=196422816
- *         Number of threads: 2
- */
-
-
-/**
- * Optimized branch, with full key -> pointer in memory. read is less than 2sec and for less than 20 sec for random
- * Warm Up with 50k
+ * AtomDB
+ * writing time=37.5845095 , reading time=17.5277052
+ * memory utilised=587544248
+ * Number of threads: 9
+ * numberOfFilesRequiredToSearch=1 numberOfTimesThisHappened=879691
+ * numberOfFilesRequiredToSearch=2 numberOfTimesThisHappened=108216
+ * numberOfFilesRequiredToSearch=3 numberOfTimesThisHappened=7176
+ * numberOfFilesRequiredToSearch=4 numberOfTimesThisHappened=361
+ * numberOfFilesRequiredToSearch=5 numberOfTimesThisHappened=7
+ * numberOfFilesRequiredToSearch=6 numberOfTimesThisHappened=3
+ *
+ * FireFlyDB
+ * writing time=15.806817 , reading time=31.6533273
+ * memory utilised=574612224
  * Number of threads: 2
- * Writing... 500000
- * Writing =3738520700
- * Reading...
- * writing time=3738520700 , reading time=856879800
- * memory utilised=270531856
- * Number of threads: 2
- * Number of threads: 2
- * Writing... 1000
- * Writing =5127700
- * Reading...
- * writing time=5127700 , reading time=705500
- * memory utilised=7937344
- * Number of threads: 2
- * Number of threads: 2
- * Writing... 10000
- * Writing =48499300
- * Reading...
- * writing time=48499300 , reading time=7948100
- * memory utilised=25168168
- * Number of threads: 2
- * Number of threads: 2
- * Writing... 100000
- * Writing =604777900
- * Reading...
- * writing time=604777900 , reading time=152224100
- * memory utilised=106527624
- * Number of threads: 2
- * Number of threads: 2
- * Writing... 1000000
- * Writing =5834791600
- * Reading...
- * writing time=5834791600 , reading time=1988543400
- * memory utilised=265655992
- * Number of threads: 2
- * Number of threads: 2
- * Writing... 1000000
- * Reading...
- * writing time=5660492600 , reading time=19979041500
- * memory utilised=321943400
- * Number of threads: 2
- */
-
-
-/**
- * Important
- * benchmarkWithRandomKVBytes(DBProvider.get(DB.LEVELDB_NATIVE),1000000, 50, 500);
- * writing time=93.0521691 , reading time=16.5716184
- * memory utilised=708003848
+ *
+ * LEVELDB_NATIVE
+ * writing time=58.6611247 , reading time=12.1251576
+ * memory utilised=280273920
  * Number of threads: 4
  *
- * benchmarkWithRandomKVBytes(DBProvider.get(DB.LEVELDB),1000000, 50, 500);
- * memory utilised=676719848
- * writing time=75.4093294 , reading time=22.438489
- * memory utilised=676719848
+ * writing time=57.736059 , reading time=16.4925723
+ * memory utilised=518450384
  * Number of threads: 2
  *
- * benchmarkWithRandomKVBytes(DBProvider.get(DB.FIREFLYDB),1000000, 50, 500);
- * writing time=14.2588117 , reading time=32.790273
- * memory utilised=496074880
- * Number of threads: 2
  *
- * ATOMDB
- * writing time=17.8601132 , reading time=22.0283714
- * memory utilised=889973640
+ * for visualVM
+ * -Dcom.sun.management.jmxremote
+ *
+ * 2000000
+ * writing time=108.6126411 , reading time=90.6029001
+ * memory utilised=118638456
  * Number of threads: 7
- * numberOfFilesRequiredToSearch=1 numberOfTimesThisHappened=985518
- * numberOfFilesRequiredToSearch=2 numberOfTimesThisHappened=9936
+ * numberOfFilesRequiredToSearch=1 numberOfTimesThisHappened=1655217
+ * numberOfFilesRequiredToSearch=2 numberOfTimesThisHappened=300789
+ * numberOfFilesRequiredToSearch=3 numberOfTimesThisHappened=35216
+ * numberOfFilesRequiredToSearch=4 numberOfTimesThisHappened=3244
+ * numberOfFilesRequiredToSearch=5 numberOfTimesThisHappened=233
+ * numberOfFilesRequiredToSearch=6 numberOfTimesThisHappened=22
+ * numberOfFilesRequiredToSearch=7 numberOfTimesThisHappened=1
  *
- writing time=25.6880718 , reading time=6.0737237
- memory utilised=634179168
- Number of threads: 10
- numberOfFilesRequiredToSearch=1 numberOfTimesThisHappened=966622
- numberOfFilesRequiredToSearch=2 numberOfTimesThisHappened=28525
- numberOfFilesRequiredToSearch=3 numberOfTimesThisHappened=303
- numberOfFilesRequiredToSearch=4 numberOfTimesThisHappened=4
-
- writing time=22.1107311 , reading time=6.3042568
- memory utilised=311031168
- Number of threads: 8
- numberOfFilesRequiredToSearch=1 numberOfTimesThisHappened=975473
- numberOfFilesRequiredToSearch=2 numberOfTimesThisHappened=19890
- numberOfFilesRequiredToSearch=3 numberOfTimesThisHappened=91
-
- writing time=16.721739 , reading time=6.9919566 (last)
- memory utilised=777919944
- Number of threads: 9
- numberOfFilesRequiredToSearch=1 numberOfTimesThisHappened=956064
- numberOfFilesRequiredToSearch=2 numberOfTimesThisHappened=38839
- numberOfFilesRequiredToSearch=3 numberOfTimesThisHappened=543
- numberOfFilesRequiredToSearch=4 numberOfTimesThisHappened=8
-
- writing time=19.1802351 , reading time=6.2431539 (Executors service)
- memory utilised=182085760
- Number of threads: 9
- numberOfFilesRequiredToSearch=1 numberOfTimesThisHappened=975473
- numberOfFilesRequiredToSearch=2 numberOfTimesThisHappened=19890
- numberOfFilesRequiredToSearch=3 numberOfTimesThisHappened=91
-
- writing time=19.640476 , reading time=5.8344966(Inline completableFuture)
- memory utilised=631710240
- Number of threads: 9
- numberOfFilesRequiredToSearch=1 numberOfTimesThisHappened=975473
- numberOfFilesRequiredToSearch=2 numberOfTimesThisHappened=19890
- numberOfFilesRequiredToSearch=3 numberOfTimesThisHappened=91
-
- writing time=17.7529537 , reading time=6.2738548
- memory utilised=586745584
- Number of threads: 7
- numberOfFilesRequiredToSearch=1 numberOfTimesThisHappened=956467
- numberOfFilesRequiredToSearch=2 numberOfTimesThisHappened=38370
- numberOfFilesRequiredToSearch=3 numberOfTimesThisHappened=608
- numberOfFilesRequiredToSearch=4 numberOfTimesThisHappened=8
- numberOfFilesRequiredToSearch=5 numberOfTimesThisHappened=1
+ * leveldb_native 2000000
+ * writing time=125.913601401 , reading time=24.416386
+ * memory utilised=1484927096
+ * Number of threads: 4
+ *
+ * writing time=129.5320343 , reading time=25.524798
+ * memory utilised=352363104
+ * Number of threads: 4
+ *
+ * only with greatest
+ * writing time=26.465456 , reading time=24.3141119
+ * memory utilised=1125201984
+ * Number of threads: 9
+ * numberOfFilesRequiredToSearch=1 numberOfTimesThisHappened=923028
+ * numberOfFilesRequiredToSearch=2 numberOfTimesThisHappened=69562
+ * numberOfFilesRequiredToSearch=3 numberOfTimesThisHappened=2790
+ * numberOfFilesRequiredToSearch=4 numberOfTimesThisHappened=71
+ * numberOfFilesRequiredToSearch=5 numberOfTimesThisHappened=3
+ *
+ * only wuth smallest
+ *writing time=19.9734101 , reading time=5.7376749
+ * memory utilised=209858952
+ * Number of threads: 8
+ * numberOfFilesRequiredToSearch=1 numberOfTimesThisHappened=901527
+ * numberOfFilesRequiredToSearch=2 numberOfTimesThisHappened=89127
+ * numberOfFilesRequiredToSearch=3 numberOfTimesThisHappened=4606
+ * numberOfFilesRequiredToSearch=4 numberOfTimesThisHappened=181
+ * numberOfFilesRequiredToSearch=5 numberOfTimesThisHappened=7
+ * numberOfFilesRequiredToSearch=6 numberOfTimesThisHappened=2
+ * numberOfFilesRequiredToSearch=7 numberOfTimesThisHappened=4
+ *
+ *
+ * writing time=16.2603766 , reading time=6.2203587
+ * memory utilised=6774336
+ * Number of threads: 8
+ * numberOfFilesRequiredToSearch=1 numberOfTimesThisHappened=904991
+ * numberOfFilesRequiredToSearch=2 numberOfTimesThisHappened=85877
+ * numberOfFilesRequiredToSearch=3 numberOfTimesThisHappened=4384
+ * numberOfFilesRequiredToSearch=4 numberOfTimesThisHappened=183
+ * numberOfFilesRequiredToSearch=5 numberOfTimesThisHappened=13
+ * numberOfFilesRequiredToSearch=6 numberOfTimesThisHappened=1
+ * numberOfFilesRequiredToSearch=7 numberOfTimesThisHappened=3
+ * numberOfFilesRequiredToSearch=8 numberOfTimesThisHappened=1
+ * numberOfFilesRequiredToSearch=9 numberOfTimesThisHappened=1
+ *
+ * with smallest
+ * writing time=19.27763 , reading time=6.3016042
+ * memory utilised=356002344
+ * Number of threads: 8
+ * numberOfFilesRequiredToSearch=1 numberOfTimesThisHappened=913413
+ * numberOfFilesRequiredToSearch=2 numberOfTimesThisHappened=78318
+ * numberOfFilesRequiredToSearch=3 numberOfTimesThisHappened=3577
+ * numberOfFilesRequiredToSearch=4 numberOfTimesThisHappened=128
+ * numberOfFilesRequiredToSearch=5 numberOfTimesThisHappened=13
+ * numberOfFilesRequiredToSearch=6 numberOfTimesThisHappened=1
+ * numberOfFilesRequiredToSearch=7 numberOfTimesThisHappened=2
+ * numberOfFilesRequiredToSearch=8 numberOfTimesThisHappened=1
+ * numberOfFilesRequiredToSearch=12 numberOfTimesThisHappened=1
+ * Number of actually compactions: 123
+ * LEVEL_ZERO has 8971004 files
+ * LEVEL_ZERO has 2 files
+ * LEVEL_ONE has 58239930 files
+ * LEVEL_ONE has 13 files
+ * LEVEL_TWO has 1030437336 files
+ * LEVEL_TWO has 230 files
+ * LEVEL_THREE has 76276184 files
+ * LEVEL_THREE has 17 files
+ * LEVEL_FOUR has 0 files
+ * LEVEL_FOUR has 0 files
+ * LEVEL_FIVE has 0 files
+ * LEVEL_FIVE has 0 files
+ * LEVEL_SIX has 0 files
+ * LEVEL_SIX has 0 files
+ * LEVEL_SEVEN has 0 files
+ * LEVEL_SEVEN has 0 files
+ *
+ * writing time=18.0510931 , reading time=6.1232601
+ * memory utilised=76570200
+ * Number of threads: 7
+ * numberOfFilesRequiredToSearch=1 numberOfTimesThisHappened=899948
+ * numberOfFilesRequiredToSearch=2 numberOfTimesThisHappened=90523
+ * numberOfFilesRequiredToSearch=3 numberOfTimesThisHappened=4805
+ * numberOfFilesRequiredToSearch=4 numberOfTimesThisHappened=176
+ * numberOfFilesRequiredToSearch=5 numberOfTimesThisHappened=2
+ * Number of actually compactions: 112
+ * LEVEL_ZERO has 17941728 files
+ * LEVEL_ZERO has 4 files
+ * LEVEL_ONE has 101413704 files
+ * LEVEL_ONE has 23 files
+ * LEVEL_TWO has 1014144074 files
+ * LEVEL_TWO has 226 files
+ * LEVEL_THREE has 40384740 files
+ * LEVEL_THREE has 9 files
+ * LEVEL_FOUR has 0 files
+ * LEVEL_FOUR has 0 files
+ * LEVEL_FIVE has 0 files
+ * LEVEL_FIVE has 0 files
+ * LEVEL_SIX has 0 files
+ * LEVEL_SIX has 0 files
+ * LEVEL_SEVEN has 0 files
+ * LEVEL_SEVEN has 0 files
+ *
+ *
+ * 200000 with biggest only
+ * writing time=75.4470958 , reading time=90.3080328
+ * memory utilised=258508008
+ * Number of threads: 7
+ * numberOfFilesRequiredToSearch=1 numberOfTimesThisHappened=1605619
+ * numberOfFilesRequiredToSearch=2 numberOfTimesThisHappened=344430
+ * numberOfFilesRequiredToSearch=3 numberOfTimesThisHappened=41096
+ * numberOfFilesRequiredToSearch=4 numberOfTimesThisHappened=3336
+ * numberOfFilesRequiredToSearch=5 numberOfTimesThisHappened=212
+ * numberOfFilesRequiredToSearch=6 numberOfTimesThisHappened=22
+ * numberOfFilesRequiredToSearch=7 numberOfTimesThisHappened=4
+ * numberOfFilesRequiredToSearch=8 numberOfTimesThisHappened=1
+ * numberOfFilesRequiredToSearch=9 numberOfTimesThisHappened=2
+ * Number of actually compactions: 204
+ * LEVEL_ZERO has 26912388 files
+ * LEVEL_ZERO has 6 files
+ * LEVEL_ONE has 440752570 files
+ * LEVEL_ONE has 99 files
+ * LEVEL_TWO has 1319069200 files
+ * LEVEL_TWO has 294 files
+ * LEVEL_THREE has 560752306 files
+ * LEVEL_THREE has 125 files
+ * LEVEL_FOUR has 0 files
+ * LEVEL_FOUR has 0 files
+ * LEVEL_FIVE has 0 files
+ * LEVEL_FIVE has 0 files
+ * LEVEL_SIX has 0 files
+ * LEVEL_SIX has 0 files
+ * LEVEL_SEVEN has 0 files
+ * LEVEL_SEVEN has 0 files
+ *
+ * 200000 with smallest only
+ * writing time=57.2181866 , reading time=79.6361075
+ * memory utilised=454990240
+ * Number of threads: 7
+ * numberOfFilesRequiredToSearch=1 numberOfTimesThisHappened=1713911
+ * numberOfFilesRequiredToSearch=2 numberOfTimesThisHappened=256743
+ * numberOfFilesRequiredToSearch=3 numberOfTimesThisHappened=22393
+ * numberOfFilesRequiredToSearch=4 numberOfTimesThisHappened=1540
+ * numberOfFilesRequiredToSearch=5 numberOfTimesThisHappened=100
+ * numberOfFilesRequiredToSearch=6 numberOfTimesThisHappened=8
+ * numberOfFilesRequiredToSearch=7 numberOfTimesThisHappened=6
+ * numberOfFilesRequiredToSearch=8 numberOfTimesThisHappened=8
+ * numberOfFilesRequiredToSearch=9 numberOfTimesThisHappened=5
+ * numberOfFilesRequiredToSearch=10 numberOfTimesThisHappened=3
+ * numberOfFilesRequiredToSearch=11 numberOfTimesThisHappened=1
+ * numberOfFilesRequiredToSearch=13 numberOfTimesThisHappened=2
+ * numberOfFilesRequiredToSearch=15 numberOfTimesThisHappened=1
+ * numberOfFilesRequiredToSearch=19 numberOfTimesThisHappened=1
+ * Number of actually compactions: 225
+ * LEVEL_ZERO has 8971144 files
+ * LEVEL_ZERO has 2 files
+ * LEVEL_ONE has 331271024 files
+ * LEVEL_ONE has 74 files
+ * LEVEL_TWO has 1330745466 files
+ * LEVEL_TWO has 297 files
+ * LEVEL_THREE has 676320826 files
+ * LEVEL_THREE has 151 files
+ * LEVEL_FOUR has 0 files
+ * LEVEL_FOUR has 0 files
+ * LEVEL_FIVE has 0 files
+ * LEVEL_FIVE has 0 files
+ * LEVEL_SIX has 0 files
+ * LEVEL_SIX has 0 files
+ * LEVEL_SEVEN has 0 files
+ * LEVEL_SEVEN has 0 files
  */

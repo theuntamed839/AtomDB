@@ -91,6 +91,19 @@ public class MergedClusterIterator implements Iterator<KVUnit>, AutoCloseable {
             curr.close();
             toRemove.add(curr);
         }
+        // todo we need to remove below code
+//        for (IndexedClusterIterator iterator : clusterIterators) {
+//            if (!iterator.hasNext()) {
+//                try{
+//                    iterator.close();
+//                } catch (IllegalStateException e) {
+//                    // Handle the exception if needed
+//                    System.err.println("Error closing iterator: " + e.getMessage());
+//                }
+//                toRemove.add(iterator);
+//            }
+//        }
+        // till here
         clusterIterators.removeAll(toRemove);
     }
 

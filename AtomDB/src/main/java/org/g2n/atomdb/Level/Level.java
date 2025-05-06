@@ -51,10 +51,10 @@ public enum Level {
 
     public long limitingSize() {
         return switch (this) {
-            case LEVEL_ZERO -> 10L * SizeOf.MB;
-            case LEVEL_ONE -> 100L * SizeOf.MB;
-            case LEVEL_TWO -> 1000L * SizeOf.MB;
-            case LEVEL_THREE -> 10000L * SizeOf.MB;
+            case LEVEL_ZERO -> 10L * SizeOf.MB; // 5
+            case LEVEL_ONE -> 100L * SizeOf.MB; // 50
+            case LEVEL_TWO -> 1000L * SizeOf.MB; // 500
+            case LEVEL_THREE -> 10000L * SizeOf.MB; // 5000
             case LEVEL_FOUR -> 100000L * SizeOf.MB;
             case LEVEL_FIVE -> 1000000L * SizeOf.MB;
             case LEVEL_SIX -> 10000000L * SizeOf.MB;

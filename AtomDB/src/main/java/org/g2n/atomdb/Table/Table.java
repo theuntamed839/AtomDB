@@ -80,6 +80,9 @@ public class Table{
     public synchronized void removeSST(SSTInfo sstInfo)  {
         Preconditions.checkNotNull(sstInfo.getLevel());
         Preconditions.checkNotNull(sstInfo);
+        if (!table.get(sstInfo.getLevel()).contains(sstInfo)) {
+            throw new RuntimeException("Unable to remove sstInfo: " + sstInfo.getSst().getName() + " from level: " + sstInfo.getLevel());
+        }
         table.get(sstInfo.getLevel()).remove(sstInfo);
         tableSize.put(sstInfo.getLevel(), tableSize.get(sstInfo.getLevel()) - sstInfo.getFileTorsoSize());
         try {
