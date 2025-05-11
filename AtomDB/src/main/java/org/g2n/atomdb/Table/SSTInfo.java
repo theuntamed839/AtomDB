@@ -43,6 +43,7 @@ public class SSTInfo extends SSTHeader implements Comparable<SSTInfo> {
     }
 
     public boolean mightContainElement(byte[] key) {
+//        return true;
         return filter.mightContain(key);
     }
 

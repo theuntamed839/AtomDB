@@ -5,9 +5,15 @@ import org.g2n.atomdb.db.DbOptions;
 import org.xerial.snappy.Snappy;
 
 import java.io.*;
+import java.lang.management.ManagementFactory;
+import java.lang.management.ThreadInfo;
+import java.lang.management.ThreadMXBean;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
@@ -18,6 +24,24 @@ public class Benchmark {
 
     public static void main(String[] args) throws Exception {
         var inputString = "qwertyuiopasdfghjklzxcvbnm<>?:}{+_)(*&^%$#@!)}1234567890`~".repeat(5);
+        ExecutorService executorService = Executors.newCachedThreadPool();
+        executorService.execute(() -> {
+            ThreadMXBean bean = ManagementFactory.getThreadMXBean();
+            long[] threadIds = bean.findDeadlockedThreads(); // Returns null if no threads are deadlocked.
+
+            if (threadIds != null) {
+                ThreadInfo[] infos = bean.getThreadInfo(threadIds);
+
+                for (ThreadInfo info : infos) {
+                    System.out.println("Thread " + info.getThreadName() + " is deadlocked.");
+                    StackTraceElement[] stack = info.getStackTrace();
+                    for (StackTraceElement element : stack) {
+                        System.out.println("\t" + element);
+                    }
+                    // Log or store stack trace information.
+                }
+            }
+        });
 
         System.out.println("Warm Up with 50k");
         //searchBenchMark(500000, "benchmarkWithRandomKVBytesWithCompaction");
@@ -41,6 +65,9 @@ public class Benchmark {
 
 //        benchmarkWithRandomLengthKVBytes(1000_000);
 //        benchmarkRandomRead(inputString, 1000_000, "asd"); //1000000
+        executorService.shutdown();
+        executorService.shutdownNow();
+        executorService.close();
     }
 
     static String getSaltString() {
@@ -87,10 +114,13 @@ public class Benchmark {
             Collections.shuffle(list);
 
             System.out.println("Reading... ");
+//            Scanner scan = new Scanner(System.in);
+//            scan.nextLine();
             startTime = System.nanoTime();
             list.forEach(each -> {
                 try {
                     db.get(each);
+//                    System.out.println(Arrays.toString(db.get(each)));
                 } catch (Exception e) {
                     throw new RuntimeException(e);
                 }

@@ -2,6 +2,7 @@ package org.g2n.atomdb.Table;
 
 import org.g2n.atomdb.Constants.DBConstant;
 import org.g2n.atomdb.Level.Level;
+import org.g2n.atomdb.util.FileUtil;
 import com.google.common.base.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -10,6 +11,7 @@ import org.g2n.atomdb.search.Search;
 import java.io.File;
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Pattern;
 
@@ -27,20 +29,23 @@ public class Table{
         Preconditions.checkArgument(dbFolder.exists());
         this.dbFolder = dbFolder;
         this.search = search;
-        table = Map.of(Level.LEVEL_ZERO, new TreeSet<SSTInfo>(),
-                Level.LEVEL_ONE,         new TreeSet<SSTInfo>(),
-                Level.LEVEL_TWO,         new TreeSet<SSTInfo>(),
-                Level.LEVEL_THREE,       new TreeSet<SSTInfo>(),
-                Level.LEVEL_FOUR,        new TreeSet<SSTInfo>(),
-                Level.LEVEL_FIVE,        new TreeSet<SSTInfo>(),
-                Level.LEVEL_SIX,         new TreeSet<SSTInfo>(),
-                Level.LEVEL_SEVEN,       new TreeSet<SSTInfo>());
-        tableSize = new HashMap<>() ;
+        table = new ConcurrentHashMap<>();
+        table.put(Level.LEVEL_ZERO, new TreeSet<SSTInfo>());
+        table.put(Level.LEVEL_ONE, new TreeSet<SSTInfo>());
+        table.put(Level.LEVEL_TWO, new TreeSet<SSTInfo>());
+        table.put(Level.LEVEL_THREE, new TreeSet<SSTInfo>());
+        table.put(Level.LEVEL_FOUR, new TreeSet<SSTInfo>());
+        table.put(Level.LEVEL_FIVE, new TreeSet<SSTInfo>());
+        table.put(Level.LEVEL_SIX, new TreeSet<SSTInfo>());
+        table.put(Level.LEVEL_SEVEN, new TreeSet<SSTInfo>());
+
+
+        tableSize = new ConcurrentHashMap<>() ;
         for (Level value : Level.values()) {
             tableSize.put(value, 0);
         }
         fillLevels();
-        lastCompactedKV = new HashMap<>();
+        lastCompactedKV = new ConcurrentHashMap<>();
     }
 
     private void fillLevels() {
@@ -89,6 +94,11 @@ public class Table{
             search.removeSSTInfo(sstInfo);
         } catch (Exception e) {
             throw new RuntimeException(e);
+        }
+        if (sstInfo.getSst().delete()) {
+            logger.info("Deleted file: " + sstInfo.getSst().getAbsolutePath());
+        } else {
+            logger.error("Unable to delete file: " + sstInfo.getSst().getAbsolutePath());
         }
         // todo
 //        File obsolete = FileUtil.makeFileObsolete(sstInfo.getSst());

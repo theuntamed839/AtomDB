@@ -26,6 +26,7 @@ public class Compactor implements AutoCloseable {
     private final DbOptions dbOptions;
     private final SSTPersist sstPersist;
     private AtomicInteger numberOfActuallyCompactions = new AtomicInteger(0);
+    // todo we need to shutdown this threadpool
     private final ExecutorService executors = Executors.newCachedThreadPool();
     private static final Logger logger = LoggerFactory.getLogger(Compactor.class.getName());
     private final Map<Level, ReentrantLock> locks = new HashMap<>();
@@ -61,32 +62,37 @@ public class Compactor implements AutoCloseable {
      */
 
     public void tryCompaction(Level level) {
+        System.out.println(level + " start tryCompaction" + Thread.currentThread().getName());
         if (table.getCurrentLevelSize(level) < level.limitingSize()) {
+            System.out.println(level + " not enough files to compact" + Thread.currentThread().getName());
             return;
         }
 
         // todo to remove
-        long sum = 0;
-        for (SSTInfo sstInfo : table.getSSTInfoSet(level)) {
-            sum += sstInfo.getFileTorsoSize();
-        }
-        if (sum < level.limitingSize()) {
-            System.out.println("Why is the sum less");
-            throw new RuntimeException("Not good");
-
-        }
+//        long sum = 0;
+//        for (SSTInfo sstInfo : table.getSSTInfoSet(level)) {
+//            sum += sstInfo.getFileTorsoSize();
+//        }
+//        if (sum < level.limitingSize()) {
+//            System.out.println(level + "Why is the sum less" + Thread.currentThread().getName());
+//            throw new RuntimeException(level + "Not good");
+//        }
         // end
 
         var isLevelZero = level == Level.LEVEL_ZERO;
         while (isLevelZero && (locks.get(level).isLocked() || locks.get(level.nextLevel()).isLocked())) {
             try {
-                System.out.println("waiting for zero compaction to finish");
+                System.out.println("level=" + level + " is locked" + Thread.currentThread().getName());
+                System.out.println(locks.get(level).isLocked() + " " + locks.get(level.nextLevel()).isLocked() + Thread.currentThread().getName());
+                System.out.println("waiting for zero compaction to finish" + Thread.currentThread().getName());
                 Thread.sleep(100);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
         }
+        System.out.println(level + " providing to executors" + Thread.currentThread().getName());
         executors.execute(() -> {
+            System.out.println(level + "start of the executor lambda" + Thread.currentThread().getName());
             ReentrantLock lock1 = locks.get(level);
             ReentrantLock lock2 = locks.get(level.nextLevel());
             boolean acquired = false;
@@ -107,24 +113,35 @@ public class Compactor implements AutoCloseable {
 
                     acquired = true; // both acquired
                 }
+                System.out.println(level + " got the locks" + Thread.currentThread().getName());
                 Collection<SSTInfo> overlapping = getCurrAndNextLevelOverlappins2(level);
                 if (overlapping.size() <= 1) {
-                    System.out.println("WOW".repeat(100));
+                    System.out.println(level + "WOW".repeat(10) + Thread.currentThread().getName());
                     return;
                 }
+                System.out.println(level + "overlapping files are " + overlapping.size() + Thread.currentThread().getName());
                 performCompaction(level, overlapping);
             } catch (Exception e) {
+                System.out.println(level + "exception boss" + Thread.currentThread().getName());
                 e.printStackTrace();
             } finally {
-                if (acquired) {
-                    lock2.unlock();
+                System.out.println(level + " releasing the locks" + Thread.currentThread().getName());
+                if (lock1.isHeldByCurrentThread()) {
                     lock1.unlock();
+                    System.out.println(level + " released lock1" + Thread.currentThread().getName());
+                }
+                if (lock2.isHeldByCurrentThread()) {
+                    lock2.unlock();
+                    System.out.println(level + " released lock2" + Thread.currentThread().getName());
                 }
             }
+            System.out.println(level + "trying compaction for next level" + Thread.currentThread().getName());
             if (Level.LEVEL_SEVEN != level.nextLevel()) {
                 tryCompaction(level.nextLevel());
             }
+            System.out.println(level + "end of the executor lambda" + Thread.currentThread().getName());
         });
+        System.out.println(level + " end of tryCompaction" + Thread.currentThread().getName());
     }
 
     private SSTKeyRange getSSTKeyRange(SortedSet<SSTInfo> sortedSet) {
@@ -196,25 +213,36 @@ public class Compactor implements AutoCloseable {
     }
 
     private Collection<SSTInfo> getCurrAndNextLevelOverlappins2(Level level) {
+        System.out.println(level + " start getCurrAndNextLevelOverlappins2" + Thread.currentThread().getName());
         /*
         we can actually use only the ssts which has low dependecy and their recursive dependecies.
          */
         SortedSet<SSTInfo> currentLevelSSTSet = table.getSSTInfoSet(level);
         SortedSet<SSTInfo> nextLevelSSTSet = table.getSSTInfoSet(level.nextLevel());
+        System.out.println(level + " currentLevelSSTSet size is " + currentLevelSSTSet.size() + Thread.currentThread().getName());
+        System.out.println(level + " nextLevelSSTSet size is " + nextLevelSSTSet.size() + Thread.currentThread().getName());
         if (currentLevelSSTSet.isEmpty()) {
+            System.out.println(level + " currentLevelSSTSet is empty" + Thread.currentThread().getName());
             return Collections.emptyList();
         }
 
         for (SSTInfo sstInfo : currentLevelSSTSet.reversed()) {
+            System.out.println(level + " getAllOverlappingFilesToCompactWithGivenRange" + Thread.currentThread().getName());
             var set = getAllOverlappingFilesToCompactWithGivenRange(level, sstInfo.getSstKeyRange(), currentLevelSSTSet, nextLevelSSTSet);
             if (!set.isEmpty()) {
+                System.out.println(level + " set size is " + set.size() + Thread.currentThread().getName());
                 return set;
             }
         }
+        System.out.println(level + " currentLevelSSTSet is empty" + Thread.currentThread().getName());
         return List.of();
     }
 
     private SortedSet<SSTInfo> getAllOverlappingFilesToCompactWithGivenRange(Level level, SSTKeyRange range,  SortedSet<SSTInfo> currentLevelSSTSet, SortedSet<SSTInfo> nextLevelSSTSet) {
+        /***
+         * todo we can actually get all the depenmdent files, we can actually have limited number of files to be compacted per level, and based on that we can choose which depenedcy links to include
+         *
+         */
         var greatestKey = range.getGreatest();
         var smallestKey = range.getSmallest();
         SortedSet<SSTInfo> overlappingFiles = new TreeSet<>();
@@ -225,6 +253,9 @@ public class Compactor implements AutoCloseable {
         SortedSet<SSTInfo> real = new TreeSet<>();
         while (!queue.isEmpty()) {
             var sst = queue.poll();
+            if (real.contains(sst)) {
+                continue;
+            }
             for (SSTInfo sstInfo : currentLevelSSTSet) {
                 if (sstInfo.compareTo(sst) <= 0) {
                     continue;
@@ -233,9 +264,9 @@ public class Compactor implements AutoCloseable {
                         sstInfo.getSstKeyRange().inRange(sst.getSstKeyRange().getGreatest())) {
                     // todo this could lead to taking whole level ssts to compact.
                     queue.add(sstInfo);
-                    real.add(sstInfo);
                 }
             }
+            real.add(sst);
 //            System.out.println("File " + sst.getSst().getName() + " has " + list.size() + " dependency of files");
         }
         if (real.isEmpty()) {
@@ -348,9 +379,9 @@ public class Compactor implements AutoCloseable {
     }
 
     private Level performCompaction(Level level, Collection<SSTInfo> overlappingFiles) {
+        System.out.println(level + " org.g2n.atomdb.Compaction Started " + Thread.currentThread().getName());
         numberOfActuallyCompactions.addAndGet(1);
         long start = System.nanoTime();
-        System.out.println(level + " org.g2n.atomdb.Compaction Started " + Thread.currentThread().getName());
         try {
             var iterator = new MergedClusterIterator(Collections.unmodifiableCollection(overlappingFiles));
             sstPersist.writeManyFiles(level.nextLevel(), iterator, getAverageNumOfEntriesInSST(overlappingFiles));
@@ -375,12 +406,12 @@ public class Compactor implements AutoCloseable {
 
     @Override
     public void close() throws Exception {
-        executors.close();
         executors.shutdown();
+        executors.close();
         System.out.println("Number of actually compactions: " + numberOfActuallyCompactions.get());
         // number of files in each levels
         for (Level level : Level.values()) {
-            System.out.println(level + " has " + table.getCurrentLevelSize(level) + " files");
+            System.out.println(level + " has " + table.getCurrentLevelSize(level) + " size in bytes");
             System.out.println(level + " has " + table.getSSTInfoSet(level).size() + " files");
         }
     }
