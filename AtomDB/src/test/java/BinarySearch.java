@@ -1,4 +1,3 @@
-package java;
 
 import org.g2n.atomdb.sst.Header;
 import org.g2n.atomdb.sst.MiddleBlock;

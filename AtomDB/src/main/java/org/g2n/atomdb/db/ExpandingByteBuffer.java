@@ -107,4 +107,8 @@ public class ExpandingByteBuffer extends OutputStream {
         makeSpaceIfNeeded(len - off);
         buffer.put(b, off, len);
     }
+
+    public int get() {
+        return buffer.get();
+    }
 }

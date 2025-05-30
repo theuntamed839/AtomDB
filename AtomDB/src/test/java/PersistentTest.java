@@ -1,4 +1,4 @@
-package java;
+
 
 import org.g2n.atomdb.db.DBImpl;
 import org.g2n.atomdb.db.DbOptions;
@@ -8,6 +8,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
+import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -23,7 +24,7 @@ public class PersistentTest {
     int NUM_OP;
     String UPDATED_VALUE;
 
-    record StartToEndLimits(int start, int end, Map<Integer, UpdationDeletionTest.Operation> updateDeleteMap){}
+    record StartToEndLimits(int start, int end, Map<Integer, Operation> updateDeleteMap){}
 
     enum Operation {
         DELETE,UPDATE
@@ -32,7 +33,7 @@ public class PersistentTest {
     @BeforeEach
     public void init() throws Exception {
         opt = new DbOptions();
-        db = new DBImpl(new File(this.getClass().getName() + "DB"), opt);
+        db = new DBImpl(Path.of(this.getClass().getName() + "DB"), opt);
         VALUE = "value".repeat(50);
         TOTAL = 10_000_0;
         NUM_OP = 10_000;
@@ -89,11 +90,11 @@ public class PersistentTest {
         }
 
         System.out.println("Random key to random operation(delete and update)");
-        Map<Integer, UpdationDeletionTest.Operation> map = getRandomOPWithKeys(NUM_OP, TOTAL);
+        Map<Integer, Operation> map = getRandomOPWithKeys(NUM_OP, TOTAL);
 
         System.out.println("writing random keys");
         for (Integer key : map.keySet()) {
-            if (map.get(key) == UpdationDeletionTest.Operation.DELETE) {
+            if (map.get(key) == Operation.DELETE) {
                 System.out.println("deleting " + key);
                 db.delete(bytes(key + ""));
             } else {
@@ -113,7 +114,7 @@ public class PersistentTest {
         System.out.println("Testing...");
         boolean isFailed = false;
         for (Integer key : map.keySet()) {
-            if (map.get(key) == UpdationDeletionTest.Operation.DELETE) {
+            if (map.get(key) == Operation.DELETE) {
                 byte[] found = db.get(bytes(key + ""));
                 if (found != null) {
                     isFailed = true;
@@ -135,10 +136,10 @@ public class PersistentTest {
         return new StartToEndLimits(0, TOTAL + 20_000, map);
     }
 
-    private static Map<Integer, UpdationDeletionTest.Operation> getRandomOPWithKeys(int n, int bound) {
+    private static Map<Integer, Operation> getRandomOPWithKeys(int n, int bound) {
         Random rand = new Random();
-        UpdationDeletionTest.Operation[] operations = UpdationDeletionTest.Operation.values();
-        Map<Integer, UpdationDeletionTest.Operation> map = new HashMap<>(n);
+        Operation[] operations = Operation.values();
+        Map<Integer, Operation> map = new HashMap<>(n);
         for (; map.size() < n;) {
             map.put(
                     rand.nextInt(bound),

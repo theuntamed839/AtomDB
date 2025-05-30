@@ -1,4 +1,3 @@
-package java;
 
 import org.g2n.atomdb.db.DBImpl;
 import org.g2n.atomdb.db.DbOptions;
@@ -9,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import static org.g2n.atomdb.util.BytesConverter.bytes;
 
 import java.io.File;
+import java.nio.file.Path;
 import java.util.*;
 
 public class UpdationDeletionTest {
@@ -26,7 +26,7 @@ public class UpdationDeletionTest {
     @BeforeEach
     public void init() throws Exception {
         opt = new DbOptions();
-        db = new DBImpl(new File(this.getClass().getName() + "DB"), opt);
+        db = new DBImpl(Path.of(this.getClass().getName() + "DB"), opt);
         VALUE = "value".repeat(50);
         TOTAL = 10_000_0;
         NUM_OP = 10_000;

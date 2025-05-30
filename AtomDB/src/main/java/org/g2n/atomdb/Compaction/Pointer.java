@@ -3,10 +3,9 @@ package org.g2n.atomdb.Compaction;
 import org.g2n.atomdb.db.DBComparator;
 import org.g2n.atomdb.db.ExpandingByteBuffer;
 import org.g2n.atomdb.sstIo.ChannelBackedWriter;
-import org.g2n.atomdb.sstIo.MMappedReader;
+import org.g2n.atomdb.sstIo.IOReader;
 
 import java.nio.MappedByteBuffer;
-import java.util.Arrays;
 
 // todo make the position int.
 public record Pointer(byte[] key, long position) implements Comparable<Pointer> {
@@ -25,7 +24,7 @@ public record Pointer(byte[] key, long position) implements Comparable<Pointer> 
                 .put(key);
     }
 
-    public static Pointer getPointer(MMappedReader reader) {
+    public static Pointer getPointer(IOReader reader) {
         long position = reader.getLong();
         int size = reader.getInt();
         var key = new byte[size];

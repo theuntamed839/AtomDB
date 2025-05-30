@@ -6,6 +6,7 @@ import org.g2n.atomdb.db.ExpandingByteBuffer;
 
 import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
+import java.util.Objects;
 
 public class SSTHeader{
     private final Level level;
@@ -32,6 +33,7 @@ public class SSTHeader{
     public SSTHeader(byte sstVersion, Level level, byte checksumType,
                      byte compressionType, byte numberOfKeysInSingleCluster,
                      byte shortestCommonPrefixUsed) {
+        Objects.requireNonNull(level, "Level cannot be null");
         this.sstVersion = sstVersion;
         this.level = level;
         this.checksumType = checksumType;
@@ -121,7 +123,7 @@ public class SSTHeader{
                 Integer.BYTES;
     }
 
-    public static SSTHeader getHeader(MMappedReader reader) {
+    public static SSTHeader getHeader(IOReader reader) {
         var bytes = new byte[TOTAL_HEADER_SIZE];
         reader.getBytes(bytes);
         var buffer = ByteBuffer.wrap(bytes);

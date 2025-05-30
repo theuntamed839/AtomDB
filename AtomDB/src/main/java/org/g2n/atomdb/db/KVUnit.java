@@ -1,6 +1,6 @@
 package org.g2n.atomdb.db;
 
-import java.nio.MappedByteBuffer;
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Objects;
 
@@ -10,9 +10,10 @@ public class KVUnit implements Comparable<KVUnit> {
     private final DeletionStatus isDeleted;
     private final int unitSize;
 
-
     public enum DeletionStatus {
         DELETED, NOT_DELETED;
+
+        public static final int BYTES = Byte.BYTES;
 
         public static boolean isDeleted(byte isDeleted) {
             return switch (isDeleted) {
@@ -46,6 +47,9 @@ public class KVUnit implements Comparable<KVUnit> {
 
     private KVUnit(byte[] key, DeletionStatus isDeleted, byte[] value) {
         this.key = Objects.requireNonNull(key, "Key cannot be null");
+        if (isDeleted == DeletionStatus.NOT_DELETED) {
+            Objects.requireNonNull(value, "Value cannot be null when not deleted");
+        }
         this.isDeleted = isDeleted;
         this.value = value;
         this.unitSize = calculateUnitSize();
@@ -65,31 +69,6 @@ public class KVUnit implements Comparable<KVUnit> {
 
     public int getUnitSize() {
         return unitSize;
-    }
-
-    public void uploadKV(ExpandingByteBuffer buffer) {
-        buffer.putInt(Integer.BYTES + key.length + Byte.BYTES + (value != null ? Integer.BYTES + value.length : 0))
-                .putInt(key.length)
-                .put(key)
-                .put(isDeleted.value());
-        if (DeletionStatus.NOT_DELETED == isDeleted) {
-            buffer.putInt(value.length).put(value);
-        }
-    }
-
-    public static KVUnit read(MappedByteBuffer reader) {
-        int totalKvLength = reader.getInt();
-        int kLenght = reader.getInt();
-        var k = new byte[kLenght];
-        reader.get(k);
-        var isDeleted = DeletionStatus.of(reader.get());
-        if (DeletionStatus.NOT_DELETED == isDeleted) {
-            int vLenght = reader.getInt();
-            var v = new byte[vLenght];
-            reader.get(v);
-            return new KVUnit(k, v);
-        }
-        return new KVUnit(k);
     }
 
     public boolean isDeleted() {

@@ -1,4 +1,3 @@
-package java;
 
 import org.g2n.atomdb.Table.Table;
 import org.g2n.atomdb.db.DBImpl;
@@ -9,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import org.g2n.atomdb.sst.ValueUnit;
 
 import java.io.File;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -25,7 +25,7 @@ public class DeletionTest {
     @BeforeEach
     public void init() throws Exception {
         opt = new DbOptions();
-        db = new DBImpl(new File(this.getClass().getName() + "DB"), opt);
+        db = new DBImpl(Path.of(this.getClass().getName() + "DB"), opt);
         VALUE = "value".repeat(50);
         TOTAL = 10000;
         N_TO_DELETE = 1;
@@ -62,30 +62,30 @@ public class DeletionTest {
 //            }
 //        }
     }
-    private static boolean exitsValueInSSTFiles(List<Integer> toBeDeleted, Table table) throws Exception {
-        boolean result = false;
-        for (int i = 0; i < 7; i++) {
-            List<String> levelList = null;//table.getSSTInfoSet(org.g2n.atomdb.Level.fromID(i));
-            System.out.println("level=" + i);
-            for (String file : levelList) {
-                for (Integer key : toBeDeleted) {
-                    ValueUnit valueUnit = BinarySearch.file(file, bytes(key + ""));
-
-                    if (valueUnit == null) continue;
-
-                    if (valueUnit.getIsDelete() == ValueUnit.DELETE) {
-                        System.out.println("key="+key+" deleted for fileToWrite="+file+" level="+i);
-                        if (valueUnit.getValue() != null) System.out.println("what the fuck, value???");
-                    } else {
-                        result= true;
-                        System.out.println("key="+key+" not deleted for fileToWrite="+file+" level="+i);
-                        if (valueUnit.getValue() == null) System.out.println("what the fuck, value!!!!");
-                    }
-                }
-            }
-        }
-        return result;
-    }
+//    private static boolean exitsValueInSSTFiles(List<Integer> toBeDeleted, Table table) throws Exception {
+//        boolean result = false;
+//        for (int i = 0; i < 7; i++) {
+//            List<String> levelList = null;//table.getSSTInfoSet(org.g2n.atomdb.Level.fromID(i));
+//            System.out.println("level=" + i);
+//            for (String file : levelList) {
+//                for (Integer key : toBeDeleted) {
+//                    ValueUnit valueUnit = BinarySearch.file(file, bytes(key + ""));
+//
+//                    if (valueUnit == null) continue;
+//
+//                    if (valueUnit.getIsDelete() == ValueUnit.DELETE) {
+//                        System.out.println("key="+key+" deleted for fileToWrite="+file+" level="+i);
+//                        if (valueUnit.getValue() != null) System.out.println("what the fuck, value???");
+//                    } else {
+//                        result= true;
+//                        System.out.println("key="+key+" not deleted for fileToWrite="+file+" level="+i);
+//                        if (valueUnit.getValue() == null) System.out.println("what the fuck, value!!!!");
+//                    }
+//                }
+//            }
+//        }
+//        return result;
+//    }
 
     private static List<Integer> getRandomNumberToDelete(int n, int bound) {
         Random rand = new Random();

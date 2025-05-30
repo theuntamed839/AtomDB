@@ -6,5 +6,4 @@ public class SizeOf {
     public final static int IntLength = Integer.BYTES;
     public static final int MB = 1024 * 1024;
     public static final int InstantTimeLength = IntLength + LongLength;
-    public static final int OperationsLength = Operations.bytesLength();
 }

@@ -4,13 +4,14 @@ import org.g2n.atomdb.Level.Level;
 import org.g2n.atomdb.Mem.ImmutableMem;
 import org.g2n.atomdb.Table.Table;
 import org.g2n.atomdb.Table.SSTInfo;
-import org.g2n.atomdb.db.DbOptions;
+import org.g2n.atomdb.db.DbComponentProvider;
 import org.g2n.atomdb.db.KVUnit;
 import org.g2n.atomdb.sstIo.SSTKeyRange;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -23,7 +24,6 @@ import java.util.concurrent.locks.ReentrantLock;
  */
 public class Compactor implements AutoCloseable {
     private final Table table;
-    private final DbOptions dbOptions;
     private final SSTPersist sstPersist;
     private AtomicInteger numberOfActuallyCompactions = new AtomicInteger(0);
     // todo we need to shutdown this threadpool
@@ -31,10 +31,9 @@ public class Compactor implements AutoCloseable {
     private static final Logger logger = LoggerFactory.getLogger(Compactor.class.getName());
     private final Map<Level, ReentrantLock> locks = new HashMap<>();
 
-    public Compactor(Table table, DbOptions dbOptions) {
+    public Compactor(Table table, Path dbPath, DbComponentProvider dbComponentProvider) {
         this.table = table;
-        this.dbOptions = dbOptions;
-        this.sstPersist = new SSTPersist(table);
+        this.sstPersist = new SSTPersist(table, dbPath, dbComponentProvider);
         for (Level level : Level.values()) {
             locks.put(level, new ReentrantLock());
         }
@@ -48,13 +47,13 @@ public class Compactor implements AutoCloseable {
      *
      * TODO:
      * Compactions needs more thought
-     * we have to make sure that we always compact the old files and those files which doesn't overlap with the same level file.
+     * we have to make sure that we always compact the old files and those files which doesn't overlap with the same level path.
      *
-     * consider that level 1 has 2 files named A and B. where B is the new file and A is the old file.
+     * consider that level 1 has 2 files named A and B. where B is the new path and A is the old path.
      * B has 23 and 29 number in it.
      * A has 23 number in it.
      * consider that we choose the files having 29 to compact, and we search for files having 29 and compact to Level 2.
-     * Now the issue starts, when we try to find number 23 we first look into the Level 1 and since we have file named A containing 23 in it we return that.
+     * Now the issue starts, when we try to find number 23 we first look into the Level 1 and since we have path named A containing 23 in it we return that.
      * But turns out the newest value for 23 was in B which is now compacted to Level 2
      *
      * So we have to make sure that all the olds files are compacted first and if we can't compact the old files, then we should choose the files which are not overlapping
@@ -267,7 +266,7 @@ public class Compactor implements AutoCloseable {
                 }
             }
             real.add(sst);
-//            System.out.println("File " + sst.getSst().getName() + " has " + list.size() + " dependency of files");
+//            System.out.println("File " + sst.getSstPath().getName() + " has " + list.size() + " dependency of files");
         }
         if (real.isEmpty()) {
             return real;
@@ -385,7 +384,9 @@ public class Compactor implements AutoCloseable {
         try {
             var iterator = new MergedClusterIterator(Collections.unmodifiableCollection(overlappingFiles));
             sstPersist.writeManyFiles(level.nextLevel(), iterator, getAverageNumOfEntriesInSST(overlappingFiles));
-            overlappingFiles.forEach(table::removeSST);
+            for (SSTInfo overlappingFile : overlappingFiles) {
+                table.removeSST(overlappingFile);
+            }
         } catch (Exception e) {
             logger.error("Error during compaction for level {}: {}", level, e.getMessage());
             e.printStackTrace();

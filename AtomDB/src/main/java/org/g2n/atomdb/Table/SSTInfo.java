@@ -1,30 +1,30 @@
 package org.g2n.atomdb.Table;
 
 import org.g2n.atomdb.Compaction.PointerList;
-import org.g2n.atomdb.Level.Level;
 import com.google.common.base.Preconditions;
 import com.google.common.hash.BloomFilter;
 import org.g2n.atomdb.sstIo.SSTHeader;
 import org.g2n.atomdb.sstIo.SSTKeyRange;
 
 import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 public class SSTInfo extends SSTHeader implements Comparable<SSTInfo> {
-    private final File sst;
+    private final Path sstPath;
     private final PointerList pointers;
     private final BloomFilter<byte[]> filter;
-    private final int number;
+    private final long number;
     private final SSTKeyRange sstKeyRange;
     private final int sstHashCode;
 
 
-    public SSTInfo(File sst, SSTHeader header, PointerList pointers, BloomFilter<byte[]> filter) {
+    public SSTInfo(Path sstPath, SSTHeader header, PointerList pointers, BloomFilter<byte[]> filter, SSTFileNameMeta fileNameMeta) {
         super(header);
-        Preconditions.checkArgument(sst.exists());
-        this.number = Integer.parseInt(sst.getName().trim().split("_")[1].trim().replace(".org.g2n.atomdb.sst", ""));
-        Preconditions.checkArgument(Level.fromID(sst.getName().charAt(0) - 48).equals(getLevel()));
-        this.sst = sst;
-        this.sstHashCode = sst.getAbsolutePath().hashCode();
+        Preconditions.checkArgument(Files.exists(sstPath), "SST file does not exist: " + sstPath);
+        this.number = fileNameMeta.seq();
+        this.sstPath = sstPath;
+        this.sstHashCode = sstPath.toAbsolutePath().hashCode();
         this.pointers = pointers;
         this.filter = filter;
         this.sstKeyRange = new SSTKeyRange(pointers.getFirst().key(), pointers.getLast().key());
@@ -34,8 +34,8 @@ public class SSTInfo extends SSTHeader implements Comparable<SSTInfo> {
         return sstKeyRange;
     }
 
-    public File getSst() {
-        return sst;
+    public Path getSstPath() {
+        return sstPath;
     }
 
     public PointerList getPointers() {
@@ -43,21 +43,15 @@ public class SSTInfo extends SSTHeader implements Comparable<SSTInfo> {
     }
 
     public boolean mightContainElement(byte[] key) {
-//        return true;
         return filter.mightContain(key);
     }
 
     @Override
     public int compareTo(SSTInfo sstInfo) {
         if (this.getLevel().equals(sstInfo.getLevel())) {
-            return Integer.compare(sstInfo.number, this.number); // newer fileToWrite will have greater number, and they should come first.
+            return Long.compare(sstInfo.number, this.number); // newer fileToWrite will have greater number, and they should come first.
         }
         return  Byte.compare(this.getLevel().value(), sstInfo.getLevel().value());
-    }
-
-    public static File newFile(String filePath, Level level, long number) {
-        return new File(filePath + File.separator +
-                level.value() + "_" + number + ".org.g2n.atomdb.sst");
     }
 
     public int getFileTorsoSize() {
@@ -71,7 +65,7 @@ public class SSTInfo extends SSTHeader implements Comparable<SSTInfo> {
         if (o == null || getClass() != o.getClass()) return false;
 
         SSTInfo sstInfo = (SSTInfo) o;
-        return sst.getAbsolutePath().equals(sstInfo.sst.getAbsolutePath());
+        return sstPath.toAbsolutePath().equals(sstInfo.sstPath.toAbsolutePath());
     }
 
     @Override
@@ -82,7 +76,7 @@ public class SSTInfo extends SSTHeader implements Comparable<SSTInfo> {
     @Override
     public String toString() {
         return "SSTInfo{" +
-                "sst=" + sst +
+                "sstPath=" + sstPath +
                 ", pointers=" + pointers.toString() +
                 ", filter=" + filter +
                 ", number=" + number +

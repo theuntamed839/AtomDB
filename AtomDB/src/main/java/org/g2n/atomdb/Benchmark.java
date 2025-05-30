@@ -59,7 +59,7 @@ public class Benchmark {
 //        initialTest(inputString, 50000);
 //                benchmark(inputString, 15000);
 //        benchmarkWithRandomKVBytes(1000000, 50, 500); //500000
-        benchmarkWithRandomKVBytes(2000000, 50, 500);
+        benchmarkWithRandomKVBytes(1000000, 50, 500);
 
 //        benchmarkWithRandomKVBytes(getRandomKV(1000000, () -> 50, () -> 500));
 
@@ -86,8 +86,8 @@ public class Benchmark {
     private static void benchmarkWithRandomKVBytes(int totalEntryCount, int keyBytesLength, int valueBytesLength) throws Exception {
         var map = getRandomKV(totalEntryCount, () -> keyBytesLength, () -> valueBytesLength);
         var opt = new DbOptions();
-        var dbName = "benchmarkWithRandomKVBytes_" + getSaltString();
-        var db = new DBImpl(new File(dbName), opt);
+        var dbName = Path.of("benchmarkWithRandomKVBytes_" + getSaltString());
+        var db = new DBImpl(dbName, opt);
         System.out.println("Number of threads: " + Thread.activeCount());
         long beforeUsedMem = Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
         long startTime , endTime, readingTime, writingTime;
@@ -137,130 +137,130 @@ public class Benchmark {
             e.printStackTrace();
         } finally {
             db.close();
-            Files.walk(Path.of(dbName ))
+            Files.walk(dbName)
                     .sorted(Comparator.reverseOrder())
                     .map(Path::toFile)
                     .forEach(File::delete);
         }
     }
 
-    private static void benchmarkWithRandomLengthKVBytes(int totalEntryCount) throws Exception {
-        var dbName = "benchmarkWithRandomKVBytes";
-        var rand = new Random();
-        var map = getRandomKV(totalEntryCount, () -> rand.nextInt(50, 100), () -> rand.nextInt(50, 1000));
+//    private static void benchmarkWithRandomLengthKVBytes(int totalEntryCount) throws Exception {
+//        var dbName = "benchmarkWithRandomKVBytes";
+//        var rand = new Random();
+//        var map = getRandomKV(totalEntryCount, () -> rand.nextInt(50, 100), () -> rand.nextInt(50, 1000));
+//
+//        System.out.println("Number of threads: " + Thread.activeCount());
+//        long beforeUsedMem = Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
+//        var opt = new DbOptions();
+//        var db = new DBImpl(dbName, opt);
+//        long startTime , endTime, readingTime, writingTime;
+//        try {
+//            System.out.println("Writing... " + totalEntryCount);
+//            startTime = System.nanoTime();
+//            map.entrySet().forEach(each -> {
+//                try {
+//                    db.put(each.getKey(), each.getValue());
+//                } catch (Exception e) {
+//                    throw new RuntimeException(e);
+//                }
+//            });
+//            endTime = System.nanoTime();
+//
+//            writingTime = endTime - startTime;
+//
+//            var list = new ArrayList<>(map.keySet());
+//            Collections.shuffle(list);
+//            System.out.println("Reading... ");
+//            startTime = System.nanoTime();
+//            list.forEach(each -> {
+//                try {
+//                    db.get(each);
+//                } catch (Exception e) {
+//                    throw new RuntimeException(e);
+//                }
+//            });
+//            endTime = System.nanoTime();
+//
+//            readingTime = endTime - startTime;
+//            System.out.println("writing time=" + writingTime + " , reading time=" + readingTime);
+//            long afterUsedMem=Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
+//            long actualMemUsed=afterUsedMem-beforeUsedMem;
+//            System.out.println("memory utilised="+actualMemUsed);
+//            System.out.println("Number of threads: " + Thread.activeCount());
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//        } finally {
+//            db.close();
+//            Files.walk(Path.of(dbName ))
+//                    .sorted(Comparator.reverseOrder())
+//                    .map(Path::toFile)
+//                    .forEach(File::delete);
+//        }
+//    }
 
-        System.out.println("Number of threads: " + Thread.activeCount());
-        long beforeUsedMem = Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
-        var opt = new DbOptions();
-        var db = new DBImpl(new File(dbName), opt);
-        long startTime , endTime, readingTime, writingTime;
-        try {
-            System.out.println("Writing... " + totalEntryCount);
-            startTime = System.nanoTime();
-            map.entrySet().forEach(each -> {
-                try {
-                    db.put(each.getKey(), each.getValue());
-                } catch (Exception e) {
-                    throw new RuntimeException(e);
-                }
-            });
-            endTime = System.nanoTime();
-
-            writingTime = endTime - startTime;
-
-            var list = new ArrayList<>(map.keySet());
-            Collections.shuffle(list);
-            System.out.println("Reading... ");
-            startTime = System.nanoTime();
-            list.forEach(each -> {
-                try {
-                    db.get(each);
-                } catch (Exception e) {
-                    throw new RuntimeException(e);
-                }
-            });
-            endTime = System.nanoTime();
-
-            readingTime = endTime - startTime;
-            System.out.println("writing time=" + writingTime + " , reading time=" + readingTime);
-            long afterUsedMem=Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
-            long actualMemUsed=afterUsedMem-beforeUsedMem;
-            System.out.println("memory utilised="+actualMemUsed);
-            System.out.println("Number of threads: " + Thread.activeCount());
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-            db.close();
-            Files.walk(Path.of(dbName ))
-                    .sorted(Comparator.reverseOrder())
-                    .map(Path::toFile)
-                    .forEach(File::delete);
-        }
-    }
-
-    private static void benchmarkWithRandomKVBytes(Map<byte[], byte[]> map) throws Exception {
-        var dbName = "benchmarkWithRandomKVBytes";
-
-        System.out.println("Number of threads: " + Thread.activeCount());
-        long beforeUsedMem = Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
-        var opt = new DbOptions();
-        var db = new DBImpl(new File(dbName), opt);
-        long startTime , endTime, readingTime, writingTime;
-        try {
-            System.out.println("Writing... " + map.size());
-            startTime = System.nanoTime();
-            AtomicInteger i = new AtomicInteger();
-            map.entrySet().forEach(each -> {
-                try {
-                    if (i.get() % 10000 == 0) {
-                        System.out.println("progress="+i);
-                    }
-                    i.getAndIncrement();
-                    db.put(each.getKey(), each.getValue());
-                } catch (Exception e) {
-                    throw new RuntimeException(e);
-                }
-            });
-            endTime = System.nanoTime();
-
-            writingTime = endTime - startTime;
-
-            var list = new ArrayList<>(map.keySet());
-            Collections.shuffle(list);
-
-
-            System.out.println("Reading... ");
-            startTime = System.nanoTime();
-            list.forEach(each -> {
-                try {
-                    db.get(each);
-                } catch (Exception e) {
-                    throw new RuntimeException(e);
-                }
-            });
-            endTime = System.nanoTime();
-
-            readingTime = endTime - startTime;
-            System.out.println("writing time=" + writingTime/1000_000_000.0 + " , reading time=" + readingTime/1000_000_000.0);
-            long afterUsedMem=Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
-            long actualMemUsed=afterUsedMem-beforeUsedMem;
-            System.out.println("memory utilised="+actualMemUsed);
-            System.out.println("Number of threads: " + Thread.activeCount());
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-            db.close();
-            Files.walk(Path.of(dbName ))
-                    .sorted(Comparator.reverseOrder())
-                    .map(Path::toFile)
-                    .forEach(File::delete);
-        }
-    }
+//    private static void benchmarkWithRandomKVBytes(Map<byte[], byte[]> map) throws Exception {
+//        var dbName = "benchmarkWithRandomKVBytes";
+//
+//        System.out.println("Number of threads: " + Thread.activeCount());
+//        long beforeUsedMem = Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
+//        var opt = new DbOptions();
+//        var db = new DBImpl(dbName, opt);
+//        long startTime , endTime, readingTime, writingTime;
+//        try {
+//            System.out.println("Writing... " + map.size());
+//            startTime = System.nanoTime();
+//            AtomicInteger i = new AtomicInteger();
+//            map.entrySet().forEach(each -> {
+//                try {
+//                    if (i.get() % 10000 == 0) {
+//                        System.out.println("progress="+i);
+//                    }
+//                    i.getAndIncrement();
+//                    db.put(each.getKey(), each.getValue());
+//                } catch (Exception e) {
+//                    throw new RuntimeException(e);
+//                }
+//            });
+//            endTime = System.nanoTime();
+//
+//            writingTime = endTime - startTime;
+//
+//            var list = new ArrayList<>(map.keySet());
+//            Collections.shuffle(list);
+//
+//
+//            System.out.println("Reading... ");
+//            startTime = System.nanoTime();
+//            list.forEach(each -> {
+//                try {
+//                    db.get(each);
+//                } catch (Exception e) {
+//                    throw new RuntimeException(e);
+//                }
+//            });
+//            endTime = System.nanoTime();
+//
+//            readingTime = endTime - startTime;
+//            System.out.println("writing time=" + writingTime/1000_000_000.0 + " , reading time=" + readingTime/1000_000_000.0);
+//            long afterUsedMem=Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
+//            long actualMemUsed=afterUsedMem-beforeUsedMem;
+//            System.out.println("memory utilised="+actualMemUsed);
+//            System.out.println("Number of threads: " + Thread.activeCount());
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//        } finally {
+//            db.close();
+//            Files.walk(Path.of(dbName ))
+//                    .sorted(Comparator.reverseOrder())
+//                    .map(Path::toFile)
+//                    .forEach(File::delete);
+//        }
+//    }
 
     private static Map<byte[], byte[]> getRandomKV(int totalEntryCount, Supplier<Integer> keyBytesLength, Supplier<Integer> valueBytesLength) {
         // total entries
         System.out.println("random generation");
-        var rand = new Random();
+        var rand = new Random(123456789L);
         Map<byte[], byte[]> map = new HashMap<>(totalEntryCount);
         for (int i = 0; i < totalEntryCount; i++) {
             var key = new byte[keyBytesLength.get()];
@@ -272,223 +272,223 @@ public class Benchmark {
         return map;
     }
 
-    private static void benchmarkRandomRead(String inputString, long totalEntryCount, String dbName) throws Exception {
-        System.out.println("Number of threads: " + Thread.activeCount());
-        long beforeUsedMem = Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
-        var opt = new DbOptions();
-        var db = new DBImpl(new File(dbName), opt);
-        long startTime , endTime, readingTime, writingTime;
-        try {
-            System.out.println("Writing... " + totalEntryCount);
-            startTime = System.nanoTime();
-            for (int i = 0; i < totalEntryCount; i++) {
-                db.put(bytes(i + ""), bytes(i + "_" + inputString));
-            }
-            endTime = System.nanoTime();
-
-            writingTime = endTime - startTime;
-            System.out.println("Reading... ");
-            startTime = System.nanoTime();
-            List<Integer> integers = new ArrayList<>(IntStream.range(0, (int) totalEntryCount).boxed().toList());
-            Collections.shuffle(integers);
-            Collections.shuffle(integers);
-            for (int i : integers) {
-                db.get(bytes(i + ""));
-            }
-            endTime = System.nanoTime();
-
-            readingTime = endTime - startTime;
-            System.out.println("writing time=" + writingTime + " , reading time=" + readingTime);
-            long afterUsedMem=Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
-            long actualMemUsed=afterUsedMem-beforeUsedMem;
-            System.out.println("memory utilised="+actualMemUsed);
-            System.out.println("Number of threads: " + Thread.activeCount());
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-            db.close();
-            Files.walk(Path.of(dbName ))
-                    .sorted(Comparator.reverseOrder())
-                    .map(Path::toFile)
-                    .forEach(File::delete);
-        }
-    }
-
-    public static void initialTest(String inputString, long totalEntryCount) throws Exception {
-        var opt = new DbOptions();
-        var db = new DBImpl(new File(Benchmark.class.getName() + "DB"), opt);
-        var key = "somegood things";
-        System.out.println("compressed keysize around ="+Snappy.compress(bytes(key)).length);
-        System.out.println("compressed valueSize ="+Snappy.compress(bytes(inputString)).length);
-
-        try {
-            for (int i = 0; i < totalEntryCount; i++) {
-                if (i % 17 == 0 ) {
-                    db.put(bytes(key + i), bytes(inputString));
-                    continue;
-                }
-                db.put(bytes(i + ""), bytes(i + "_" + inputString));
-            }
-            for (int i = 0; i < totalEntryCount; i++) {
-                if (i % 17 == 0 ) {
-                    byte[] bytes = db.get(bytes(key + i));
-                    byte[] bytes1 = bytes(inputString);
-                    if (Arrays.compare(bytes, bytes1) != 0) {
-                        System.out.println("moye moye");
-                    }
-                }
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-            db.close();
-            db.destroy();
-        }
-    }
-
-    public static void benchmarkWriting(String inputString, long totalEntryCount) throws Exception {
-        System.out.println("Number of threads: " + Thread.activeCount());
-        long beforeUsedMem = Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
-        var opt = new DbOptions();
-        var db = new DBImpl(new File(Benchmark.class.getName() + "DB"), opt);
-        long startTime , endTime, readingTime, writingTime;
-        try {
-            System.out.println("Writing... " + totalEntryCount);
-            startTime = System.nanoTime();
-            for (int i = 0; i < totalEntryCount; i++) {
-                db.put(bytes(i + ""), bytes(i + "_" + inputString));
-            }
-            endTime = System.nanoTime();
-
-            writingTime = endTime - startTime;
-            System.out.println("writing time=" + writingTime);
-            long afterUsedMem=Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
-            long actualMemUsed=afterUsedMem-beforeUsedMem;
-            System.out.println("memory utilised="+actualMemUsed);
-            System.out.println("Number of threads: " + Thread.activeCount());
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-            db.close();
-            db.destroy();
-        }
-    }
-
-    public static void benchmark(String inputString, long totalEntryCount) throws Exception {
-        System.out.println("Number of threads: " + Thread.activeCount());
-        long beforeUsedMem = Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
-        var opt = new DbOptions();
-        var db = new DBImpl(new File(Benchmark.class.getName() + "DB"), opt);
-        long startTime , endTime, readingTime, writingTime;
-        try {
-            System.out.println("Writing... " + totalEntryCount);
-            startTime = System.nanoTime();
-            for (int i = 0; i < totalEntryCount; i++) {
-                db.put(bytes(i + ""), bytes(i + "_" + inputString));
-            }
-            endTime = System.nanoTime();
-
-            writingTime = endTime - startTime;
-            System.out.println("Writing ="+ writingTime);
-            System.out.println("Reading... ");
-            startTime = System.nanoTime();
-            for (int i = 0; i < totalEntryCount; i++) {
-                System.out.println("reading="+i);
-                db.get(bytes(i + ""));
-            }
-            endTime = System.nanoTime();
-
-            readingTime = endTime - startTime;
-            System.out.println("writing time=" + writingTime + " , reading time=" + readingTime);
-            long afterUsedMem=Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
-            long actualMemUsed=afterUsedMem-beforeUsedMem;
-            System.out.println("memory utilised="+actualMemUsed);
-            System.out.println("Number of threads: " + Thread.activeCount());
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-            db.close();
-            Files.walk(Path.of(Benchmark.class.getName() + "DB" ))
-                    .sorted(Comparator.reverseOrder())
-                    .map(Path::toFile)
-                    .forEach(File::delete);
-        }
-    }
-
-    public static void correctnessCheck(String inputString, long totalEntryCount) throws Exception {
-        System.out.println("Number of threads: " + Thread.activeCount());
-        long beforeUsedMem = Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
-        var opt = new DbOptions();
-        var db = new DBImpl(new File(Benchmark.class.getName() + "DB"), opt);
-        long startTime , endTime, readingTime, writingTime;
-        try {
-            System.out.println("Writing... " + totalEntryCount);
-            startTime = System.nanoTime();
-            for (int i = 0; i < totalEntryCount; i++) {
-                db.put(bytes(i + ""), bytes(inputString));
-            }
-            endTime = System.nanoTime();
-
-            writingTime = endTime - startTime;
-            System.out.println("Writing ="+ writingTime);
-            System.out.println("Reading... ");
-            startTime = System.nanoTime();
-            for (int i = 0; i < totalEntryCount; i++) {
-                System.out.println("reading="+i);
-                byte[] bytes = db.get(bytes(i + ""));
-                if (bytes == null) {
-                    throw new RuntimeException("value is null for key+"+i);
-                }
-                if (Arrays.compare(bytes, bytes(inputString)) != 0) {
-                    throw new RuntimeException("value is not same for key+"+i);
-                }
-            }
-            endTime = System.nanoTime();
-
-            readingTime = endTime - startTime;
-            System.out.println("writing time=" + writingTime + " , reading time=" + readingTime);
-            long afterUsedMem=Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
-            long actualMemUsed=afterUsedMem-beforeUsedMem;
-            System.out.println("memory utilised="+actualMemUsed);
-            System.out.println("Number of threads: " + Thread.activeCount());
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-            db.close();
-            Files.walk(Path.of(Benchmark.class.getName() + "DB" ))
-                    .sorted(Comparator.reverseOrder())
-                    .map(Path::toFile)
-                    .forEach(File::delete);
-        }
-    }
-
-    public static void searchBenchMark(long totalEntryCount, String DBName) throws Exception {
-        System.out.println("Number of threads: " + Thread.activeCount());
-        long beforeUsedMem = Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
-        var opt = new DbOptions();
-        var db = new DBImpl(new File(DBName), opt);
-        long startTime , endTime, readingTime, writingTime;
-        try {
-            System.out.println("Reading... ");
-            startTime = System.nanoTime();
-            for (int i = 0; i < totalEntryCount; i++) {
-                db.get(bytes(i + ""));
-            }
-            endTime = System.nanoTime();
-
-            readingTime = endTime - startTime;
-            System.out.println("reading time=" + (readingTime/1000_000_000.0));
-            long afterUsedMem=Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
-            long actualMemUsed=afterUsedMem-beforeUsedMem;
-            System.out.println("memory utilised="+actualMemUsed);
-            System.out.println("Number of threads: " + Thread.activeCount());
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-            db.close();
-            //org.g2n.atomdb.db.destroy();
-        }
-    }
+//    private static void benchmarkRandomRead(String inputString, long totalEntryCount, String dbName) throws Exception {
+//        System.out.println("Number of threads: " + Thread.activeCount());
+//        long beforeUsedMem = Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
+//        var opt = new DbOptions();
+//        var db = new DBImpl(dbName, opt);
+//        long startTime , endTime, readingTime, writingTime;
+//        try {
+//            System.out.println("Writing... " + totalEntryCount);
+//            startTime = System.nanoTime();
+//            for (int i = 0; i < totalEntryCount; i++) {
+//                db.put(bytes(i + ""), bytes(i + "_" + inputString));
+//            }
+//            endTime = System.nanoTime();
+//
+//            writingTime = endTime - startTime;
+//            System.out.println("Reading... ");
+//            startTime = System.nanoTime();
+//            List<Integer> integers = new ArrayList<>(IntStream.range(0, (int) totalEntryCount).boxed().toList());
+//            Collections.shuffle(integers);
+//            Collections.shuffle(integers);
+//            for (int i : integers) {
+//                db.get(bytes(i + ""));
+//            }
+//            endTime = System.nanoTime();
+//
+//            readingTime = endTime - startTime;
+//            System.out.println("writing time=" + writingTime + " , reading time=" + readingTime);
+//            long afterUsedMem=Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
+//            long actualMemUsed=afterUsedMem-beforeUsedMem;
+//            System.out.println("memory utilised="+actualMemUsed);
+//            System.out.println("Number of threads: " + Thread.activeCount());
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//        } finally {
+//            db.close();
+//            Files.walk(Path.of(dbName ))
+//                    .sorted(Comparator.reverseOrder())
+//                    .map(Path::toFile)
+//                    .forEach(File::delete);
+//        }
+//    }
+//
+//    public static void initialTest(String inputString, long totalEntryCount) throws Exception {
+//        var opt = new DbOptions();
+//        var db = new DBImpl(Benchmark.class.getName() + "DB", opt);
+//        var key = "somegood things";
+//        System.out.println("compressed keysize around ="+Snappy.compress(bytes(key)).length);
+//        System.out.println("compressed valueSize ="+Snappy.compress(bytes(inputString)).length);
+//
+//        try {
+//            for (int i = 0; i < totalEntryCount; i++) {
+//                if (i % 17 == 0 ) {
+//                    db.put(bytes(key + i), bytes(inputString));
+//                    continue;
+//                }
+//                db.put(bytes(i + ""), bytes(i + "_" + inputString));
+//            }
+//            for (int i = 0; i < totalEntryCount; i++) {
+//                if (i % 17 == 0 ) {
+//                    byte[] bytes = db.get(bytes(key + i));
+//                    byte[] bytes1 = bytes(inputString);
+//                    if (Arrays.compare(bytes, bytes1) != 0) {
+//                        System.out.println("moye moye");
+//                    }
+//                }
+//            }
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//        } finally {
+//            db.close();
+//            db.destroy();
+//        }
+//    }
+//
+//    public static void benchmarkWriting(String inputString, long totalEntryCount) throws Exception {
+//        System.out.println("Number of threads: " + Thread.activeCount());
+//        long beforeUsedMem = Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
+//        var opt = new DbOptions();
+//        var db = new DBImpl(Benchmark.class.getName() + "DB", opt);
+//        long startTime , endTime, readingTime, writingTime;
+//        try {
+//            System.out.println("Writing... " + totalEntryCount);
+//            startTime = System.nanoTime();
+//            for (int i = 0; i < totalEntryCount; i++) {
+//                db.put(bytes(i + ""), bytes(i + "_" + inputString));
+//            }
+//            endTime = System.nanoTime();
+//
+//            writingTime = endTime - startTime;
+//            System.out.println("writing time=" + writingTime);
+//            long afterUsedMem=Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
+//            long actualMemUsed=afterUsedMem-beforeUsedMem;
+//            System.out.println("memory utilised="+actualMemUsed);
+//            System.out.println("Number of threads: " + Thread.activeCount());
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//        } finally {
+//            db.close();
+//            db.destroy();
+//        }
+//    }
+//
+//    public static void benchmark(String inputString, long totalEntryCount) throws Exception {
+//        System.out.println("Number of threads: " + Thread.activeCount());
+//        long beforeUsedMem = Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
+//        var opt = new DbOptions();
+//        var db = new DBImpl(Benchmark.class.getName() + "DB", opt);
+//        long startTime , endTime, readingTime, writingTime;
+//        try {
+//            System.out.println("Writing... " + totalEntryCount);
+//            startTime = System.nanoTime();
+//            for (int i = 0; i < totalEntryCount; i++) {
+//                db.put(bytes(i + ""), bytes(i + "_" + inputString));
+//            }
+//            endTime = System.nanoTime();
+//
+//            writingTime = endTime - startTime;
+//            System.out.println("Writing ="+ writingTime);
+//            System.out.println("Reading... ");
+//            startTime = System.nanoTime();
+//            for (int i = 0; i < totalEntryCount; i++) {
+//                System.out.println("reading="+i);
+//                db.get(bytes(i + ""));
+//            }
+//            endTime = System.nanoTime();
+//
+//            readingTime = endTime - startTime;
+//            System.out.println("writing time=" + writingTime + " , reading time=" + readingTime);
+//            long afterUsedMem=Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
+//            long actualMemUsed=afterUsedMem-beforeUsedMem;
+//            System.out.println("memory utilised="+actualMemUsed);
+//            System.out.println("Number of threads: " + Thread.activeCount());
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//        } finally {
+//            db.close();
+//            Files.walk(Path.of(Benchmark.class.getName() + "DB" ))
+//                    .sorted(Comparator.reverseOrder())
+//                    .map(Path::toFile)
+//                    .forEach(File::delete);
+//        }
+//    }
+//
+//    public static void correctnessCheck(String inputString, long totalEntryCount) throws Exception {
+//        System.out.println("Number of threads: " + Thread.activeCount());
+//        long beforeUsedMem = Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
+//        var opt = new DbOptions();
+//        var db = new DBImpl(Benchmark.class.getName() + "DB", opt);
+//        long startTime , endTime, readingTime, writingTime;
+//        try {
+//            System.out.println("Writing... " + totalEntryCount);
+//            startTime = System.nanoTime();
+//            for (int i = 0; i < totalEntryCount; i++) {
+//                db.put(bytes(i + ""), bytes(inputString));
+//            }
+//            endTime = System.nanoTime();
+//
+//            writingTime = endTime - startTime;
+//            System.out.println("Writing ="+ writingTime);
+//            System.out.println("Reading... ");
+//            startTime = System.nanoTime();
+//            for (int i = 0; i < totalEntryCount; i++) {
+//                System.out.println("reading="+i);
+//                byte[] bytes = db.get(bytes(i + ""));
+//                if (bytes == null) {
+//                    throw new RuntimeException("value is null for key+"+i);
+//                }
+//                if (Arrays.compare(bytes, bytes(inputString)) != 0) {
+//                    throw new RuntimeException("value is not same for key+"+i);
+//                }
+//            }
+//            endTime = System.nanoTime();
+//
+//            readingTime = endTime - startTime;
+//            System.out.println("writing time=" + writingTime + " , reading time=" + readingTime);
+//            long afterUsedMem=Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
+//            long actualMemUsed=afterUsedMem-beforeUsedMem;
+//            System.out.println("memory utilised="+actualMemUsed);
+//            System.out.println("Number of threads: " + Thread.activeCount());
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//        } finally {
+//            db.close();
+//            Files.walk(Path.of(Benchmark.class.getName() + "DB" ))
+//                    .sorted(Comparator.reverseOrder())
+//                    .map(Path::toFile)
+//                    .forEach(File::delete);
+//        }
+//    }
+//
+//    public static void searchBenchMark(long totalEntryCount, String DBName) throws Exception {
+//        System.out.println("Number of threads: " + Thread.activeCount());
+//        long beforeUsedMem = Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
+//        var opt = new DbOptions();
+//        var db = new DBImpl(Benchmark.class.getName() + "DB", opt);
+//        long startTime , endTime, readingTime, writingTime;
+//        try {
+//            System.out.println("Reading... ");
+//            startTime = System.nanoTime();
+//            for (int i = 0; i < totalEntryCount; i++) {
+//                db.get(bytes(i + ""));
+//            }
+//            endTime = System.nanoTime();
+//
+//            readingTime = endTime - startTime;
+//            System.out.println("reading time=" + (readingTime/1000_000_000.0));
+//            long afterUsedMem=Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
+//            long actualMemUsed=afterUsedMem-beforeUsedMem;
+//            System.out.println("memory utilised="+actualMemUsed);
+//            System.out.println("Number of threads: " + Thread.activeCount());
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//        } finally {
+//            db.close();
+//            //org.g2n.atomdb.db.destroy();
+//        }
+//    }
 }
 
 /**
@@ -701,5 +701,36 @@ public class Benchmark {
  * LEVEL_SIX has 0 files
  * LEVEL_SIX has 0 files
  * LEVEL_SEVEN has 0 files
+ * LEVEL_SEVEN has 0 files
+ *
+ *
+ * With seed, 1000000
+ * writing time=21.2621825 , reading time=6.7343162
+ * memory utilised=782652920
+ * Number of threads: 9
+ * numberOfFilesRequiredToSearch=1 numberOfTimesThisHappened=905025
+ * numberOfFilesRequiredToSearch=2 numberOfTimesThisHappened=85476
+ * numberOfFilesRequiredToSearch=3 numberOfTimesThisHappened=4736
+ * numberOfFilesRequiredToSearch=4 numberOfTimesThisHappened=205
+ * numberOfFilesRequiredToSearch=5 numberOfTimesThisHappened=7
+ * numberOfFilesRequiredToSearch=6 numberOfTimesThisHappened=2
+ * numberOfFilesRequiredToSearch=7 numberOfTimesThisHappened=2
+ * numberOfFilesRequiredToSearch=9 numberOfTimesThisHappened=1
+ * Number of actually compactions: 122
+ * LEVEL_ZERO has 8971044 size in bytes
+ * LEVEL_ZERO has 2 files
+ * LEVEL_ONE has 49284874 size in bytes
+ * LEVEL_ONE has 11 files
+ * LEVEL_TWO has 743275768 size in bytes
+ * LEVEL_TWO has 166 files
+ * LEVEL_THREE has 372312118 size in bytes
+ * LEVEL_THREE has 83 files
+ * LEVEL_FOUR has 0 size in bytes
+ * LEVEL_FOUR has 0 files
+ * LEVEL_FIVE has 0 size in bytes
+ * LEVEL_FIVE has 0 files
+ * LEVEL_SIX has 0 size in bytes
+ * LEVEL_SIX has 0 files
+ * LEVEL_SEVEN has 0 size in bytes
  * LEVEL_SEVEN has 0 files
  */

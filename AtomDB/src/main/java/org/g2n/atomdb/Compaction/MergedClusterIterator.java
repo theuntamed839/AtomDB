@@ -72,11 +72,11 @@ public class MergedClusterIterator implements Iterator<KVUnit>, AutoCloseable {
 
             if (compare == 0) {
                 if (iterator.getSSTInfo().compareTo(curr.getSSTInfo()) < 0) {
-                    curr.pollNextKVUnit(); // old file value
+                    curr.pollNextKVUnit(); // old path value
                     unit = iterator.getNextKVUnit();
                     curr = iterator;
                 } else {
-                    iterator.pollNextKVUnit(); // old file value
+                    iterator.pollNextKVUnit(); // old path value
                 }
             }
         }

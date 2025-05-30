@@ -4,6 +4,7 @@ import org.g2n.atomdb.db.DbOptions;
 import org.junit.jupiter.api.*;
 
 import java.io.File;
+import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -26,7 +27,7 @@ public class CorrectnessTest {
     @BeforeEach
     public void init() throws Exception {
         opt = new DbOptions();
-        db = new DBImpl(new File(this.getClass().getName() + "_" + Instant.now().getEpochSecond() + "_DB"), opt);
+        db = new DBImpl(Path.of(this.getClass().getName() + "_" + Instant.now().getEpochSecond() + "_DB"), opt);
         for (int i = 0; i < TOTAL; i++) {
             db.put(bytes(i + ""), bytes(i + "_" + VALUE));
         }

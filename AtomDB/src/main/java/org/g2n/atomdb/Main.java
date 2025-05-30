@@ -5,6 +5,7 @@ import org.g2n.atomdb.db.DBImpl;
 import org.g2n.atomdb.db.DbOptions;
 
 import java.io.File;
+import java.nio.file.Path;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Scanner;
@@ -61,7 +62,7 @@ public class Main {
         long a, b;
         a = System.nanoTime();
         DbOptions opt = new DbOptions();
-        DB db = new DBImpl(new File("Thread"+Thread.currentThread()), opt);
+        DB db = new DBImpl(Path.of("Thread"+Thread.currentThread()), opt);
         diskAccessByThreadsSpeedTest(db, total, value);
         b = System.nanoTime();
         System.out.println(Thread.currentThread() + " took "+ (b -a));
@@ -80,7 +81,7 @@ public class Main {
     public static void main1(String[] args) throws Exception {
         int total = 10_000;
         DbOptions opt = new DbOptions();
-        DB db = new DBImpl(new File("ExampleDB"), opt);
+        DB db = new DBImpl(Path.of("ExampleDB"), opt);
 //        String value = "the big value".repeat(40);
         String value = Instant.now().toString().repeat(10);
         System.out.println("User Input");

@@ -1,4 +1,3 @@
-package java;
 
 import org.g2n.atomdb.Table.Table;
 import org.g2n.atomdb.db.DBComparator;
@@ -8,6 +7,7 @@ import org.junit.jupiter.api.*;
 import org.g2n.atomdb.sst.ValueUnit;
 
 import java.io.File;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -25,7 +25,7 @@ public class UpdationTest {
     @BeforeEach
     public void init() throws Exception {
         opt = new DbOptions();
-        db = new DBImpl(new File(this.getClass().getName() + "DB"), opt);
+        db = new DBImpl(Path.of(this.getClass().getName() + "DB"), opt);
         VALUE = "value".repeat(50);
         TOTAL = 10000;
         N_TO_UPDATE = 1;

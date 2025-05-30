@@ -2,7 +2,6 @@ package org.g2n.atomdb.search;
 
 import org.g2n.atomdb.Checksum.Crc32cChecksum;
 import org.g2n.atomdb.Compaction.Pointer;
-import org.g2n.atomdb.Compaction.Validator;
 import org.g2n.atomdb.Constants.DBConstant;
 import org.g2n.atomdb.Mem.ImmutableMem;
 import org.g2n.atomdb.Mem.ImmutableMemTable;
@@ -11,6 +10,7 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import org.g2n.atomdb.db.DBComparator;
+import org.g2n.atomdb.db.DbComponentProvider;
 import org.g2n.atomdb.db.KVUnit;
 import org.g2n.atomdb.util.MaxMinAvg;
 
@@ -33,11 +33,13 @@ public class Search implements AutoCloseable{
     private final LoadingCache<SSTInfo, Finder> readerCache;
     private final Cache<Pointer, Checksums> checksumsCache;
     private final HashMap<Integer, Integer> removeMeAfterTestMap;
+    private final DbComponentProvider dbComponentProvider;
     private ImmutableMem<byte[], KVUnit> secondaryMem;
     private final SortedSet<SSTInfo> fileList = new ConcurrentSkipListSet<>();
     MaxMinAvg maker = new MaxMinAvg();
 
-    public Search() {
+    public Search(DbComponentProvider dbComponentProvider) {
+        this.dbComponentProvider = dbComponentProvider;
         this.kvCache = Caffeine.newBuilder()
                 .maximumWeight(DBConstant.KEY_VALUE_CACHE_SIZE)
                 .weigher((byte[] k, KVUnit v) -> k.length + v.getUnitSize())
@@ -67,7 +69,7 @@ public class Search implements AutoCloseable{
     }
 
     private Finder getFinder(SSTInfo sst) throws IOException {
-        return new Finder(sst.getSst(), sst.getPointers(), checksumsCache);
+        return new Finder(sst.getPointers(), checksumsCache, dbComponentProvider.getIOReader(sst.getSstPath()));
     }
 
     public KVUnit findKey(byte[] key) throws IOException {
@@ -129,6 +131,6 @@ public class Search implements AutoCloseable{
     }
 
     public void printActiveFiles() {
-        fileList.forEach(each -> System.out.println("Active fileToWrite="+each.getSst().getName()));
+        fileList.forEach(each -> System.out.println("Active fileToWrite="+each.getSstPath()));
     }
 }

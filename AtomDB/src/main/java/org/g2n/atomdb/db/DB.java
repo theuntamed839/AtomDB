@@ -1,5 +1,7 @@
 package org.g2n.atomdb.db;
 
+import java.io.IOException;
+
 public interface DB{
 
     void put(byte[] key, byte[] value) throws Exception;
@@ -10,5 +12,5 @@ public interface DB{
 
     void close() throws Exception;
 
-    void destroy();
+    void destroy() throws IOException;
 }

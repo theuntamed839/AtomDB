@@ -1,151 +1,87 @@
 package org.g2n.atomdb.Table;
 
-import org.g2n.atomdb.Constants.DBConstant;
 import org.g2n.atomdb.Level.Level;
-import org.g2n.atomdb.util.FileUtil;
 import com.google.common.base.Preconditions;
+import org.g2n.atomdb.db.DbComponentProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.g2n.atomdb.search.Search;
 
-import java.io.File;
-import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.regex.Pattern;
 
-public class Table{
+import static java.util.Objects.requireNonNull;
+
+/**
+ * TODO:
+ * We need to have a shared lock between the table and the search, as the file can change underneath while we are searching.
+ */
+
+public class Table {
     private static final Logger logger = LoggerFactory.getLogger(Table.class);
     private final Search search;
     private final Map<Level, Integer> tableSize;
-    private final Map<Level, byte[]> lastCompactedKV;
-    private Map<Level, SortedSet<SSTInfo>>  table;
-    // todo this should be set at start
-    private final AtomicLong currentFileName = new AtomicLong(0);
-    private final File dbFolder;
-    private final String fileSeparatorForSplit =  Pattern.quote(File.separator);
-    public Table(File dbFolder, Search search) {
-        Preconditions.checkArgument(dbFolder.exists());
-        this.dbFolder = dbFolder;
+    private final Map<Level, SortedSet<SSTInfo>> levelToFilesMap;
+    private final SSTFileNamer sstFileNamer;
+    private final DbComponentProvider dbComponentProvider;
+
+    public Table(Path dbPath, Search search, DbComponentProvider dbComponentProvider) {
         this.search = search;
-        table = new ConcurrentHashMap<>();
-        table.put(Level.LEVEL_ZERO, new TreeSet<SSTInfo>());
-        table.put(Level.LEVEL_ONE, new TreeSet<SSTInfo>());
-        table.put(Level.LEVEL_TWO, new TreeSet<SSTInfo>());
-        table.put(Level.LEVEL_THREE, new TreeSet<SSTInfo>());
-        table.put(Level.LEVEL_FOUR, new TreeSet<SSTInfo>());
-        table.put(Level.LEVEL_FIVE, new TreeSet<SSTInfo>());
-        table.put(Level.LEVEL_SIX, new TreeSet<SSTInfo>());
-        table.put(Level.LEVEL_SEVEN, new TreeSet<SSTInfo>());
-
-
+        this.sstFileNamer = new SSTFileNamer(dbPath);
+        this.dbComponentProvider = dbComponentProvider;
+        levelToFilesMap = new ConcurrentHashMap<>();
         tableSize = new ConcurrentHashMap<>() ;
+
+        for (Level value : Level.values()) {
+            levelToFilesMap.put(value, new TreeSet<>());
+        }
         for (Level value : Level.values()) {
             tableSize.put(value, 0);
         }
-        fillLevels();
-        lastCompactedKV = new ConcurrentHashMap<>();
     }
 
-    private void fillLevels() {
-        long max = Long.MIN_VALUE;
-        for (File file : dbFolder.listFiles()) {
-            if (!file.getName().contains(".org.g2n.atomdb.sst") || file.getName().contains(DBConstant.OBSOLETE)) {
-                continue;
-            }
-            var split = file.getName().strip().replace(".org.g2n.atomdb.sst", "").split("_");
-
-            max = Math.max(Long.parseLong(split[1]), max);
-            Level level = Level.fromID(split[0].charAt(0) - 48);
-
-            var sstInfo = SSTFileHelper.getSSTInfo(file);
-            addSST(level, sstInfo);
+    public void fillLevels() {
+        Set<SSTFileNameMeta> validSSTFiles = sstFileNamer.getValidSSTFiles();
+        for (SSTFileNameMeta sstMeta : validSSTFiles) {
+            var sstInfo = SSTFileHelper.getSSTInfo(sstMeta, dbComponentProvider);
+            addSST(sstMeta.level(), sstInfo);
         }
-        currentFileName.set(max != Long.MIN_VALUE ? max : 0);
     }
 
-    public File getNewSST(Level level) throws IOException {
+    public synchronized SSTFileNameMeta getNewSST(Level level) {
         Preconditions.checkNotNull(level);
-        File file = SSTInfo.newFile(dbFolder.getAbsolutePath(), level, currentFileName.incrementAndGet());
-        if (!file.createNewFile()) {
-            throw new RuntimeException("Unable to create fileToWrite");
-        }
-        return file;
+        return sstFileNamer.nextSst(level);
     }
 
     public synchronized void addSST(Level level, SSTInfo sstInfo) {
-        Preconditions.checkNotNull(level);
-        Preconditions.checkNotNull(sstInfo);
-        table.get(level).add(sstInfo);
+        requireNonNull(sstInfo.getSstPath(), "SST file cannot be null");
+        requireNonNull(level, "Level cannot be null");
+        if (!levelToFilesMap.get(level).add(sstInfo)) { // todo this if can be removed.
+            throw new IllegalStateException("Adding of the same file");
+        }
         tableSize.put(level, tableSize.get(level) + sstInfo.getFileTorsoSize());
         search.addSSTInfo(sstInfo);
     }
 
-    public synchronized void removeSST(SSTInfo sstInfo)  {
-        Preconditions.checkNotNull(sstInfo.getLevel());
-        Preconditions.checkNotNull(sstInfo);
-        if (!table.get(sstInfo.getLevel()).contains(sstInfo)) {
-            throw new RuntimeException("Unable to remove sstInfo: " + sstInfo.getSst().getName() + " from level: " + sstInfo.getLevel());
+    public synchronized void removeSST(SSTInfo sstInfo) throws Exception {
+        requireNonNull(sstInfo.getSstPath(), "SST file cannot be null");
+        if (!levelToFilesMap.get(sstInfo.getLevel()).contains(sstInfo)) {
+            throw new IllegalStateException("Trying to remove SST that is not in the table: " + sstInfo.getSstPath().toAbsolutePath());
         }
-        table.get(sstInfo.getLevel()).remove(sstInfo);
+        levelToFilesMap.get(sstInfo.getLevel()).remove(sstInfo);
         tableSize.put(sstInfo.getLevel(), tableSize.get(sstInfo.getLevel()) - sstInfo.getFileTorsoSize());
-        try {
-            search.removeSSTInfo(sstInfo);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-        if (sstInfo.getSst().delete()) {
-            logger.info("Deleted file: " + sstInfo.getSst().getAbsolutePath());
-        } else {
-            logger.error("Unable to delete file: " + sstInfo.getSst().getAbsolutePath());
-        }
-        // todo
-//        File obsolete = FileUtil.makeFileObsolete(sstInfo.getSst());
-//        if (obsolete == null) {
-//            throw new RuntimeException("unable to rename");
-//        }
-//        if (!obsolete.delete()) {
-//            throw new RuntimeException("Unable to delete files");
-//        }
+        search.removeSSTInfo(sstInfo);
+        Files.delete(sstInfo.getSstPath());
     }
 
-//    private List<String> createList() {
-//        // todo improve this
-//        return new ArrayList<>() {
-//            public boolean add(String mt) {
-//                int index = Collections.binarySearch(this, mt, (s1, s2) -> {
-//                    String[] pi = s1.trim().split(fileSeparatorForSplit);
-//                    var thisPi = pi[pi.length - 1].trim().split("_");
-//
-//                    pi = s2.trim().split(fileSeparatorForSplit);
-//                    var providedPi = pi[pi.length - 1].trim().split("_");
-//
-//                    if (!thisPi[0].equals(providedPi[0])) throw new RuntimeException("level mismatch");
-//                    long a = Long.parseLong(providedPi[1].trim().replace(".org.g2n.atomdb.sst", ""));
-//                    long b = Long.parseLong(thisPi[1].trim().replace(".org.g2n.atomdb.sst", ""));
-//                    return Long.compare(a, b);
-//                });
-//                if (index < 0) index = ~index;
-//                super.add(index, mt);
-//                return true;
-//            }
-//        };
-//    }
-
     public SortedSet<SSTInfo> getSSTInfoSet(Level level) {
-        return table.get(level);
+        return levelToFilesMap.get(level);
     }
 
     public int getCurrentLevelSize(Level level) {
         return tableSize.get(level);
     }
 
-    public byte[] getLastCompactedKey(Level level) {
-        return lastCompactedKV.get(level);
-    }
-
-    public synchronized void  saveLastCompactedKey(Level level, byte[] last) {
-        lastCompactedKV.put(level, last);
-    }
 }

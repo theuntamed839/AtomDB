@@ -5,7 +5,7 @@ import org.g2n.atomdb.Compression.Lz4Compression;
 import org.g2n.atomdb.db.DBComparator;
 import org.g2n.atomdb.db.ExpandingByteBuffer;
 import org.g2n.atomdb.db.KVUnit;
-import org.g2n.atomdb.sstIo.MMappedReader;
+import org.g2n.atomdb.sstIo.IOReader;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -171,7 +171,7 @@ public class IndexedCluster {
         return entries.size();
     }
 
-    public static void fillQueue(MMappedReader reader, Pointer pointer, byte numberOfKeysInSingleCluster, Queue<KVUnit> queue) throws IOException {
+    public static void fillQueue(IOReader reader, Pointer pointer, byte numberOfKeysInSingleCluster, Queue<KVUnit> queue) throws IOException {
         reader.position((int) (pointer.position() + Long.BYTES * numberOfKeysInSingleCluster)); // skip checksums
         List<Integer> locations = getLocationList(getBytes(reader, Integer.BYTES * (numberOfKeysInSingleCluster + 1)), numberOfKeysInSingleCluster);
         int commonPrefix = reader.getInt();
@@ -219,7 +219,7 @@ public class IndexedCluster {
         return locations.getLast();
     }
 
-    private static ByteBuffer getBytes(MMappedReader reader, int size) throws IOException {
+    private static ByteBuffer getBytes(IOReader reader, int size) throws IOException {
         byte[] bytes = new byte[size];
         reader.read(bytes);
         return ByteBuffer.wrap(bytes);

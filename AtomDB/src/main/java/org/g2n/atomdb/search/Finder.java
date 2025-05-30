@@ -7,26 +7,26 @@ import org.g2n.atomdb.Constants.DBConstant;
 import com.github.benmanes.caffeine.cache.Cache;
 import org.g2n.atomdb.db.DBComparator;
 import org.g2n.atomdb.db.KVUnit;
-import org.g2n.atomdb.sstIo.MMappedReader;
-import org.g2n.atomdb.sstIo.ChannelBackedReader;
+import org.g2n.atomdb.sstIo.IOReader;
+import org.g2n.atomdb.sstIo.MMappedBackedReader;
+
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.file.Path;
 
 /**
  *  we should work on moving respective code to thier respective classes.
  */
 public class Finder implements AutoCloseable{
-    private final File file;
     private final PointerList pointerList;
-    private final MMappedReader reader;
+    private final IOReader reader;
     private final Cache<Pointer, Checksums> checksumsCache;
 
-    public Finder(File file, PointerList pointerList, Cache<Pointer, Checksums> checksumsCache) throws IOException {
-        this.file = file;
+    public Finder(PointerList pointerList, Cache<Pointer, Checksums> checksumsCache, IOReader reader) {
         // todo
         // we need not mapp the whole fileToWrite rather map only required potion, ie we  dont need header and pointers region
-        this.reader = new MMappedReader(file);
+        this.reader = reader;
         this.pointerList = pointerList;
         this.checksumsCache = checksumsCache;
     }

@@ -1,32 +1,27 @@
 package org.g2n.atomdb.sstIo;
 
-
-import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
 import java.lang.foreign.Arena;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
+import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 
-import static java.nio.channels.FileChannel.MapMode.READ_WRITE;
-
-public class MMappedReader extends InputStream {
+public class MMappedBackedReader extends IOReader {
     private final Arena arena;
     private final ByteBuffer map;
     private final FileChannel channel;
 
-    public MMappedReader(File file) throws IOException {
-        //System.out.println("Constructor for fileToWrite="+fileToWrite.getName());
-        this.channel = FileChannel.open(file.toPath(), StandardOpenOption.READ);
-        this.arena = Arena.ofShared();
+    public MMappedBackedReader(Path path) throws IOException {
+        this.channel = FileChannel.open(path, StandardOpenOption.READ);
+        this.arena = Arena.ofShared(); // TODO: can we have this ofConfined ?
         this.map = this.channel.map(FileChannel.MapMode.READ_ONLY, 0, channel.size(), arena).asByteBuffer();
     }
 
     // input stream
     @Override
     public int read() throws IOException {
-        return getByte();
+        return map.get();
     }
 
     @Override
@@ -39,32 +34,39 @@ public class MMappedReader extends InputStream {
         return getBytes(b, off, len);
     }
 
+    @Override
     public long getLong() {
         return map.getLong();
     }
 
+    @Override
     public int getInt() {
         return map.getInt();
     }
 
+    @Override
     public byte getByte() {
         return map.get();
     }
 
+    @Override
     public int getBytes(byte[] item) {
         map.get(item);
         return item.length;
     }
 
+    @Override
     public int getBytes(byte[] item, int offset, int length) {
         map.get(item, offset, length);
         return item.length;
     }
 
+    @Override
     public long position() {
         return map.position();
     }
 
+    @Override
     public void position(int positionToMove) {
         map.position(positionToMove);
     }
@@ -73,5 +75,20 @@ public class MMappedReader extends InputStream {
     public void close() throws IOException {
         arena.close();
         channel.close();
+    }
+
+    @Override
+    public boolean stillAvailable() {
+        return map.hasRemaining();
+    }
+
+    @Override
+    public byte get() {
+        return map.get();
+    }
+
+    @Override
+    public void get(byte[] k) {
+        map.get(k);
     }
 }

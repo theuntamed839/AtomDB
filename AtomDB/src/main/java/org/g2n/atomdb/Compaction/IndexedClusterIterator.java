@@ -3,14 +3,15 @@ package org.g2n.atomdb.Compaction;
 import org.g2n.atomdb.Constants.DBConstant;
 import org.g2n.atomdb.Table.SSTInfo;
 import org.g2n.atomdb.db.KVUnit;
-import org.g2n.atomdb.sstIo.MMappedReader;
+import org.g2n.atomdb.sstIo.IOReader;
+import org.g2n.atomdb.sstIo.MMappedBackedReader;
 
 import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.Objects;
 
 class IndexedClusterIterator implements AutoCloseable {
-    private final MMappedReader reader;
+    private final IOReader reader;
     private final int clusterEndPoint;
     private final SSTInfo sstInfo;
     private final byte numberOfKeysInSingleCluster;
@@ -19,7 +20,7 @@ class IndexedClusterIterator implements AutoCloseable {
 
     public IndexedClusterIterator(SSTInfo sstInfo) throws IOException {
         this.sstInfo = Objects.requireNonNull(sstInfo, "SSTInfo cannot be null");
-        this.reader = new MMappedReader(sstInfo.getSst());
+        this.reader = new MMappedBackedReader(sstInfo.getSstPath());
         this.clusterEndPoint = (int) Math.abs(sstInfo.getPointers().get(sstInfo.getPointers().size() - 1).position());
         this.numberOfKeysInSingleCluster = sstInfo.getNumberOfKeysInSingleCluster();
         this.queue = new ArrayDeque<>(DBConstant.CLUSTER_SIZE);
@@ -48,7 +49,7 @@ class IndexedClusterIterator implements AutoCloseable {
     }
 
     private void loadNextClusterToQueue() {
-        ensureNotAtEnd("Cannot load cluster, end of file reached");
+        ensureNotAtEnd("Cannot load cluster, end of path reached");
         try {
             IndexedCluster.fillQueue(reader, sstInfo.getPointers().get(retrievedClusterCount++), numberOfKeysInSingleCluster, queue);
         } catch (IOException e) {

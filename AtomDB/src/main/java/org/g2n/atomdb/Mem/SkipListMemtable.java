@@ -1,9 +1,9 @@
 package org.g2n.atomdb.Mem;
 
-import org.g2n.atomdb.db.DbOptions;
 import org.g2n.atomdb.db.KVUnit;
 
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.SortedMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 
@@ -12,9 +12,9 @@ public class SkipListMemtable implements MutableMem<byte[], KVUnit>{
     private final int maxSize;
     private int currentSize;
 
-    public SkipListMemtable(DbOptions options) {
-        this.maxSize = options.memtableSize;
-        map = new ConcurrentSkipListMap<>(options.comparator);
+    public SkipListMemtable(int maxSize, Comparator<byte[]> comparator) {
+        this.maxSize = maxSize;
+        map = new ConcurrentSkipListMap<>(comparator);
         currentSize = 0;
     }
 
@@ -26,7 +26,8 @@ public class SkipListMemtable implements MutableMem<byte[], KVUnit>{
 
     @Override
     public void delete(KVUnit kvUnit) {
-        put(kvUnit);
+        KVUnit removed = map.remove(kvUnit.getKey());
+        currentSize -= removed.getUnitSize();
     }
 
     @Override

@@ -2,7 +2,7 @@ package org.g2n.atomdb.Compaction;
 
 import com.google.common.base.Preconditions;
 import org.g2n.atomdb.db.ExpandingByteBuffer;
-import org.g2n.atomdb.sstIo.MMappedReader;
+import org.g2n.atomdb.sstIo.IOReader;
 import org.g2n.atomdb.sstIo.ChannelBackedWriter;
 
 import java.util.*;
@@ -43,7 +43,7 @@ public class PointerList {
         pointers.forEach(each -> each.storeAsBytes(writer));
     }
 
-    public static PointerList getPointerList(MMappedReader reader, int entries) {
+    public static PointerList getPointerList(IOReader reader, int entries) {
         var pointers = new PointerList(entries);
         for (int i = 0; i < entries; i++) {
             pointers.add(Pointer.getPointer(reader));
