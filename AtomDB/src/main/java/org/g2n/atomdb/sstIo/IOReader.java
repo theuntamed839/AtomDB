@@ -14,26 +14,26 @@ public abstract class IOReader extends InputStream {
     @Override
     public abstract int read(byte[] b, int off, int len) throws IOException;
 
-    public abstract long getLong();
+    public abstract long getLong() throws IOException;
 
-    public abstract int getInt();
+    public abstract int getInt() throws IOException;
 
-    public abstract byte getByte();
+    public abstract byte getByte() throws IOException;
 
-    public abstract int getBytes(byte[] item);
+    public abstract int getBytes(byte[] item) throws IOException;
 
-    public abstract int getBytes(byte[] item, int offset, int length);
+    public abstract int getBytes(byte[] item, int offset, int length) throws IOException;
 
-    public abstract long position();
+    public abstract long position() throws IOException;
 
-    public abstract void position(int positionToMove);
+    public abstract void position(int positionToMove) throws IOException;
 
     @Override
     public abstract void close() throws IOException;
 
-    public abstract boolean stillAvailable();
+    public abstract boolean stillAvailable() throws IOException;
 
-    public abstract byte get();
+    public abstract byte get() throws IOException;
 
-    public abstract void get(byte[] k);
+    public abstract void get(byte[] k) throws IOException;
 }

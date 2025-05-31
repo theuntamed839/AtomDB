@@ -7,12 +7,12 @@ import java.nio.channels.FileChannel;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 
-public class MMappedBackedReader extends IOReader {
+public class IOMMappedReader extends IOReader {
     private final Arena arena;
     private final ByteBuffer map;
     private final FileChannel channel;
 
-    public MMappedBackedReader(Path path) throws IOException {
+    public IOMMappedReader(Path path) throws IOException {
         this.channel = FileChannel.open(path, StandardOpenOption.READ);
         this.arena = Arena.ofShared(); // TODO: can we have this ofConfined ?
         this.map = this.channel.map(FileChannel.MapMode.READ_ONLY, 0, channel.size(), arena).asByteBuffer();
@@ -72,12 +72,6 @@ public class MMappedBackedReader extends IOReader {
     }
 
     @Override
-    public void close() throws IOException {
-        arena.close();
-        channel.close();
-    }
-
-    @Override
     public boolean stillAvailable() {
         return map.hasRemaining();
     }
@@ -90,5 +84,11 @@ public class MMappedBackedReader extends IOReader {
     @Override
     public void get(byte[] k) {
         map.get(k);
+    }
+
+    @Override
+    public void close() throws IOException {
+        arena.close();
+        channel.close();
     }
 }

@@ -5,6 +5,7 @@ import org.g2n.atomdb.db.ExpandingByteBuffer;
 import org.g2n.atomdb.sstIo.ChannelBackedWriter;
 import org.g2n.atomdb.sstIo.IOReader;
 
+import java.io.IOException;
 import java.nio.MappedByteBuffer;
 
 // todo make the position int.
@@ -24,7 +25,7 @@ public record Pointer(byte[] key, long position) implements Comparable<Pointer> 
                 .put(key);
     }
 
-    public static Pointer getPointer(IOReader reader) {
+    public static Pointer getPointer(IOReader reader) throws IOException {
         long position = reader.getLong();
         int size = reader.getInt();
         var key = new byte[size];

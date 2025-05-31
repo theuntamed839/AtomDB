@@ -32,6 +32,7 @@ public class DBImpl implements DB{
     private Table table;
     private FileLock dbProcessLocking;
     private FileChannel dbLockFileChannel;
+    private boolean isClosed = false;
 
     public DBImpl(Path pathForDB, DbOptions dbOptions) throws Exception {
         this.dbComponentProvider = new DbComponentProvider(dbOptions);
@@ -50,6 +51,7 @@ public class DBImpl implements DB{
 
     @Override
     public void put(byte[] key, byte[] value) throws Exception {
+        ensureOpen();
         var kvUnit = new KVUnit(key, value);
 
         walManager.log(Operations.WRITE, kvUnit);
@@ -62,6 +64,7 @@ public class DBImpl implements DB{
 
     @Override
     public byte[] get(byte[] key) throws Exception {
+        ensureOpen();
         Objects.requireNonNull(key);
         var kvUnit = memtable.get(key);
         if (kvUnit == null) {
@@ -72,33 +75,10 @@ public class DBImpl implements DB{
 
     @Override
     public void delete(byte[] key) throws Exception {
+        ensureOpen();
         KVUnit kvUnit = new KVUnit(key);
         walManager.log(Operations.DELETE, kvUnit);
         memtable.delete(kvUnit);
-    }
-
-    @Override
-    public void close() throws Exception {
-        walManager.close();
-        search.close();
-        compactor.close();
-        dbProcessLocking.release();
-        dbLockFileChannel.close();
-    }
-
-    @Override
-    public void destroy() throws IOException {
-        logger.info("Destroying database at: {}", dbPath);
-        try (var stream = Files.walk(this.dbPath)) {
-            stream.sorted(java.util.Comparator.reverseOrder()) // Important: delete children before parents
-                    .forEach(path -> {
-                        try {
-                            Files.delete(path);
-                        } catch (IOException e) {
-                            throw new RuntimeException(e);
-                        }
-                    });
-        }
     }
 
     private void handleMemtableFull() throws Exception {
@@ -124,6 +104,41 @@ public class DBImpl implements DB{
         } catch (IOException e) {
             logger.error("Failed to acquire lock on database: {}", dbPath, e);
             throw e;
+        }
+    }
+
+    private void ensureOpen() {
+        if (isClosed) {
+            throw new IllegalStateException("Database is closed.");
+        }
+    }
+
+    @Override
+    public void close() throws Exception {
+        if (isClosed) {
+            logger.warn("Database at {} is already closed.", dbPath);
+            return;
+        }
+        isClosed = true;
+        walManager.close();
+        search.close();
+        compactor.close();
+        dbProcessLocking.release();
+        dbLockFileChannel.close();
+    }
+
+    @Override
+    public void destroy() throws IOException {
+        logger.info("Destroying database at: {}", dbPath);
+        try (var stream = Files.walk(this.dbPath)) {
+            stream.sorted(java.util.Comparator.reverseOrder()) // Important: delete children before parents
+                    .forEach(path -> {
+                        try {
+                            Files.delete(path);
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
+                        }
+                    });
         }
     }
 }

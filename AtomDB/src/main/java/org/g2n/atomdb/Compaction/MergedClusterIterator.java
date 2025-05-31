@@ -43,11 +43,15 @@ public class MergedClusterIterator implements Iterator<KVUnit>, AutoCloseable {
         if (!hasNext()) {
             throw new NoSuchElementException("No more KV units available");
         }
-        return fetchNextKVUnit();
+        try {
+            return fetchNextKVUnit();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
 
-    private KVUnit fetchNextKVUnit() {
+    private KVUnit fetchNextKVUnit() throws IOException {
         KVUnit unit = clusterIterators.getFirst().getNextKVUnit();
         IndexedClusterIterator curr = clusterIterators.getFirst();
         var toRemove = new ArrayList<IndexedClusterIterator>();
@@ -86,7 +90,7 @@ public class MergedClusterIterator implements Iterator<KVUnit>, AutoCloseable {
         return kvUnit;
     }
 
-    private void removeExhaustedIterator(IndexedClusterIterator curr, ArrayList<IndexedClusterIterator> toRemove) {
+    private void removeExhaustedIterator(IndexedClusterIterator curr, ArrayList<IndexedClusterIterator> toRemove) throws IOException {
         if (!curr.hasNext()) {
             curr.close();
             toRemove.add(curr);
@@ -113,7 +117,7 @@ public class MergedClusterIterator implements Iterator<KVUnit>, AutoCloseable {
     }
 
     @Override
-    public void close() {
+    public void close() throws IOException {
         for (IndexedClusterIterator iterator : clusterIterators) {
             iterator.close();
         }

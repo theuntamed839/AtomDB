@@ -4,6 +4,7 @@ import org.g2n.atomdb.Constants.DBConstant;
 import org.g2n.atomdb.Level.Level;
 import org.g2n.atomdb.db.ExpandingByteBuffer;
 
+import java.io.IOException;
 import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
 import java.util.Objects;
@@ -123,7 +124,7 @@ public class SSTHeader{
                 Integer.BYTES;
     }
 
-    public static SSTHeader getHeader(IOReader reader) {
+    public static SSTHeader getHeader(IOReader reader) throws IOException {
         var bytes = new byte[TOTAL_HEADER_SIZE];
         reader.getBytes(bytes);
         var buffer = ByteBuffer.wrap(bytes);

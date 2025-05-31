@@ -11,10 +11,10 @@ public final class DbComponentProvider {
 
     public DbComponentProvider(DbOptions dbOptions) {
         if (dbOptions.isMMapAllowed()) {
-            this.readerFactory = MMappedBackedReader::new;
+            this.readerFactory = IOMMappedReader::new;
             this.writerFactory = IOMMappedWriter::new;
         } else {
-            this.readerFactory = FileChannelBackedReader::new;
+            this.readerFactory = IOFileChannelReader::new;
             this.writerFactory = IOFileChannelWriter::new;
         }
     }

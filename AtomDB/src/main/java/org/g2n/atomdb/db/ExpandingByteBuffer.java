@@ -108,7 +108,24 @@ public class ExpandingByteBuffer extends OutputStream {
         buffer.put(b, off, len);
     }
 
-    public int get() {
+    public byte get() {
         return buffer.get();
+    }
+
+    public void limit(int size) {
+        makeSpaceIfNeeded(size);
+        buffer.limit(size);
+    }
+
+    public void get(byte[] item) {
+        buffer.get(item);
+    }
+
+    public long getLong() {
+        return buffer.getLong();
+    }
+
+    public int getInt() {
+        return buffer.getInt();
     }
 }

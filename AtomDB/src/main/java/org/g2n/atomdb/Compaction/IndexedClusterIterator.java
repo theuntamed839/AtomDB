@@ -4,7 +4,7 @@ import org.g2n.atomdb.Constants.DBConstant;
 import org.g2n.atomdb.Table.SSTInfo;
 import org.g2n.atomdb.db.KVUnit;
 import org.g2n.atomdb.sstIo.IOReader;
-import org.g2n.atomdb.sstIo.MMappedBackedReader;
+import org.g2n.atomdb.sstIo.IOMMappedReader;
 
 import java.io.IOException;
 import java.util.ArrayDeque;
@@ -20,27 +20,27 @@ class IndexedClusterIterator implements AutoCloseable {
 
     public IndexedClusterIterator(SSTInfo sstInfo) throws IOException {
         this.sstInfo = Objects.requireNonNull(sstInfo, "SSTInfo cannot be null");
-        this.reader = new MMappedBackedReader(sstInfo.getSstPath());
+        this.reader = new IOMMappedReader(sstInfo.getSstPath());
         this.clusterEndPoint = (int) Math.abs(sstInfo.getPointers().get(sstInfo.getPointers().size() - 1).position());
         this.numberOfKeysInSingleCluster = sstInfo.getNumberOfKeysInSingleCluster();
         this.queue = new ArrayDeque<>(DBConstant.CLUSTER_SIZE);
     }
 
-    public boolean hasNext() {
+    public boolean hasNext() throws IOException {
         return !queue.isEmpty() || !isFileLimitReached();
     }
 
-    private boolean isFileLimitReached() {
+    private boolean isFileLimitReached() throws IOException {
         // todo which one comes the first, we can optimize this
         return reader.position() == clusterEndPoint || retrievedClusterCount == sstInfo.getPointers().size();
     }
 
-    public byte[] nextClusterSmallestKey() {
+    public byte[] nextClusterSmallestKey() throws IOException {
         ensureNotAtEnd("No more elements IndexedClusterIterator");
         return sstInfo.getPointers().get(retrievedClusterCount).key();
     }
 
-    public KVUnit getNextKVUnit() {
+    public KVUnit getNextKVUnit() throws IOException {
         ensureHasNext("Attempt to fetch KVUnit without available clusters");
         if (queue.isEmpty()) {
             loadNextClusterToQueue();
@@ -48,7 +48,7 @@ class IndexedClusterIterator implements AutoCloseable {
         return queue.getFirst();
     }
 
-    private void loadNextClusterToQueue() {
+    private void loadNextClusterToQueue() throws IOException {
         ensureNotAtEnd("Cannot load cluster, end of path reached");
         try {
             IndexedCluster.fillQueue(reader, sstInfo.getPointers().get(retrievedClusterCount++), numberOfKeysInSingleCluster, queue);
@@ -57,20 +57,20 @@ class IndexedClusterIterator implements AutoCloseable {
         }
     }
 
-    public KVUnit pollNextKVUnit() {
+    public KVUnit pollNextKVUnit() throws IOException {
         if (queue.isEmpty()) {
             loadNextClusterToQueue();
         }
         return queue.pollFirst();
     }
 
-    private void ensureHasNext(String errorMessage) {
+    private void ensureHasNext(String errorMessage) throws IOException {
         if (!hasNext()) {
             throw new IllegalStateException(errorMessage);
         }
     }
 
-    private void ensureNotAtEnd(String errorMessage) {
+    private void ensureNotAtEnd(String errorMessage) throws IOException {
         if (isFileLimitReached()) {
             throw new IllegalStateException(errorMessage);
         }
@@ -80,7 +80,7 @@ class IndexedClusterIterator implements AutoCloseable {
         return sstInfo;
     }
 
-    private void validateStateBeforeClose() {
+    private void validateStateBeforeClose() throws IOException {
         if (reader.position() != clusterEndPoint) {
             throw new IllegalStateException("File not read completely");
         }
@@ -90,7 +90,7 @@ class IndexedClusterIterator implements AutoCloseable {
     }
 
     @Override
-    public void close() {
+    public void close() throws IOException {
         validateStateBeforeClose();
         try {
             reader.close();

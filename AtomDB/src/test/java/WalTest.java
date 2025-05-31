@@ -8,13 +8,10 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.io.IOException;
 import java.nio.file.FileSystem;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.*;
-import java.util.stream.Stream;
 
 import static org.g2n.atomdb.util.BytesConverter.bytes;
 
@@ -28,11 +25,10 @@ public class WalTest {
     public void setup() throws Exception {
         opt = new DbOptions();
         opt.setSSTFileSize(10 * 1024 * 1024); //should not trigger sst file creation todo we could use the jmfs to check if any ssts were created and invalidate the test
-        dbDirectoryPath = Path.of(this.getClass().getName() + "_" + Instant.now().getEpochSecond() + "_DB");
-//        FileSystem fs = Jimfs.newFileSystem(Configuration.windows());
-//        Path foo = fs.getPath("JIMFS_DIR");
-//        dbDirectoryPath = foo;
-//        opt.disallowUseOfMMap();
+//        dbDirectoryPath = Path.of(this.getClass().getName() + "_" + Instant.now().getEpochSecond() + "_DB");
+        FileSystem fs = Jimfs.newFileSystem(Configuration.windows());
+        dbDirectoryPath = fs.getPath("JIMFS_DIR");
+        opt.disallowUseOfMMap(); // so that we can use the jimfs file system
         db = new DBImpl(dbDirectoryPath, opt);
     }
 
@@ -52,6 +48,7 @@ public class WalTest {
         }
 
         db.close();
+        db = new DBImpl(dbDirectoryPath, opt);
 
         for (Map.Entry<byte[], byte[]> entry : map.entrySet()) {
             Assertions.assertArrayEquals(db.get(entry.getKey()), entry.getValue());

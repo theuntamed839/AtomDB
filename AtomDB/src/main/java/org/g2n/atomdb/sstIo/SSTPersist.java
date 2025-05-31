@@ -15,11 +15,13 @@ import org.g2n.atomdb.db.DbComponentProvider;
 import org.g2n.atomdb.db.ExpandingByteBuffer;
 import org.g2n.atomdb.db.KVUnit;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.UUID;
 import java.util.function.BooleanSupplier;
 
 /*
@@ -41,19 +43,8 @@ public class SSTPersist {
     }
 
     public void writeSingleFile(Level level, int maxEntries, Iterator<KVUnit> iterator) throws Exception {
-        Path filePath = this.dbPath.resolve("SST_INTERMEDIATE_" + level + "_1.sst");
-        Files.createFile(filePath);
-
-        var inter = writeOptimized1(filePath, level, maxEntries, iterator, () -> true, Integer.MAX_VALUE);
-        SSTFileNameMeta meta = table.getNewSST(level);
-        Files.move(inter.path(), meta.path(), StandardCopyOption.ATOMIC_MOVE);
-        table.addSST(level, new SSTInfo(
-                meta.path(),
-                inter.sstHeader(),
-                inter.pointers(),
-                inter.filter(),
-                meta
-        ));
+        var inter = writeOptimized1(createNewIntermediateSST(level), level, maxEntries, iterator, () -> true, Integer.MAX_VALUE);
+        addToTheTable(level, inter);
     }
 
     public void save(Path path, ExpandingByteBuffer buffer) throws Exception {
@@ -74,29 +65,46 @@ public class SSTPersist {
         return cluster;
     }
 
+    private Path createNewIntermediateSST(Level level) throws IOException {
+        Path filePath = dbPath.resolve(level + "_UNFINISHED_SST_" + UUID.randomUUID() + ".sst");
+        Files.createFile(filePath);
+        return filePath;
+    }
+
+    private void addToTheTable(Level level, Intermediate inter) throws IOException {
+        SSTFileNameMeta meta = table.getNewSST(level);
+        Files.move(inter.path(), meta.path(), StandardCopyOption.ATOMIC_MOVE);
+        table.addSST(level, new SSTInfo(
+                meta.path(),
+                inter.sstHeader(),
+                inter.pointers(),
+                inter.filter(),
+                meta
+        ));
+    }
+
     public void writeManyFiles(Level level, MergedClusterIterator iterator, int avgNumberOfEntriesInSST) throws Exception {
-        SSTInfo sstInfo;
-        int count = 0;
         var list = new ArrayList<Intermediate>();
         while (iterator.hasNext()) {
             int finalAvgNumberOfEntriesInSST = avgNumberOfEntriesInSST;
             BooleanSupplier piggyBackingPredicate = () -> finalAvgNumberOfEntriesInSST * 0.10 >= iterator.approximateRemainingEntries();
-            Path filePath = this.dbPath.resolve("SST_INTERMEDIATE_" + level + "_" + count++ + ".sst");
-            Files.createFile(filePath);
-            var intermediate = writeOptimized1(filePath, level, avgNumberOfEntriesInSST, iterator, piggyBackingPredicate, DBConstant.COMPACTED_SST_FILE_SIZE);
+            var intermediate = writeOptimized1(
+                    createNewIntermediateSST(level), level, avgNumberOfEntriesInSST, iterator, piggyBackingPredicate, DBConstant.COMPACTED_SST_FILE_SIZE);
             avgNumberOfEntriesInSST = (intermediate.sstHeader().getNumberOfEntries() + avgNumberOfEntriesInSST) / 2;
             list.add(intermediate);
         }
 
         for (Intermediate intermediate : list) {
-            SSTFileNameMeta meta = table.getNewSST(level);
-            Files.move(intermediate.path(), meta.path(), StandardCopyOption.ATOMIC_MOVE);
-            sstInfo = new SSTInfo(meta.path(), intermediate.sstHeader(), intermediate.pointers(), intermediate.filter(), meta);
-            table.addSST(level, sstInfo);
+            addToTheTable(level, intermediate);
         }
     }
 
-    private Intermediate writeOptimized1(Path filePath, Level level, int avgNumberOfEntriesInSST, Iterator<KVUnit> iterator, BooleanSupplier piggyBackingPredicate, int compactedSstFileSize) throws Exception {
+    private Intermediate writeOptimized1(Path filePath,
+                                         Level level,
+                                         int avgNumberOfEntriesInSST,
+                                         Iterator<KVUnit> iterator,
+                                         BooleanSupplier piggyBackingPredicate,
+                                         int compactedSstFileSize) throws Exception {
         var sstHeader = SSTHeader.getDefault(level);
         var writer = bufferThreadLocal.get();
         writer.clear();

@@ -87,6 +87,7 @@ public class Benchmark {
         var map = getRandomKV(totalEntryCount, () -> keyBytesLength, () -> valueBytesLength);
         var opt = new DbOptions();
         var dbName = Path.of("benchmarkWithRandomKVBytes_" + getSaltString());
+//        opt.disallowUseOfMMap();
         var db = new DBImpl(dbName, opt);
         System.out.println("Number of threads: " + Thread.activeCount());
         long beforeUsedMem = Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();

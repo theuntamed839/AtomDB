@@ -8,12 +8,9 @@ import com.github.benmanes.caffeine.cache.Cache;
 import org.g2n.atomdb.db.DBComparator;
 import org.g2n.atomdb.db.KVUnit;
 import org.g2n.atomdb.sstIo.IOReader;
-import org.g2n.atomdb.sstIo.MMappedBackedReader;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.file.Path;
 
 /**
  *  we should work on moving respective code to thier respective classes.
@@ -38,7 +35,11 @@ public class Finder implements AutoCloseable{
         Checksums check = checksumsCache.get(pointer, position -> {
             var checksums = new long[DBConstant.CLUSTER_SIZE];
             for (int i = 0; i < DBConstant.CLUSTER_SIZE; i++) {
-                checksums[i] = reader.getLong();
+                try {
+                    checksums[i] = reader.getLong();
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
             }
             return new Checksums(checksums);
         });
