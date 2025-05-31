@@ -7,6 +7,7 @@ import org.g2n.atomdb.Table.SSTInfo;
 import org.g2n.atomdb.db.DbComponentProvider;
 import org.g2n.atomdb.db.KVUnit;
 import org.g2n.atomdb.sstIo.SSTKeyRange;
+import org.g2n.atomdb.sstIo.SSTPersist;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -39,7 +40,7 @@ public class Compactor implements AutoCloseable {
         }
     }
 
-    public void persistLevel0(ImmutableMem<byte[], KVUnit> memtable) throws IOException {
+    public void persistLevel0(ImmutableMem<byte[], KVUnit> memtable) throws Exception {
         sstPersist.writeSingleFile(Level.LEVEL_ZERO, memtable.getNumberOfEntries(), memtable.getKeySetIterator());
     }
 

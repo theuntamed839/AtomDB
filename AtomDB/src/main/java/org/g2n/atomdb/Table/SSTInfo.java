@@ -6,7 +6,6 @@ import com.google.common.hash.BloomFilter;
 import org.g2n.atomdb.sstIo.SSTHeader;
 import org.g2n.atomdb.sstIo.SSTKeyRange;
 
-import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -24,7 +23,7 @@ public class SSTInfo extends SSTHeader implements Comparable<SSTInfo> {
         Preconditions.checkArgument(Files.exists(sstPath), "SST file does not exist: " + sstPath);
         this.number = fileNameMeta.seq();
         this.sstPath = sstPath;
-        this.sstHashCode = sstPath.toAbsolutePath().hashCode();
+        this.sstHashCode = sstPath.toAbsolutePath().hashCode(); // todo do we need to do this ?
         this.pointers = pointers;
         this.filter = filter;
         this.sstKeyRange = new SSTKeyRange(pointers.getFirst().key(), pointers.getLast().key());

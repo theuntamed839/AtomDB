@@ -5,6 +5,9 @@ import org.g2n.atomdb.Compression.Lz4Compression;
 import org.g2n.atomdb.Constants.DBConstant;
 import sun.misc.Unsafe;
 
+import java.lang.foreign.Arena;
+import java.lang.foreign.MemoryLayout;
+import java.lang.foreign.MemorySegment;
 import java.lang.reflect.Field;
 import java.util.Comparator;
 

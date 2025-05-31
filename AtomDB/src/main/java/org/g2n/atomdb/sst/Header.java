@@ -11,6 +11,7 @@ import org.g2n.atomdb.util.Util;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
+import java.util.Objects;
 
 /**
  *  closing of header is important as it provided easy debugging and safety
@@ -65,10 +66,10 @@ public class Header implements AutoCloseable{
         if (checksum != getKeysChecksum()) {
             throw new RuntimeException("Mismatch of checksum");
         }
-        Util.requireTrue(
-                DBComparator.byteArrayComparator.compare(
-                sKey, lKey
-                ) < 0, "found SmallVal>LargerVAl " + this);
+
+        if (DBComparator.byteArrayComparator.compare(sKey, lKey) > -1) {
+            throw new IllegalStateException("sKey should be less than lKey");
+        }
     }
 
     @Override
