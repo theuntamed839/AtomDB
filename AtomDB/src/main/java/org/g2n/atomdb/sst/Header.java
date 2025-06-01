@@ -3,15 +3,14 @@ package org.g2n.atomdb.sst;
 import org.g2n.atomdb.Checksum.CheckSumStatic;
 import org.g2n.atomdb.Level.Level;
 import org.g2n.atomdb.db.DBComparator;
-import org.g2n.atomdb.sstIo.ReaderInterface;
-import org.g2n.atomdb.sstIo.PrimitiveWriter;
+import org.g2n.atomdb.SSTIO.ReaderInterface;
+import org.g2n.atomdb.SSTIO.PrimitiveWriter;
 import org.g2n.atomdb.util.SizeOf;
 import org.g2n.atomdb.util.Util;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
-import java.util.Objects;
 
 /**
  *  closing of header is important as it provided easy debugging and safety

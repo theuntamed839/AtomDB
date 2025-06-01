@@ -3,8 +3,8 @@ package org.g2n.atomdb.Compaction;
 import org.g2n.atomdb.Constants.DBConstant;
 import org.g2n.atomdb.Table.SSTInfo;
 import org.g2n.atomdb.db.KVUnit;
-import org.g2n.atomdb.sstIo.IOReader;
-import org.g2n.atomdb.sstIo.IOMMappedReader;
+import org.g2n.atomdb.SSTIO.IOReader;
+import org.g2n.atomdb.SSTIO.IOMMappedReader;
 
 import java.io.IOException;
 import java.util.ArrayDeque;

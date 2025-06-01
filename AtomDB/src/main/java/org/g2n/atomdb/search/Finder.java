@@ -7,7 +7,7 @@ import org.g2n.atomdb.Constants.DBConstant;
 import com.github.benmanes.caffeine.cache.Cache;
 import org.g2n.atomdb.db.DBComparator;
 import org.g2n.atomdb.db.KVUnit;
-import org.g2n.atomdb.sstIo.IOReader;
+import org.g2n.atomdb.SSTIO.IOReader;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -81,7 +81,7 @@ public class Finder implements AutoCloseable{
 
         int blockSizeToRead = nextKeyLocation - keyLocation;
         var block = new byte[blockSizeToRead];
-        reader.getBytes(block);
+        reader.read(block);
         byte[] decompress = Lz4Compression.getInstance().decompress(block);
         var wrap = ByteBuffer.wrap(decompress);
         int keyLength = wrap.getInt();

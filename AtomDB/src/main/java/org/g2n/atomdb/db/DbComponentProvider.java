@@ -1,6 +1,6 @@
 package org.g2n.atomdb.db;
 
-import org.g2n.atomdb.sstIo.*;
+import org.g2n.atomdb.SSTIO.*;
 
 import java.io.IOException;
 import java.nio.file.Path;

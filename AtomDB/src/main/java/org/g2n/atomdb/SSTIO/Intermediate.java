@@ -1,4 +1,4 @@
-package org.g2n.atomdb.sstIo;
+package org.g2n.atomdb.SSTIO;
 
 import com.google.common.hash.BloomFilter;
 import org.g2n.atomdb.Compaction.PointerList;

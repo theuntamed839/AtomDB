@@ -1,4 +1,4 @@
-package org.g2n.atomdb.sstIo;
+package org.g2n.atomdb.SSTIO;
 
 import java.io.IOException;
 import java.lang.foreign.Arena;
@@ -18,20 +18,31 @@ public class IOMMappedReader extends IOReader {
         this.map = this.channel.map(FileChannel.MapMode.READ_ONLY, 0, channel.size(), arena).asByteBuffer();
     }
 
-    // input stream
     @Override
     public int read() throws IOException {
-        return map.get();
+        return map.hasRemaining() ? (map.get() & 0xFF) : -1;
     }
 
     @Override
-    public int read(byte[] b) throws IOException {
-        return getBytes(b);
+    public int read(byte[] item) throws IOException {
+        return read(item, 0, item.length);
     }
 
     @Override
-    public int read(byte[] b, int off, int len) throws IOException {
-        return getBytes(b, off, len);
+    public int read(byte[] item, int offset, int length) throws IOException {
+        if (!map.hasRemaining()) {
+            return -1;
+        }
+        if (item == null) {
+            throw new NullPointerException();
+        }
+        if (offset < 0 || length < 0 || offset + length > item.length) {
+            throw new IndexOutOfBoundsException();
+        }
+
+        int numberOfBytesCouldBeRead = Math.min(length, map.remaining());
+        map.get(item, offset, numberOfBytesCouldBeRead);
+        return numberOfBytesCouldBeRead;
     }
 
     @Override
@@ -45,23 +56,6 @@ public class IOMMappedReader extends IOReader {
     }
 
     @Override
-    public byte getByte() {
-        return map.get();
-    }
-
-    @Override
-    public int getBytes(byte[] item) {
-        map.get(item);
-        return item.length;
-    }
-
-    @Override
-    public int getBytes(byte[] item, int offset, int length) {
-        map.get(item, offset, length);
-        return item.length;
-    }
-
-    @Override
     public long position() {
         return map.position();
     }
@@ -72,7 +66,7 @@ public class IOMMappedReader extends IOReader {
     }
 
     @Override
-    public boolean stillAvailable() {
+    public boolean hasRemaining() {
         return map.hasRemaining();
     }
 
@@ -82,8 +76,8 @@ public class IOMMappedReader extends IOReader {
     }
 
     @Override
-    public void get(byte[] k) {
-        map.get(k);
+    public void get(byte[] item) throws IOException {
+        read(item, 0, item.length);
     }
 
     @Override

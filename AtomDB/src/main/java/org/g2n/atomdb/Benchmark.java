@@ -2,7 +2,6 @@ package org.g2n.atomdb;
 
 import org.g2n.atomdb.db.DBImpl;
 import org.g2n.atomdb.db.DbOptions;
-import org.xerial.snappy.Snappy;
 
 import java.io.*;
 import java.lang.management.ManagementFactory;
@@ -11,14 +10,10 @@ import java.lang.management.ThreadMXBean;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
-import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
-import java.util.stream.IntStream;
-
-import static org.g2n.atomdb.util.BytesConverter.bytes;
 
 public class Benchmark {
 
@@ -59,7 +54,7 @@ public class Benchmark {
 //        initialTest(inputString, 50000);
 //                benchmark(inputString, 15000);
 //        benchmarkWithRandomKVBytes(1000000, 50, 500); //500000
-        benchmarkWithRandomKVBytes(1000000, 50, 500);
+        benchmarkWithRandomKVBytes(500000, 50, 500);
 
 //        benchmarkWithRandomKVBytes(getRandomKV(1000000, () -> 50, () -> 500));
 

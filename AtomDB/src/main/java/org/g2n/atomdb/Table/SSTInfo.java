@@ -3,8 +3,8 @@ package org.g2n.atomdb.Table;
 import org.g2n.atomdb.Compaction.PointerList;
 import com.google.common.base.Preconditions;
 import com.google.common.hash.BloomFilter;
-import org.g2n.atomdb.sstIo.SSTHeader;
-import org.g2n.atomdb.sstIo.SSTKeyRange;
+import org.g2n.atomdb.SSTIO.SSTHeader;
+import org.g2n.atomdb.SSTIO.SSTKeyRange;
 
 import java.nio.file.Files;
 import java.nio.file.Path;

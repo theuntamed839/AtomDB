@@ -2,8 +2,8 @@ package org.g2n.atomdb.sst;
 
 import org.g2n.atomdb.Checksum.CheckSumStatic;
 import com.google.common.hash.BloomFilter;
-import org.g2n.atomdb.sstIo.ReaderInterface;
-import org.g2n.atomdb.sstIo.PrimitiveWriter;
+import org.g2n.atomdb.SSTIO.ReaderInterface;
+import org.g2n.atomdb.SSTIO.PrimitiveWriter;
 import org.g2n.atomdb.util.SizeOf;
 
 import java.io.EOFException;

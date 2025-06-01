@@ -5,7 +5,7 @@ import org.g2n.atomdb.Compression.Lz4Compression;
 import org.g2n.atomdb.db.DBComparator;
 import org.g2n.atomdb.db.ExpandingByteBuffer;
 import org.g2n.atomdb.db.KVUnit;
-import org.g2n.atomdb.sstIo.IOReader;
+import org.g2n.atomdb.SSTIO.IOReader;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;

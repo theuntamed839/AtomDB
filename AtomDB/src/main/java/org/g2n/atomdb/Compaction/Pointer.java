@@ -2,8 +2,8 @@ package org.g2n.atomdb.Compaction;
 
 import org.g2n.atomdb.db.DBComparator;
 import org.g2n.atomdb.db.ExpandingByteBuffer;
-import org.g2n.atomdb.sstIo.ChannelBackedWriter;
-import org.g2n.atomdb.sstIo.IOReader;
+import org.g2n.atomdb.SSTIO.ChannelBackedWriter;
+import org.g2n.atomdb.SSTIO.IOReader;
 
 import java.io.IOException;
 import java.nio.MappedByteBuffer;
@@ -29,7 +29,7 @@ public record Pointer(byte[] key, long position) implements Comparable<Pointer> 
         long position = reader.getLong();
         int size = reader.getInt();
         var key = new byte[size];
-        reader.getBytes(key);
+        reader.read(key);
         return new Pointer(key, position);
     }
 

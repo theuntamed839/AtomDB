@@ -1,4 +1,4 @@
-package org.g2n.atomdb.sstIo;
+package org.g2n.atomdb.SSTIO;
 
 import java.io.IOException;
 import java.nio.file.Path;

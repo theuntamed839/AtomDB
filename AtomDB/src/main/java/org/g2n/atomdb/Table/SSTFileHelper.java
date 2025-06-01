@@ -5,9 +5,7 @@ import org.g2n.atomdb.Constants.DBConstant;
 import com.google.common.hash.BloomFilter;
 import com.google.common.hash.Funnels;
 import org.g2n.atomdb.db.DbComponentProvider;
-import org.g2n.atomdb.sstIo.*;
-
-import java.io.File;
+import org.g2n.atomdb.SSTIO.*;
 
 public class SSTFileHelper {
 

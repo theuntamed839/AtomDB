@@ -1,4 +1,4 @@
-package org.g2n.atomdb.sstIo;
+package org.g2n.atomdb.SSTIO;
 
 import org.g2n.atomdb.Constants.DBConstant;
 import org.g2n.atomdb.Level.Level;
@@ -126,7 +126,7 @@ public class SSTHeader{
 
     public static SSTHeader getHeader(IOReader reader) throws IOException {
         var bytes = new byte[TOTAL_HEADER_SIZE];
-        reader.getBytes(bytes);
+        reader.read(bytes);
         var buffer = ByteBuffer.wrap(bytes);
         return new SSTHeader(buffer.get(), buffer.get(), buffer.get(), buffer.get(), buffer.get(), buffer.get(), buffer.getInt(), buffer.getInt(), buffer.getInt());
     }

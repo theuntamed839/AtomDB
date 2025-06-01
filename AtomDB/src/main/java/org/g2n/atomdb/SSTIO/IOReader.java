@@ -1,4 +1,4 @@
-package org.g2n.atomdb.sstIo;
+package org.g2n.atomdb.SSTIO;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -18,22 +18,16 @@ public abstract class IOReader extends InputStream {
 
     public abstract int getInt() throws IOException;
 
-    public abstract byte getByte() throws IOException;
-
-    public abstract int getBytes(byte[] item) throws IOException;
-
-    public abstract int getBytes(byte[] item, int offset, int length) throws IOException;
-
     public abstract long position() throws IOException;
 
     public abstract void position(int positionToMove) throws IOException;
 
-    @Override
-    public abstract void close() throws IOException;
-
-    public abstract boolean stillAvailable() throws IOException;
+    public abstract boolean hasRemaining() throws IOException;
 
     public abstract byte get() throws IOException;
 
     public abstract void get(byte[] k) throws IOException;
+
+    @Override
+    public abstract void close() throws IOException;
 }

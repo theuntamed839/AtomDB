@@ -10,6 +10,8 @@
 - [ ] Understand the effect of compaction on read correctness and performance
 - [ ] Improve the read performance, maybe caching.
 - [ ] is common prefix adding any value ? need to do benchmark.
+- [ ] Let's fix all the warnings in the code.
+- [ ] Let's look at all the TODOs in the code.
 - [ ] Unit tests
 - [ ] Benchmark tests
 - [ ] Documentation

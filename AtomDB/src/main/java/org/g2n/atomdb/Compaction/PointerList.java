@@ -2,8 +2,8 @@ package org.g2n.atomdb.Compaction;
 
 import com.google.common.base.Preconditions;
 import org.g2n.atomdb.db.ExpandingByteBuffer;
-import org.g2n.atomdb.sstIo.IOReader;
-import org.g2n.atomdb.sstIo.ChannelBackedWriter;
+import org.g2n.atomdb.SSTIO.IOReader;
+import org.g2n.atomdb.SSTIO.ChannelBackedWriter;
 
 import java.io.IOException;
 import java.util.*;

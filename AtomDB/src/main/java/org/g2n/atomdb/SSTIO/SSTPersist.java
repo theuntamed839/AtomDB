@@ -1,4 +1,4 @@
-package org.g2n.atomdb.sstIo;
+package org.g2n.atomdb.SSTIO;
 
 import org.g2n.atomdb.Compaction.IndexedCluster;
 import org.g2n.atomdb.Compaction.MergedClusterIterator;

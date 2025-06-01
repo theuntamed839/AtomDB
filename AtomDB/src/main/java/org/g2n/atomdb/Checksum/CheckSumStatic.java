@@ -2,9 +2,6 @@ package org.g2n.atomdb.Checksum;
 
 import org.xerial.snappy.PureJavaCrc32C;
 
-import java.time.Instant;
-
-import static org.g2n.atomdb.util.BytesConverter.bytes;
 
 // todo synchronize
 public class CheckSumStatic {
@@ -20,22 +17,6 @@ public class CheckSumStatic {
     private static long computeCheckSum(byte arr) {
         pureJavaCrc32C.reset();
         pureJavaCrc32C.update(arr);
-        return pureJavaCrc32C.getValue();
-    }
-
-    public static long logBlock(Instant time, byte[] operation,
-                                byte[] key, byte[] value) {
-        pureJavaCrc32C.reset();
-
-        //Instant time storage
-        //todo directly take bytes instead of instant object
-        pureJavaCrc32C.update(bytes(time.getEpochSecond()));
-        pureJavaCrc32C.update(time.getNano());
-
-        pureJavaCrc32C.update(operation);
-        pureJavaCrc32C.update(key);
-        pureJavaCrc32C.update(value);
-
         return pureJavaCrc32C.getValue();
     }
 

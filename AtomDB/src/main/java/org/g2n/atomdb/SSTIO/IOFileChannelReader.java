@@ -1,4 +1,4 @@
-package org.g2n.atomdb.sstIo;
+package org.g2n.atomdb.SSTIO;
 
 import org.g2n.atomdb.db.ExpandingByteBuffer;
 
@@ -22,17 +22,29 @@ public class IOFileChannelReader extends IOReader {
 
     @Override
     public int read() throws IOException {
-        return extractValue(Byte.BYTES).get();
+        return hasRemaining() ? (extractValue(Byte.BYTES).get() & 0xFF) : -1;
     }
 
     @Override
-    public int read(byte[] b) throws IOException {
-        return getBytes(b);
+    public int read(byte[] item) throws IOException {
+        return read(item, 0, item.length);
     }
 
     @Override
-    public int read(byte[] b, int off, int len) throws IOException {
-        return getBytes(b, off, len);
+    public int read(byte[] item, int offset, int length) throws IOException {
+        if (!hasRemaining()) {
+            return -1;
+        }
+        if (item == null) {
+            throw new NullPointerException();
+        }
+        if (offset < 0 || length < 0 || offset + length > item.length) {
+            throw new IndexOutOfBoundsException();
+        }
+
+        int numberOfBytesCouldBeRead = (int) Math.min(length, remaining());
+        extractValue(numberOfBytesCouldBeRead).get(item, offset, numberOfBytesCouldBeRead);
+        return numberOfBytesCouldBeRead;
     }
 
     @Override
@@ -46,26 +58,6 @@ public class IOFileChannelReader extends IOReader {
     }
 
     @Override
-    public byte getByte() throws IOException {
-        return extractValue(Byte.BYTES).get();
-    }
-
-    @Override
-    public int getBytes(byte[] item) throws IOException {
-        var buffer = extractValue(item.length);
-        buffer.get(item);
-        return buffer.position();
-    }
-
-    @Override
-    public int getBytes(byte[] item, int offset, int length) throws IOException {
-        channel.position(offset);
-        var buffer = extractValue(length);
-        buffer.get(item);
-        return buffer.position();
-    }
-
-    @Override
     public long position() throws IOException {
         return channel.position();
     }
@@ -76,8 +68,12 @@ public class IOFileChannelReader extends IOReader {
     }
 
     @Override
-    public boolean stillAvailable() throws IOException {
+    public boolean hasRemaining() throws IOException {
         return channel.isOpen() && channel.position() < channel.size();
+    }
+
+    private long remaining() throws IOException {
+        return channel.size() - channel.position();
     }
 
     @Override
@@ -87,8 +83,7 @@ public class IOFileChannelReader extends IOReader {
 
     @Override
     public void get(byte[] item) throws IOException {
-        var buffer = extractValue(item.length);
-        buffer.get(item);
+        read(item, 0, item.length);
     }
 
     private ExpandingByteBuffer extractValue(int length) throws IOException {

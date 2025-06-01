@@ -128,4 +128,8 @@ public class ExpandingByteBuffer extends OutputStream {
     public int getInt() {
         return buffer.getInt();
     }
+
+    public void get(byte[] item, int offset, int length) {
+        buffer.get(item, offset, length);
+    }
 }

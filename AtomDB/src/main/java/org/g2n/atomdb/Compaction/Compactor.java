@@ -6,12 +6,11 @@ import org.g2n.atomdb.Table.Table;
 import org.g2n.atomdb.Table.SSTInfo;
 import org.g2n.atomdb.db.DbComponentProvider;
 import org.g2n.atomdb.db.KVUnit;
-import org.g2n.atomdb.sstIo.SSTKeyRange;
-import org.g2n.atomdb.sstIo.SSTPersist;
+import org.g2n.atomdb.SSTIO.SSTKeyRange;
+import org.g2n.atomdb.SSTIO.SSTPersist;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.*;

@@ -1,11 +1,9 @@
-package org.g2n.atomdb.sstIo;
+package org.g2n.atomdb.SSTIO;
 
 import org.g2n.atomdb.Checksum.AtomChecksum;
 import org.g2n.atomdb.Checksum.Crc32cChecksum;
 import org.g2n.atomdb.db.DBComparator;
 import org.g2n.atomdb.util.Util;
-
-import java.util.Arrays;
 
 public class SSTKeyRange {
     private final byte[] smallest;
