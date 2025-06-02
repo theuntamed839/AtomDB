@@ -22,7 +22,9 @@ public class IOMMappedWriter extends IOWriter{
 
     @Override
     public void put(ByteBuffer buffer) throws IOException {
-        this.buffer.put(buffer);
+        while (buffer.hasRemaining()) {
+            this.buffer.put(buffer);
+        }
     }
 
     @Override

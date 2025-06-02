@@ -2,6 +2,7 @@ package org.g2n.atomdb.Compaction;
 
 import org.g2n.atomdb.Table.SSTInfo;
 import org.g2n.atomdb.db.DBComparator;
+import org.g2n.atomdb.db.DbComponentProvider;
 import org.g2n.atomdb.db.KVUnit;
 
 import java.io.IOException;
@@ -10,9 +11,11 @@ import java.util.*;
 public class MergedClusterIterator implements Iterator<KVUnit>, AutoCloseable {
     private final List<IndexedClusterIterator> clusterIterators;
     private final int totalEntryCount;
+    private final DbComponentProvider dbComponentProvider;
     private int entriesServed = 0;
 
-    public MergedClusterIterator(Collection<SSTInfo> sstInfoCollection) throws IOException {
+    public MergedClusterIterator(Collection<SSTInfo> sstInfoCollection, DbComponentProvider dbComponentProvider) throws IOException {
+        this.dbComponentProvider = dbComponentProvider;
         Objects.requireNonNull(sstInfoCollection, "SSTInfo collection cannot be null");
         this.totalEntryCount = sstInfoCollection.stream().mapToInt(SSTInfo::getNumberOfEntries).sum();
         this.clusterIterators = initializeIterators(sstInfoCollection);
@@ -21,7 +24,7 @@ public class MergedClusterIterator implements Iterator<KVUnit>, AutoCloseable {
     private List<IndexedClusterIterator> initializeIterators(Collection<SSTInfo> sstInfoCollection) throws IOException {
         List<IndexedClusterIterator> iterators = new ArrayList<>(sstInfoCollection.size());
         for (SSTInfo sstInfo : sstInfoCollection) {
-            iterators.add(new IndexedClusterIterator(sstInfo));
+            iterators.add(new IndexedClusterIterator(sstInfo, dbComponentProvider)); // todo should we directly provide a reader, instead of sending DbComponentProvider?
         }
         iterators.sort((a, b) -> {
             try {

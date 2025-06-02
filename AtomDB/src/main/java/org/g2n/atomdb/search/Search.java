@@ -12,7 +12,6 @@ import com.github.benmanes.caffeine.cache.LoadingCache;
 import org.g2n.atomdb.db.DBComparator;
 import org.g2n.atomdb.db.DbComponentProvider;
 import org.g2n.atomdb.db.KVUnit;
-import org.g2n.atomdb.util.MaxMinAvg;
 
 import java.io.IOException;
 import java.util.*;
@@ -36,7 +35,6 @@ public class Search implements AutoCloseable{
     private final DbComponentProvider dbComponentProvider;
     private ImmutableMem<byte[], KVUnit> secondaryMem;
     private final SortedSet<SSTInfo> fileList = new ConcurrentSkipListSet<>();
-    MaxMinAvg maker = new MaxMinAvg();
 
     public Search(DbComponentProvider dbComponentProvider) {
         this.dbComponentProvider = dbComponentProvider;

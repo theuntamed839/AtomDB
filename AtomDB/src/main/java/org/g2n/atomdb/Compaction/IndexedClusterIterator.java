@@ -2,6 +2,7 @@ package org.g2n.atomdb.Compaction;
 
 import org.g2n.atomdb.Constants.DBConstant;
 import org.g2n.atomdb.Table.SSTInfo;
+import org.g2n.atomdb.db.DbComponentProvider;
 import org.g2n.atomdb.db.KVUnit;
 import org.g2n.atomdb.SSTIO.IOReader;
 import org.g2n.atomdb.SSTIO.IOMMappedReader;
@@ -18,9 +19,9 @@ class IndexedClusterIterator implements AutoCloseable {
     private final ArrayDeque<KVUnit> queue;
     private int retrievedClusterCount = 0;
 
-    public IndexedClusterIterator(SSTInfo sstInfo) throws IOException {
+    public IndexedClusterIterator(SSTInfo sstInfo, DbComponentProvider dbComponentProvider) throws IOException {
         this.sstInfo = Objects.requireNonNull(sstInfo, "SSTInfo cannot be null");
-        this.reader = new IOMMappedReader(sstInfo.getSstPath());
+        this.reader = dbComponentProvider.getIOReader(sstInfo.getSstPath());
         this.clusterEndPoint = (int) Math.abs(sstInfo.getPointers().get(sstInfo.getPointers().size() - 1).position());
         this.numberOfKeysInSingleCluster = sstInfo.getNumberOfKeysInSingleCluster();
         this.queue = new ArrayDeque<>(DBConstant.CLUSTER_SIZE);

@@ -2,21 +2,12 @@ package org.g2n.atomdb.Compaction;
 
 import org.g2n.atomdb.db.DBComparator;
 import org.g2n.atomdb.db.ExpandingByteBuffer;
-import org.g2n.atomdb.SSTIO.ChannelBackedWriter;
 import org.g2n.atomdb.SSTIO.IOReader;
 
 import java.io.IOException;
-import java.nio.MappedByteBuffer;
 
 // todo make the position int.
 public record Pointer(byte[] key, long position) implements Comparable<Pointer> {
-
-    public void storeAsBytes(ChannelBackedWriter writer) {
-        // todo can't we compress the keys ?
-        writer.putLong(position)
-                .putInt(key.length)
-                .putBytes(key);
-    }
 
     public void storeAsBytes(ExpandingByteBuffer writer) {
         // todo can't we compress the keys ?
@@ -33,13 +24,7 @@ public record Pointer(byte[] key, long position) implements Comparable<Pointer> 
         return new Pointer(key, position);
     }
 
-    public static Pointer readBytesToObj(MappedByteBuffer buffer) {
-        long pos = buffer.getLong();
-        var key = new byte[buffer.getInt()];
-        buffer.get(key);
-        return new Pointer(key, pos);
-    }
-//    @Override
+    //    @Override
 //    public boolean equals(Object o) {
 //        if (this == o) return true;
 //        if (o == null || getClass() != o.getClass()) return false;

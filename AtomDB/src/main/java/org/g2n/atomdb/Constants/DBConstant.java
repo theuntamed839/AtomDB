@@ -1,15 +1,12 @@
 package org.g2n.atomdb.Constants;
 
-import org.g2n.atomdb.util.SizeOf;
-
-import java.nio.file.Path;
-
 public class DBConstant {
-    public static final int MEMTABLE_SIZE = 2 * SizeOf.MB;
-    public static final int COMPACTED_SST_FILE_SIZE = 2 * SizeOf.MB;
-    public static final int MIN_SST_FILE_SIZE = 4 * SizeOf.MB;
+    public static final int MB = 1024 * 1024;
+    public static final int MEMTABLE_SIZE = 2 * MB;
+    public static final int COMPACTED_SST_FILE_SIZE = 2 * MB;
+    public static final int MIN_SST_FILE_SIZE = 4 * MB;
     public static final int PAGE_SIZE = COMPACTED_SST_FILE_SIZE / 2; //4096;
-    public static final int WRITER_BUFFER_SIZE = COMPACTED_SST_FILE_SIZE + SizeOf.MB;
+    public static final int WRITER_BUFFER_SIZE = COMPACTED_SST_FILE_SIZE + MB;
     public static final byte SST_VERSION = 11;
     public static final double SPARSE_BINARY_KEY_PERCENTAGE =  0.8;
     public static final String OBSOLETE = "OBSOLETE";

@@ -18,7 +18,6 @@ abstract class AbstractIOReaderTest {
     protected Path testFilePath;
     protected IOReader reader;
 
-    // Sample data for testing
     protected static final byte[] TEST_DATA_BYTES = {
             0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
             0x09, 0x0A, 0x0B, 0x0C,
@@ -48,11 +47,9 @@ abstract class AbstractIOReaderTest {
     void tearDownAbstract() throws IOException {
         if (reader != null) {
             reader.close();
-            System.out.println("Reader closed.");
         }
         if (jimfs != null) {
             jimfs.close();
-            System.out.println("Jimfs closed.");
         }
     }
 

@@ -85,32 +85,6 @@ public class SSTHeader{
         }
     }
 
-    public void storeAsBytes(ChannelBackedWriter writer) {
-        validateIfAllFieldTakenIntoConsideration(9);
-        writer.putByte(sstVersion)
-                .putByte(level.value())
-                .putByte(checksumType)
-                .putByte(compressionType)
-                .putByte(numberOfKeysInSingleCluster)
-                .putByte(shortestCommonPrefixUsed)
-                .putInt(numberOfEntries)
-                .putInt(filterPosition)
-                .putInt(pointersPosition);
-    }
-
-    public void storeAsBytes(ExpandingByteBuffer writer) {
-        validateIfAllFieldTakenIntoConsideration(9); // todo should we remove this safety stuff ?
-        writer.put(sstVersion)
-                .put(level.value())
-                .put(checksumType)
-                .put(compressionType)
-                .put(numberOfKeysInSingleCluster)
-                .put(shortestCommonPrefixUsed)
-                .putInt(numberOfEntries)
-                .putInt(filterPosition)
-                .putInt(pointersPosition);
-    }
-
     public int totalHeaderSize() {
         validateIfAllFieldTakenIntoConsideration(9);
         return  Byte.BYTES + // version
@@ -154,13 +128,6 @@ public class SSTHeader{
 
     public void setPointersPosition(int position) {
         this.pointersPosition = position;
-    }
-
-    public void writeRemaining(ChannelBackedWriter writer) {
-        writer.position(Byte.BYTES * 6);
-        writer.putInt(numberOfEntries)
-                .putInt(filterPosition)
-                .putInt(pointersPosition);
     }
 
     public void writeRemaining(ExpandingByteBuffer writer) {

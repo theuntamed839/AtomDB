@@ -24,6 +24,7 @@ import java.util.concurrent.locks.ReentrantLock;
  */
 public class Compactor implements AutoCloseable {
     private final Table table;
+    private final DbComponentProvider dbComponentProvider;
     private final SSTPersist sstPersist;
     private AtomicInteger numberOfActuallyCompactions = new AtomicInteger(0);
     // todo we need to shutdown this threadpool
@@ -33,6 +34,7 @@ public class Compactor implements AutoCloseable {
 
     public Compactor(Table table, Path dbPath, DbComponentProvider dbComponentProvider) {
         this.table = table;
+        this.dbComponentProvider = dbComponentProvider;
         this.sstPersist = new SSTPersist(table, dbPath, dbComponentProvider);
         for (Level level : Level.values()) {
             locks.put(level, new ReentrantLock());
@@ -382,7 +384,7 @@ public class Compactor implements AutoCloseable {
         numberOfActuallyCompactions.addAndGet(1);
         long start = System.nanoTime();
         try {
-            var iterator = new MergedClusterIterator(Collections.unmodifiableCollection(overlappingFiles));
+            var iterator = new MergedClusterIterator(Collections.unmodifiableCollection(overlappingFiles), dbComponentProvider);
             sstPersist.writeManyFiles(level.nextLevel(), iterator, getAverageNumOfEntriesInSST(overlappingFiles));
             for (SSTInfo overlappingFile : overlappingFiles) {
                 table.removeSST(overlappingFile);

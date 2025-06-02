@@ -1,10 +1,11 @@
-package org.g2n.atomdb;
-
+import com.google.common.jimfs.Configuration;
+import com.google.common.jimfs.Jimfs;
 import org.g2n.atomdb.db.DB;
 import org.g2n.atomdb.db.DBImpl;
 import org.g2n.atomdb.db.DbOptions;
 
-import java.io.*;
+import java.io.File;
+import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadInfo;
 import java.lang.management.ThreadMXBean;
@@ -16,10 +17,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
-public class Benchmark {
+public class perf {
 
     public static void main(String[] args) throws Exception {
-        var inputString = "qwertyuiopasdfghjklzxcvbnm<>?:}{+_)(*&^%$#@!)}1234567890`~".repeat(5);
         ExecutorService executorService = Executors.newCachedThreadPool();
         executorService.execute(() -> {
             ThreadMXBean bean = ManagementFactory.getThreadMXBean();
@@ -39,52 +39,31 @@ public class Benchmark {
             }
         });
 
-        System.out.println("Warm Up with 50k");
-        //searchBenchMark(500000, "benchmarkWithRandomKVBytesWithCompaction");
-        //searchBenchMark(500000, "benchmarkWithRandomKVBytesWithoutCompaction");
-        //searchBenchMark(500000, "IssueDB");
+        var opt = new DbOptions();
+        opt.disallowUseOfMMap();
+        var jimfs = Jimfs.newFileSystem(Configuration.unix());
+        var dbPath = Files.createTempDirectory(jimfs.getPath("/"), "benchmarkWithRandomKVBytes_" + getSaltString());
+        var db = new DBImpl(dbPath, opt);
 
-//        benchmark(inputString, 500000);
-//        correctnessCheck(inputString, 500000);
-
-        //        benchmark(inputString, 1000);
-//        benchmark(inputString, 10000);
-//        benchmark(inputString, 100000);
-//        benchmark(inputString, 1000_000);
-//        benchmarkWriting(inputString, 1000_000);
-//        initialTest(inputString, 50000);
-//                benchmark(inputString, 15000);
-//        benchmarkWithRandomKVBytes(1000000, 50, 500); //500000
-        benchmarkWithRandomKVBytes(500000, 50, 500);
-
-//        benchmarkWithRandomKVBytes(getRandomKV(1000000, () -> 50, () -> 500));
-
-//        benchmarkWithRandomLengthKVBytes(1000_000);
-//        benchmarkRandomRead(inputString, 1000_000, "asd"); //1000000
+        benchmarkWithRandomKVBytes(db, 20_000_00, 500, 500);
+        System.out.println(Files.size(dbPath));
+        System.out.println(Files.walk(dbPath)
+                .sorted(Comparator.reverseOrder())
+                .mapToLong(p -> {
+                    try {
+                        return Files.size(p);
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                }).sum());
         executorService.shutdown();
         executorService.shutdownNow();
         executorService.close();
     }
 
-    static String getSaltString() {
-        String SALTCHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890";
-        StringBuilder salt = new StringBuilder();
-        Random rnd = new Random();
-        while (salt.length() < 18) { // length of the random string.
-            int index = (int) (rnd.nextFloat() * SALTCHARS.length());
-            salt.append(SALTCHARS.charAt(index));
-        }
-        String saltStr = salt.toString();
-        return saltStr;
 
-    }
-
-    private static void benchmarkWithRandomKVBytes(int totalEntryCount, int keyBytesLength, int valueBytesLength) throws Exception {
+    private static void benchmarkWithRandomKVBytes(DB db, int totalEntryCount, int keyBytesLength, int valueBytesLength) throws Exception {
         var map = getRandomKV(totalEntryCount, () -> keyBytesLength, () -> valueBytesLength);
-        var opt = new DbOptions();
-        var dbName = Path.of("benchmarkWithRandomKVBytes_" + getSaltString());
-//        opt.disallowUseOfMMap();
-        var db = new DBImpl(dbName, opt);
         System.out.println("Number of threads: " + Thread.activeCount());
         long beforeUsedMem = Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
         long startTime , endTime, readingTime, writingTime;
@@ -134,25 +113,37 @@ public class Benchmark {
             e.printStackTrace();
         } finally {
             db.close();
-            Files.walk(dbName)
-                    .sorted(Comparator.reverseOrder())
-                    .map(Path::toFile)
-                    .forEach(File::delete);
         }
+    }
+
+    static String getSaltString() {
+        String SALTCHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890";
+        StringBuilder salt = new StringBuilder();
+        Random rnd = new Random();
+        while (salt.length() < 18) { // length of the random string.
+            int index = (int) (rnd.nextFloat() * SALTCHARS.length());
+            salt.append(SALTCHARS.charAt(index));
+        }
+        String saltStr = salt.toString();
+        return saltStr;
+
     }
 
     private static Map<byte[], byte[]> getRandomKV(int totalEntryCount, Supplier<Integer> keyBytesLength, Supplier<Integer> valueBytesLength) {
         // total entries
         System.out.println("random generation");
-        var rand = new Random(123456789L);
+        long bytesCount = 0;
+        var rand = new Random();
         Map<byte[], byte[]> map = new HashMap<>(totalEntryCount);
         for (int i = 0; i < totalEntryCount; i++) {
-            var key = new byte[keyBytesLength.get()];
-            var value = new byte[valueBytesLength.get()];
+            var key = new byte[rand.nextInt(10, keyBytesLength.get())];
+            var value = new byte[rand.nextInt(10, valueBytesLength.get())];
             rand.nextBytes(key); rand.nextBytes(value);
+            bytesCount += key.length + value.length;
             map.put(key, value);
         }
         // end
+        System.out.println("Total bytes generated: " + bytesCount);
         return map;
     }
 }

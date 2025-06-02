@@ -1,9 +1,9 @@
 package org.g2n.atomdb.SSTIO;
 
+import com.google.common.base.Preconditions;
 import org.g2n.atomdb.Checksum.AtomChecksum;
 import org.g2n.atomdb.Checksum.Crc32cChecksum;
 import org.g2n.atomdb.db.DBComparator;
-import org.g2n.atomdb.util.Util;
 
 public class SSTKeyRange {
     private final byte[] smallest;
@@ -12,7 +12,8 @@ public class SSTKeyRange {
     private final int size;
 
     public SSTKeyRange(byte[] smallest, byte[] greatest) {
-        Validate(smallest, greatest);
+        Preconditions.checkArgument(smallest != null && greatest != null, "Smallest and greatest keys cannot be null");
+        Preconditions.checkArgument(DBComparator.byteArrayComparator.compare(smallest, greatest) < 0, "Smallest and greatest keys cannot be empty");
         this.smallest = smallest;
         this.greatest = greatest;
         AtomChecksum checksumProvide = new Crc32cChecksum();
@@ -20,36 +21,8 @@ public class SSTKeyRange {
         this.size = smallest.length + greatest.length + Integer.BYTES * 2 + Long.BYTES;
     }
 
-    public SSTKeyRange(byte[] smallest, byte[] greatest, long checksumProvided) {
-        Validate(smallest, greatest);
-        long computedChecksum = computeChecksum(smallest, greatest);
-        Util.requireTrue(checksumProvided == computedChecksum, "AtomChecksum mismatch");
-        this.smallest = smallest;
-        this.greatest = greatest;
-        this.checksum = computedChecksum;
-        this.size = smallest.length + greatest.length + Integer.BYTES * 2 + Long.BYTES;
-    }
-
-    private static long computeChecksum(byte[] first, byte[] last) {
-        AtomChecksum checksumProvide = new Crc32cChecksum();
-        return checksumProvide.compute(first, last);
-    }
-
-
-    private void Validate(byte[] first, byte[] last) {
-        Util.requireTrue(DBComparator.byteArrayComparator.compare(first, last) < 0, "First key should be smaller than greatest key");
-    }
-
     public int getRequiredSizeToStoreKeyRange() {
         return size;
-    }
-
-    public void storeAsBytes(ChannelBackedWriter writer) {
-        writer.putInt(smallest.length)
-                .putBytes(smallest)
-                .putInt(greatest.length)
-                .putBytes(greatest)
-                .putLong(checksum);
     }
 
     public byte[] getSmallest() {
@@ -57,14 +30,6 @@ public class SSTKeyRange {
     }
 
     public byte[] getGreatest() {
-        return greatest;
-    }
-
-    public byte[] start() {
-        return smallest;
-    }
-
-    public byte[] end() {
         return greatest;
     }
 

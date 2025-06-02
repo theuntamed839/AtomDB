@@ -3,7 +3,6 @@ package org.g2n.atomdb.Compaction;
 import com.google.common.base.Preconditions;
 import org.g2n.atomdb.db.ExpandingByteBuffer;
 import org.g2n.atomdb.SSTIO.IOReader;
-import org.g2n.atomdb.SSTIO.ChannelBackedWriter;
 
 import java.io.IOException;
 import java.util.*;
@@ -14,10 +13,6 @@ public class PointerList {
 
     public PointerList(int numberOfEntries) {
         this.pointers = new ArrayList<>(numberOfEntries);
-    }
-
-    public PointerList(){
-        this.pointers = new ArrayList<>(5000);
     }
 
 
@@ -35,10 +30,6 @@ public class PointerList {
 
     public Pointer getFirst() { return pointers.getFirst();}
     public Pointer getLast() {return  pointers.getLast();}
-
-    public void storeAsBytes(ChannelBackedWriter writer) {
-        pointers.forEach(each -> each.storeAsBytes(writer));
-    }
 
     public void storeAsBytes(ExpandingByteBuffer writer) {
         pointers.forEach(each -> each.storeAsBytes(writer));

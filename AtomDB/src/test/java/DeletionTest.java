@@ -1,13 +1,10 @@
 
-import org.g2n.atomdb.Table.Table;
 import org.g2n.atomdb.db.DBImpl;
 import org.g2n.atomdb.db.DbOptions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.g2n.atomdb.sst.ValueUnit;
 
-import java.io.File;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
