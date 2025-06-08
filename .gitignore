@@ -18,7 +18,7 @@ AtomDB/.idea/**/usage.statistics.xml
 AtomDB/.idea/**/dictionaries
 AtomDB/.idea/**/shelf
 AtomDB/.idea/*
-
+AtomDB/note
 # AWS User-specific
 .idea/**/aws.xml
 
@@ -112,3 +112,5 @@ fabric.properties
 hs_err_pid*
 replay_pid*
 */.idea
+BenchMark/target
+BenchMark/.idea

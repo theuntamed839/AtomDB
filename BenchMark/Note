@@ -95,3 +95,5 @@
  * Number of threads: 2
  */
 
+
+ $env:JAVA_HOME="C:\Users\GaneshNaik\.jdks\openjdk-22"

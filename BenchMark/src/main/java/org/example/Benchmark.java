@@ -7,7 +7,7 @@ import java.util.function.Supplier;
 public class Benchmark {
 
     public static void main(String[] args) throws Exception {
-        benchmarkWithRandomKVBytes(DBProvider.get(DB.FIREFLYDB),1000000, 50, 500);
+        benchmarkWithRandomKVBytes(DBProvider.get(DB.LEVELDB),1000000, 50, 500);
     }
 
     private static void benchmarkWithRandomKVBytes(BenchmarkDB db, int totalEntryCount, int keyBytesLength, int valueBytesLength) throws Exception {
@@ -65,7 +65,7 @@ public class Benchmark {
     private static Map<byte[], byte[]> getRandomKV(int totalEntryCount, Supplier<Integer> keyBytesLength, Supplier<Integer> valueBytesLength) {
         // total entries
         System.out.println("random generation");
-        var rand = new Random();
+        var rand = new Random(123456789L);
         Map<byte[], byte[]> map = new HashMap<>(totalEntryCount);
         for (int i = 0; i < totalEntryCount; i++) {
             var key = new byte[keyBytesLength.get()];
