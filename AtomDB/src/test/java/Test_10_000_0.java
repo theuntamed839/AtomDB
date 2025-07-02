@@ -1,29 +1,32 @@
-import db.DBComparator;
-import db.DBImpl;
-import db.DBOptions;
+
+import org.g2n.atomdb.db.DBComparator;
+import org.g2n.atomdb.db.DBImpl;
+import org.g2n.atomdb.db.DbOptions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Assertions;
-import static util.BytesConverter.bytes;
-import java.io.IOException;
+import static org.g2n.atomdb.util.BytesConverter.bytes;
+
+import java.io.File;
+import java.nio.file.Path;
 
 public class Test_10_000_0{
-    DBOptions opt ;
+    DbOptions opt ;
     DBImpl db;
     String VALUE ;
     int TOTAL;
 
     @BeforeEach
     public void init() throws Exception {
-        opt = new DBOptions(this.getClass().getName() + "DB");
-        db = new DBImpl(opt);
+        opt = new DbOptions();
+        db = new DBImpl(Path.of(this.getClass().getName() + "DB"), opt);
         VALUE = "value".repeat(50);
-        TOTAL = 10_000_0;
+        TOTAL = 10_000_00;
     }
 
     @AfterEach
-    public void closingSession() throws IOException {
+    public void closingSession() throws Exception {
         db.close();db.destroy();
     }
 

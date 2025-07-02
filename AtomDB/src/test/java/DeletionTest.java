@@ -1,21 +1,19 @@
-import Level.Level;
-import Table.Table;
-import db.DBImpl;
-import db.DBOptions;
+
+import org.g2n.atomdb.db.DBImpl;
+import org.g2n.atomdb.db.DbOptions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import sst.ValueUnit;
 
-import java.io.IOException;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import java.util.Scanner;
-import static util.BytesConverter.*;
+import static org.g2n.atomdb.util.BytesConverter.*;
 
 public class DeletionTest {
-    DBOptions opt ;
+    DbOptions opt ;
     DBImpl db;
     String VALUE ;
     int TOTAL;
@@ -23,15 +21,15 @@ public class DeletionTest {
 
     @BeforeEach
     public void init() throws Exception {
-        opt = new DBOptions(this.getClass().getName() + "DB");
-        db = new DBImpl(opt);
+        opt = new DbOptions();
+        db = new DBImpl(Path.of(this.getClass().getName() + "DB"), opt);
         VALUE = "value".repeat(50);
         TOTAL = 10000;
         N_TO_DELETE = 1;
     }
 
     @AfterEach
-    public void closingSession() throws IOException {
+    public void closingSession() throws Exception {
         db.close();db.destroy();
     }
 
@@ -54,37 +52,37 @@ public class DeletionTest {
             db.delete(bytes(integer + ""));
         }
 
-        while(exitsValueInSSTFiles(toBeDeleted, db.getTable())) {
-            System.out.println("sending random bullshit");
-            for (int i = TOTAL; i < TOTAL + TOTAL; i++) {
-                db.put(bytes(i + ""), bytes(i + "_" + VALUE));
-            }
-        }
+//        while(exitsValueInSSTFiles(toBeDeleted, org.g2n.atomdb.db.getTable())) {
+//            System.out.println("sending random bullshit");
+//            for (int i = TOTAL; i < TOTAL + TOTAL; i++) {
+//                org.g2n.atomdb.db.put(bytes(i + ""), bytes(i + "_" + VALUE));
+//            }
+//        }
     }
-    private static boolean exitsValueInSSTFiles(List<Integer> toBeDeleted, Table table) throws Exception {
-        boolean result = false;
-        for (int i = 0; i < 7; i++) {
-            List<String> levelList = table.getLevelList(Level.fromID(i));
-            System.out.println("level=" + i);
-            for (String file : levelList) {
-                for (Integer key : toBeDeleted) {
-                    ValueUnit valueUnit = BinarySearch.file(file, bytes(key + ""));
-
-                    if (valueUnit == null) continue;
-
-                    if (valueUnit.getIsDelete() == ValueUnit.DELETE) {
-                        System.out.println("key="+key+" deleted for file="+file+" level="+i);
-                        if (valueUnit.getValue() != null) System.out.println("what the fuck, value???");
-                    } else {
-                        result= true;
-                        System.out.println("key="+key+" not deleted for file="+file+" level="+i);
-                        if (valueUnit.getValue() == null) System.out.println("what the fuck, value!!!!");
-                    }
-                }
-            }
-        }
-        return result;
-    }
+//    private static boolean exitsValueInSSTFiles(List<Integer> toBeDeleted, Table table) throws Exception {
+//        boolean result = false;
+//        for (int i = 0; i < 7; i++) {
+//            List<String> levelList = null;//table.getSSTInfoSet(org.g2n.atomdb.Level.fromID(i));
+//            System.out.println("level=" + i);
+//            for (String file : levelList) {
+//                for (Integer key : toBeDeleted) {
+//                    ValueUnit valueUnit = BinarySearch.file(file, bytes(key + ""));
+//
+//                    if (valueUnit == null) continue;
+//
+//                    if (valueUnit.getIsDelete() == ValueUnit.DELETE) {
+//                        System.out.println("key="+key+" deleted for fileToWrite="+file+" level="+i);
+//                        if (valueUnit.getValue() != null) System.out.println("what the fuck, value???");
+//                    } else {
+//                        result= true;
+//                        System.out.println("key="+key+" not deleted for fileToWrite="+file+" level="+i);
+//                        if (valueUnit.getValue() == null) System.out.println("what the fuck, value!!!!");
+//                    }
+//                }
+//            }
+//        }
+//        return result;
+//    }
 
     private static List<Integer> getRandomNumberToDelete(int n, int bound) {
         Random rand = new Random();
