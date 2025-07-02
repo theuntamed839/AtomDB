@@ -17,21 +17,12 @@ import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ConcurrentSkipListSet;
 
-/**
- * we should have a class which will tell us
- * 1. data existence
- * 2. data is of type deleted.
- * 3. data is value
- * 1beafb0b371cf3b51732a84d4d82acd7b4926ba1 commit is faster.
- * https://github.com/theuntamed839/AtomDB/commit/1beafb0b371cf3b51732a84d4d82acd7b4926ba1
- */
-
 public class Search implements AutoCloseable{
 
     private final LoadingCache<byte[], KVUnit> kvCache;
     private final LoadingCache<SSTInfo, Finder> readerCache;
     private final Cache<Pointer, Checksums> checksumsCache;
-    private final HashMap<Integer, Integer> removeMeAfterTestMap;
+    private final HashMap<Integer, Integer> readerStats;
     private final DbComponentProvider dbComponentProvider;
     private ImmutableMem<byte[], KVUnit> secondaryMem;
     private final SortedSet<SSTInfo> fileList = new ConcurrentSkipListSet<>();
@@ -50,7 +41,7 @@ public class Search implements AutoCloseable{
                 .weigher((Pointer pos, Checksums check) -> DBConstant.CLUSTER_SIZE * Long.BYTES)
                 .build();
         this.secondaryMem = new ImmutableMemTable(new TreeMap<>(DBComparator.byteArrayComparator), 0);
-        this.removeMeAfterTestMap = new HashMap<>();
+        this.readerStats = new HashMap<>();
     }
 
     public void addSSTInfo(SSTInfo info) {
@@ -75,7 +66,8 @@ public class Search implements AutoCloseable{
         if (kvUnit != null) {
             return kvUnit;
         }
-        Crc32cChecksum crc32cChecksum = new Crc32cChecksum();
+
+        Crc32cChecksum crc32cChecksum = Crc32cChecksum.getInstance();//new Crc32cChecksum();
         long keyChecksum = crc32cChecksum.compute(key);
 
         int fileRequiredToSearch = 0;
@@ -83,27 +75,42 @@ public class Search implements AutoCloseable{
         for (SSTInfo sstInfo : fileList) {
             if (sstInfo.getSstKeyRange().inRange(key) && sstInfo.mightContainElement(key)) {
                 fileRequiredToSearch++;
-//                System.out.println("trying sstInfo="+sstInfo);
-//                Validator.validateSSTBasedOnSearch(sstInfo, key);
                 Finder finder = readerCache.get(sstInfo);
                 var unit = finder.find(key, keyChecksum);
                 if (unit != null) {
-                    removeMeAfterTestMap.put(fileRequiredToSearch, removeMeAfterTestMap.getOrDefault(fileRequiredToSearch, 0) + 1);
+                    readerStats.put(fileRequiredToSearch, readerStats.getOrDefault(fileRequiredToSearch, 0) + 1);
                     return unit;
                 }
             }
         }
-        removeMeAfterTestMap.put(fileRequiredToSearch, removeMeAfterTestMap.getOrDefault(fileRequiredToSearch, 0) + 1);
-//        System.out.println(this.getClass().getName() + " :Key not found in any file");
-//        fileList.forEach(each -> {
-//            try {
-//                Validator.validateSSTBasedOnSearch(each, key);
-//            } catch (IOException e) {
-//                throw new RuntimeException(e);
-//            }
-//        });
+        readerStats.put(fileRequiredToSearch, readerStats.getOrDefault(fileRequiredToSearch, 0) + 1);
         return null;
     }
+
+//    public KVUnit findKey(byte[] key) throws IOException {
+//        KVUnit kvUnit = secondaryMem.get(key);
+//        if (kvUnit != null) {
+//            return kvUnit;
+//        }
+//
+//        Crc32cChecksum crc32cChecksum = Crc32cChecksum.getInstance();//new Crc32cChecksum();
+//        long keyChecksum = crc32cChecksum.compute(key);
+//
+//        int fileRequiredToSearch = 0;
+//        for (SSTInfo info : holder.getSSTsContaining(key)) {
+//            if (info.mightContainElement(key)) {
+//                fileRequiredToSearch++;
+//                Finder finder = readerCache.get(info);
+//                var unit = finder.find(key, keyChecksum);
+//                if (unit != null) {
+//                    readerStats.put(fileRequiredToSearch, readerStats.getOrDefault(fileRequiredToSearch, 0) + 1);
+//                    return unit;
+//                }
+//            }
+//        }
+//        readerStats.put(fileRequiredToSearch, readerStats.getOrDefault(fileRequiredToSearch, 0) + 1);
+//        return null;
+//    }
 
     public void addSecondaryMemtable(ImmutableMem<byte[], KVUnit> mem) {
         this.secondaryMem = mem;
@@ -116,7 +123,7 @@ public class Search implements AutoCloseable{
 
     @Override
     public void close() throws Exception {
-        for (Map.Entry<Integer, Integer> entry : removeMeAfterTestMap.entrySet()) {
+        for (Map.Entry<Integer, Integer> entry : readerStats.entrySet()) {
             System.out.println("numberOfFilesRequiredToSearch="+entry.getKey()+" numberOfTimesThisHappened="+entry.getValue());
         }
         for (Finder value : readerCache.asMap().values()) {
@@ -126,9 +133,5 @@ public class Search implements AutoCloseable{
         readerCache.invalidateAll();
         kvCache.cleanUp();
         readerCache.cleanUp();
-    }
-
-    public void printActiveFiles() {
-        fileList.forEach(each -> System.out.println("Active fileToWrite="+each.getSstPath()));
     }
 }

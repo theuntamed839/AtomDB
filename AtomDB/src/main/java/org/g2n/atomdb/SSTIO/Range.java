@@ -5,13 +5,18 @@ import org.g2n.atomdb.Checksum.AtomChecksum;
 import org.g2n.atomdb.Checksum.Crc32cChecksum;
 import org.g2n.atomdb.db.DBComparator;
 
-public class SSTKeyRange {
+/**
+ *
+ * we can make a generic keyRange class, and sstKeyRange as the derived class.
+ */
+
+public class Range {
     private final byte[] smallest;
     private final byte[] greatest;
     private final long checksum;
     private final int size;
 
-    public SSTKeyRange(byte[] smallest, byte[] greatest) {
+    public Range(byte[] smallest, byte[] greatest) {
         Preconditions.checkArgument(smallest != null && greatest != null, "Smallest and greatest keys cannot be null");
         Preconditions.checkArgument(DBComparator.byteArrayComparator.compare(smallest, greatest) < 0, "Smallest and greatest keys cannot be empty");
         this.smallest = smallest;
@@ -42,14 +47,14 @@ public class SSTKeyRange {
                 DBComparator.byteArrayComparator.compare(greatest, key) >= 0;
     }
 
-    public boolean overLapping(SSTKeyRange givenRange) {
+    public boolean overLapping(Range givenRange) {
         return (DBComparator.byteArrayComparator.compare(smallest, givenRange.getGreatest()) <= 0 &&
                 DBComparator.byteArrayComparator.compare(greatest, givenRange.getSmallest()) >= 0);
     }
 
     @Override
     public String toString() {
-        return "SSTKeyRange{" +
+        return "Range{" +
                 "smallest=" + new String(smallest) +
                 ", greatest=" + new String(greatest) +
                 ", checksum=" + checksum +

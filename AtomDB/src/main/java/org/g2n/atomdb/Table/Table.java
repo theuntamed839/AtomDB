@@ -58,9 +58,7 @@ public class Table {
     public synchronized void addSST(Level level, SSTInfo sstInfo) {
         requireNonNull(sstInfo.getSstPath(), "SST file cannot be null");
         requireNonNull(level, "Level cannot be null");
-        if (!levelToFilesMap.get(level).add(sstInfo)) { // todo this if can be removed.
-            throw new IllegalStateException("Adding of the same file");
-        }
+        levelToFilesMap.get(level).add(sstInfo);
         tableSize.put(level, tableSize.get(level) + sstInfo.getFileTorsoSize());
         search.addSSTInfo(sstInfo);
     }

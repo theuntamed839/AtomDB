@@ -12,13 +12,21 @@ public class Crc32cChecksum implements AtomChecksum {
     private static final ThreadLocal<ByteBuffer> byteBufferThreadLocal = ThreadLocal.withInitial(() ->
             ByteBuffer.allocateDirect(BUFFER_CAPACITY)
     );
+    static Crc32cChecksum instance;
+    static {
+        instance = new Crc32cChecksum();
+    }
+
+    public static Crc32cChecksum getInstance() {
+        return instance;
+    }
 
 
     @Override
     public long compute(byte[] arr) {
         var crc32c = crc32cThreadLocal.get();
-        ByteBuffer buffer = prepareBuffer(arr);
         crc32c.reset();
+        ByteBuffer buffer = prepareBuffer(arr);
         crc32c.update(buffer);
         return crc32c.getValue();
     }

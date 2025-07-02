@@ -55,7 +55,7 @@ public class Benchmark {
 //        initialTest(inputString, 50000);
 //                benchmark(inputString, 15000);
 //        benchmarkWithRandomKVBytes(1000000, 50, 500); //500000
-        benchmarkWithRandomKVBytes(500000, 50, 500);
+        benchmarkWithRandomKVBytes(1000000, 50, 500);
 
 //        benchmarkWithRandomKVBytes(getRandomKV(1000000, () -> 50, () -> 500));
 
@@ -83,7 +83,7 @@ public class Benchmark {
         var map = getRandomKV(totalEntryCount, () -> keyBytesLength, () -> valueBytesLength);
         var opt = new DbOptions();
         var dbName = Path.of("benchmarkWithRandomKVBytes_" + getSaltString());
-//        opt.disallowUseOfMMap();
+        opt.disallowUseOfMMap();
         var db = new DBImpl(dbName, opt);
         System.out.println("Number of threads: " + Thread.activeCount());
         long beforeUsedMem = Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
@@ -156,3 +156,33 @@ public class Benchmark {
         return map;
     }
 }
+/**
+ * not print statements.
+ * benchmarkWithRandomKVBytes(1000000, 50, 500);
+ *
+ * writing time=18.2794853 , reading time=5.7827799
+ * memory utilised=628613312
+ * Number of threads: 10
+ * numberOfFilesRequiredToSearch=1 numberOfTimesThisHappened=914646
+ * numberOfFilesRequiredToSearch=2 numberOfTimesThisHappened=76940
+ * numberOfFilesRequiredToSearch=3 numberOfTimesThisHappened=3730
+ * numberOfFilesRequiredToSearch=4 numberOfTimesThisHappened=127
+ * numberOfFilesRequiredToSearch=5 numberOfTimesThisHappened=11
+ * Number of actually compactions: 115
+ * LEVEL_ZERO has 8971044 size in bytes
+ * LEVEL_ZERO has 2 files
+ * LEVEL_ONE has 31262940 size in bytes
+ * LEVEL_ONE has 7 files
+ * LEVEL_TWO has 837585186 size in bytes
+ * LEVEL_TWO has 187 files
+ * LEVEL_THREE has 296066634 size in bytes
+ * LEVEL_THREE has 66 files
+ * LEVEL_FOUR has 0 size in bytes
+ * LEVEL_FOUR has 0 files
+ * LEVEL_FIVE has 0 size in bytes
+ * LEVEL_FIVE has 0 files
+ * LEVEL_SIX has 0 size in bytes
+ * LEVEL_SIX has 0 files
+ * LEVEL_SEVEN has 0 size in bytes
+ * LEVEL_SEVEN has 0 files
+ */

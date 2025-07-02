@@ -4,22 +4,54 @@ import org.g2n.atomdb.db.DB;
 import org.g2n.atomdb.db.DBImpl;
 import org.g2n.atomdb.db.DbOptions;
 
-import java.io.File;
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadInfo;
 import java.lang.management.ThreadMXBean;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
+/*
+TODO
+org.g2n.atomdb.Compaction.IndexedCluster.storeAsBytes ()	67,593 ms (27.4%)	67,593 ms (27.4%)
+Self time	4,403 ms (1.8%)	4,403 ms (1.8%)
+org.g2n.atomdb.Compaction.MergedClusterIterator.fetchNextKVUnit ()	114,212 ms (46.3%)	114,212 ms (46.3%)
+org.g2n.atomdb.Compaction.IndexedCluster.fillQueue ()	109,790 ms (44.5%)	109,790 ms (44.5%)
+org.g2n.atomdb.search.Search.findKey ()	2,406,669 ms (91.8%)	2,406,669 ms (94.4%) itself takes lot of time, see below line
+Self time	973,221 ms (37.1%)	973,221 ms (38.2%)
+org.g2n.atomdb.Compaction.MergedClusterIterator.fetchNextKVUnit ()	12,829 ms (44.4%)	12,829 ms (45.2%) itself takes lot of time see below line
+Self time	4,715 ms (16.3%)	4,715 ms (16.6%)
+org.g2n.atomdb.Compaction.IndexedClusterIterator.loadNextClusterToQueue ()	7,720 ms (26.7%)	7,720 ms (27.2%) look to optimize this path
+org.g2n.atomdb.Compaction.Compactor.acquireLocks ()	3,285 ms (14.8%)	0.0 ms (0%), we should implement a scheduler, which knows what level is under compaction and schedule.
+org.g2n.atomdb.Compaction.IndexedCluster.storeAsBytes ()	6,845 ms (30.9%)	6,845 ms (36.3%), see for any optimization
+org.g2n.atomdb.Compaction.IndexedCluster.calculateCommonPrefix ()	521 ms (2.4%)	521 ms (2.8%), is slow.
+org.g2n.atomdb.Compaction.MergedClusterIterator.fetchNextKVUnit ()	7,450 ms (33.6%)	7,450 ms (39.5%). itself is slow
+Self time	1,438 ms (6.5%)	1,438 ms (7.6%)
+org.g2n.atomdb.search.Finder.getCluster ()	126,105 ms (4.8%)	126,105 ms (4.9%), check why is this slow
+writing time=5.4812078 , reading time=8.3590173
+writing time=5.5229372 , reading time=7.3959285
+writing time=5.1570694 , reading time=7.2155728
+writing time=4.9185669 , reading time=7.3372383
+
+ */
+
 public class perf {
 
+    public static final int SEED = 1234;
+
     public static void main(String[] args) throws Exception {
+        Runtime runtime = Runtime.getRuntime();
+        long totalMemory = runtime.totalMemory();
+        long freeMemory = runtime.freeMemory();
+        long maxMemory = runtime.maxMemory();
+
+        System.out.println("Total Memory: " + totalMemory / (1024 * 1024) + " MB");
+        System.out.println("Free Memory: " + freeMemory / (1024 * 1024) + " MB");
+        System.out.println("Max Memory: " + maxMemory / (1024 * 1024) + " MB");
         ExecutorService executorService = Executors.newCachedThreadPool();
         executorService.execute(() -> {
             ThreadMXBean bean = ManagementFactory.getThreadMXBean();
@@ -45,7 +77,7 @@ public class perf {
         var dbPath = Files.createTempDirectory(jimfs.getPath("/"), "benchmarkWithRandomKVBytes_" + getSaltString());
         var db = new DBImpl(dbPath, opt);
 
-        benchmarkWithRandomKVBytes(db, 20_000_00, 500, 500);
+        benchmarkWithRandomKVBytes(db, 20_000_00, 500, 50);
         System.out.println(Files.size(dbPath));
         System.out.println(Files.walk(dbPath)
                 .sorted(Comparator.reverseOrder())
@@ -119,7 +151,7 @@ public class perf {
     static String getSaltString() {
         String SALTCHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890";
         StringBuilder salt = new StringBuilder();
-        Random rnd = new Random();
+        Random rnd = new Random(SEED);
         while (salt.length() < 18) { // length of the random string.
             int index = (int) (rnd.nextFloat() * SALTCHARS.length());
             salt.append(SALTCHARS.charAt(index));
@@ -133,7 +165,7 @@ public class perf {
         // total entries
         System.out.println("random generation");
         long bytesCount = 0;
-        var rand = new Random();
+        var rand = new Random(SEED);
         Map<byte[], byte[]> map = new HashMap<>(totalEntryCount);
         for (int i = 0; i < totalEntryCount; i++) {
             var key = new byte[rand.nextInt(10, keyBytesLength.get())];
@@ -147,3 +179,338 @@ public class perf {
         return map;
     }
 }
+
+/**
+ *
+ * writing time=11.8468427 , reading time=17.1859675
+ *
+ *
+ * ### original approach with streams.
+ * 10_000_00
+ * Reading...
+ * writing time=5.1814216 , reading time=8.5731288
+ * memory utilised=951983472
+ * Number of threads: 10
+ * numberOfFilesRequiredToSearch=1 numberOfTimesThisHappened=911574
+ * numberOfFilesRequiredToSearch=2 numberOfTimesThisHappened=32244
+ * numberOfFilesRequiredToSearch=3 numberOfTimesThisHappened=607
+ * numberOfFilesRequiredToSearch=4 numberOfTimesThisHappened=7
+ * Number of actually compactions: 28
+ * LEVEL_ZERO has 18902134 size in bytes
+ * LEVEL_ZERO has 1 files
+ * LEVEL_ONE has 89952988 size in bytes
+ * LEVEL_ONE has 19 files
+ * LEVEL_TWO has 515123690 size in bytes
+ * LEVEL_TWO has 109 files
+ *
+ * 20_000_00
+ * writing time=11.6187411 , reading time=23.6619881
+ * memory utilised=954069984
+ * Number of threads: 10
+ * numberOfFilesRequiredToSearch=1 numberOfTimesThisHappened=1866389
+ * numberOfFilesRequiredToSearch=2 numberOfTimesThisHappened=80303
+ * numberOfFilesRequiredToSearch=3 numberOfTimesThisHappened=2311
+ * numberOfFilesRequiredToSearch=4 numberOfTimesThisHappened=46
+ * numberOfFilesRequiredToSearch=5 numberOfTimesThisHappened=2
+ * Number of actually compactions: 65
+ * LEVEL_ZERO has 0 size in bytes
+ * LEVEL_ZERO has 0 files
+ * LEVEL_ONE has 85153762 size in bytes
+ * LEVEL_ONE has 18 files
+ * LEVEL_TWO has 945064164 size in bytes
+ * LEVEL_TWO has 200 files
+ * LEVEL_THREE has 236084120 size in bytes
+ * LEVEL_THREE has 50 files
+ *
+ * 20_000_00
+ * Reading...
+ * writing time=11.44035 , reading time=23.0326739
+ * memory utilised=1227749424
+ * Number of threads: 10
+ * numberOfFilesRequiredToSearch=1 numberOfTimesThisHappened=1866389
+ * numberOfFilesRequiredToSearch=2 numberOfTimesThisHappened=80303
+ * numberOfFilesRequiredToSearch=3 numberOfTimesThisHappened=2311
+ * numberOfFilesRequiredToSearch=4 numberOfTimesThisHappened=46
+ * numberOfFilesRequiredToSearch=5 numberOfTimesThisHappened=2
+ * Number of actually compactions: 65
+ * LEVEL_ZERO has 0 size in bytes
+ * LEVEL_ZERO has 0 files
+ * LEVEL_ONE has 85153762 size in bytes
+ * LEVEL_ONE has 18 files
+ * LEVEL_TWO has 945064164 size in bytes
+ * LEVEL_TWO has 200 files
+ * LEVEL_THREE has 236084120 size in bytes
+ * LEVEL_THREE has 50 files
+ *
+ * ### proper original
+ * 20_000_00
+ * writing time=11.9340376 , reading time=21.1650295
+ * memory utilised=1217244032
+ * Number of threads: 10
+ * numberOfFilesRequiredToSearch=1 numberOfTimesThisHappened=1838227
+ * numberOfFilesRequiredToSearch=2 numberOfTimesThisHappened=106285
+ * numberOfFilesRequiredToSearch=3 numberOfTimesThisHappened=4264
+ * numberOfFilesRequiredToSearch=4 numberOfTimesThisHappened=128
+ * numberOfFilesRequiredToSearch=5 numberOfTimesThisHappened=3
+ * Number of actually compactions: 70
+ * LEVEL_ZERO has 0 size in bytes
+ * LEVEL_ZERO has 0 files
+ * LEVEL_ONE has 85095632 size in bytes
+ * LEVEL_ONE has 18 files
+ * LEVEL_TWO has 940353022 size in bytes
+ * LEVEL_TWO has 199 files
+ * LEVEL_THREE has 240895610 size in bytes
+ * LEVEL_THREE has 51 files
+ *
+ * IntervalTree
+ * 20_000_00
+ * Reading...
+ * writing time=11.5945271 , reading time=17.9180796
+ * memory utilised=1359678568
+ * Number of threads: 10
+ * numberOfFilesRequiredToSearch=1 numberOfTimesThisHappened=1837823
+ * numberOfFilesRequiredToSearch=2 numberOfTimesThisHappened=107020
+ * numberOfFilesRequiredToSearch=3 numberOfTimesThisHappened=3899
+ * numberOfFilesRequiredToSearch=4 numberOfTimesThisHappened=93
+ * numberOfFilesRequiredToSearch=5 numberOfTimesThisHappened=1
+ * Number of actually compactions: 82
+ * LEVEL_ZERO has 0 size in bytes
+ * LEVEL_ZERO has 0 files
+ * LEVEL_ONE has 80233056 size in bytes
+ * LEVEL_ONE has 17 files
+ * LEVEL_TWO has 694551794 size in bytes
+ * LEVEL_TWO has 147 files
+ * LEVEL_THREE has 491108792 size in bytes
+ * LEVEL_THREE has 104 files
+ *
+ * Same
+ * Reading...
+ * writing time=11.4522867 , reading time=20.8206918
+ * memory utilised=1693467432
+ * Number of threads: 10
+ * numberOfFilesRequiredToSearch=1 numberOfTimesThisHappened=1838887
+ * numberOfFilesRequiredToSearch=2 numberOfTimesThisHappened=106009
+ * numberOfFilesRequiredToSearch=3 numberOfTimesThisHappened=4154
+ * numberOfFilesRequiredToSearch=4 numberOfTimesThisHappened=118
+ * numberOfFilesRequiredToSearch=5 numberOfTimesThisHappened=3
+ * Number of actually compactions: 73
+ * LEVEL_ZERO has 18899140 size in bytes
+ * LEVEL_ZERO has 1 files
+ * LEVEL_ONE has 132788168 size in bytes
+ * LEVEL_ONE has 28 files
+ * LEVEL_TWO has 987546670 size in bytes
+ * LEVEL_TWO has 209 files
+ * LEVEL_THREE has 127541834 size in bytes
+ * LEVEL_THREE has 27 files
+ *
+ * Same
+ * Reading...
+ * writing time=10.2593469 , reading time=18.623732
+ * memory utilised=1592084776
+ * Number of threads: 10
+ * numberOfFilesRequiredToSearch=1 numberOfTimesThisHappened=1838887
+ * numberOfFilesRequiredToSearch=2 numberOfTimesThisHappened=106009
+ * numberOfFilesRequiredToSearch=3 numberOfTimesThisHappened=4154
+ * numberOfFilesRequiredToSearch=4 numberOfTimesThisHappened=118
+ * numberOfFilesRequiredToSearch=5 numberOfTimesThisHappened=3
+ * Number of actually compactions: 73
+ * LEVEL_ZERO has 18899140 size in bytes
+ * LEVEL_ZERO has 1 files
+ * LEVEL_ONE has 132788168 size in bytes
+ * LEVEL_ONE has 28 files
+ * LEVEL_TWO has 987546670 size in bytes
+ * LEVEL_TWO has 209 files
+ * LEVEL_THREE has 127541834 size in bytes
+ * LEVEL_THREE has 27 files
+ *
+ * IntervalRedBlack
+ * 20_000_00
+ * Reading...
+ * writing time=10.5509469 , reading time=19.1972436
+ * memory utilised=1144930096
+ * Number of threads: 10
+ * numberOfFilesRequiredToSearch=1 numberOfTimesThisHappened=1831748
+ * numberOfFilesRequiredToSearch=2 numberOfTimesThisHappened=112120
+ * numberOfFilesRequiredToSearch=3 numberOfTimesThisHappened=4858
+ * numberOfFilesRequiredToSearch=4 numberOfTimesThisHappened=171
+ * numberOfFilesRequiredToSearch=5 numberOfTimesThisHappened=1
+ * Number of actually compactions: 81
+ * LEVEL_ZERO has 0 size in bytes
+ * LEVEL_ZERO has 0 files
+ * LEVEL_ONE has 85175396 size in bytes
+ * LEVEL_ONE has 18 files
+ * LEVEL_TWO has 921375786 size in bytes
+ * LEVEL_TWO has 195 files
+ * LEVEL_THREE has 259759662 size in bytes
+ * LEVEL_THREE has 55 files
+ *
+ * Same
+ * Reading...
+ * writing time=11.507525 , reading time=17.9729444
+ * memory utilised=1177067584
+ * Number of threads: 9
+ * numberOfFilesRequiredToSearch=1 numberOfTimesThisHappened=1837823
+ * numberOfFilesRequiredToSearch=2 numberOfTimesThisHappened=107020
+ * numberOfFilesRequiredToSearch=3 numberOfTimesThisHappened=3899
+ * numberOfFilesRequiredToSearch=4 numberOfTimesThisHappened=93
+ * numberOfFilesRequiredToSearch=5 numberOfTimesThisHappened=1
+ * Number of actually compactions: 82
+ * LEVEL_ZERO has 0 size in bytes
+ * LEVEL_ZERO has 0 files
+ * LEVEL_ONE has 80233056 size in bytes
+ * LEVEL_ONE has 17 files
+ * LEVEL_TWO has 694551794 size in bytes
+ * LEVEL_TWO has 147 files
+ * LEVEL_THREE has 491108792 size in bytes
+ * LEVEL_THREE has 104 files
+ *
+ * Same
+ * Reading...
+ * writing time=10.5009975 , reading time=19.3601175
+ * memory utilised=1733938720
+ * Number of threads: 9
+ * numberOfFilesRequiredToSearch=1 numberOfTimesThisHappened=1831748
+ * numberOfFilesRequiredToSearch=2 numberOfTimesThisHappened=112120
+ * numberOfFilesRequiredToSearch=3 numberOfTimesThisHappened=4858
+ * numberOfFilesRequiredToSearch=4 numberOfTimesThisHappened=171
+ * numberOfFilesRequiredToSearch=5 numberOfTimesThisHappened=1
+ * Number of actually compactions: 81
+ * LEVEL_ZERO has 0 size in bytes
+ * LEVEL_ZERO has 0 files
+ * LEVEL_ONE has 85175396 size in bytes
+ * LEVEL_ONE has 18 files
+ * LEVEL_TWO has 921375786 size in bytes
+ * LEVEL_TWO has 195 files
+ * LEVEL_THREE has 259759662 size in bytes
+ * LEVEL_THREE has 55 files
+ *
+ * TimeLineIntervalSearch
+ * 20_000_00
+ * Reading...
+ * writing time=10.3955442 , reading time=17.7733977
+ * memory utilised=1103121328
+ * Number of threads: 10
+ * numberOfFilesRequiredToSearch=1 numberOfTimesThisHappened=1831748
+ * numberOfFilesRequiredToSearch=2 numberOfTimesThisHappened=112120
+ * numberOfFilesRequiredToSearch=3 numberOfTimesThisHappened=4858
+ * numberOfFilesRequiredToSearch=4 numberOfTimesThisHappened=171
+ * numberOfFilesRequiredToSearch=5 numberOfTimesThisHappened=1
+ * Number of actually compactions: 81
+ * LEVEL_ZERO has 0 size in bytes
+ * LEVEL_ZERO has 0 files
+ * LEVEL_ONE has 85175396 size in bytes
+ * LEVEL_ONE has 18 files
+ * LEVEL_TWO has 921375786 size in bytes
+ * LEVEL_TWO has 195 files
+ * LEVEL_THREE has 259759662 size in bytes
+ * LEVEL_THREE has 55 files
+ *
+ * Same
+ * Reading...
+ * writing time=12.1341711 , reading time=16.7875514
+ * memory utilised=1124377256
+ * Number of threads: 12
+ * numberOfFilesRequiredToSearch=1 numberOfTimesThisHappened=1837823
+ * numberOfFilesRequiredToSearch=2 numberOfTimesThisHappened=107020
+ * numberOfFilesRequiredToSearch=3 numberOfTimesThisHappened=3899
+ * numberOfFilesRequiredToSearch=4 numberOfTimesThisHappened=93
+ * numberOfFilesRequiredToSearch=5 numberOfTimesThisHappened=1
+ * Number of actually compactions: 82
+ * LEVEL_ZERO has 0 size in bytes
+ * LEVEL_ZERO has 0 files
+ * LEVEL_ONE has 80233056 size in bytes
+ * LEVEL_ONE has 17 files
+ * LEVEL_TWO has 694551794 size in bytes
+ * LEVEL_TWO has 147 files
+ * LEVEL_THREE has 491108792 size in bytes
+ * LEVEL_THREE has 104 files
+ *
+ * Same
+ * Reading...
+ * writing time=12.1108324 , reading time=16.9314023
+ * memory utilised=1264336992
+ * Number of threads: 9
+ * numberOfFilesRequiredToSearch=1 numberOfTimesThisHappened=1837823
+ * numberOfFilesRequiredToSearch=2 numberOfTimesThisHappened=107020
+ * numberOfFilesRequiredToSearch=3 numberOfTimesThisHappened=3899
+ * numberOfFilesRequiredToSearch=4 numberOfTimesThisHappened=93
+ * numberOfFilesRequiredToSearch=5 numberOfTimesThisHappened=1
+ * Number of actually compactions: 82
+ * LEVEL_ZERO has 0 size in bytes
+ * LEVEL_ZERO has 0 files
+ * LEVEL_ONE has 80233056 size in bytes
+ * LEVEL_ONE has 17 files
+ * LEVEL_TWO has 694551794 size in bytes
+ * LEVEL_TWO has 147 files
+ * LEVEL_THREE has 491108792 size in bytes
+ * LEVEL_THREE has 104 files
+ *
+ *
+ * writing time=9.5039227 , reading time=18.7397814
+ * memory utilised=1108344352
+ * Number of threads: 7
+ * numberOfFilesRequiredToSearch=1 numberOfTimesThisHappened=1861734
+ * numberOfFilesRequiredToSearch=2 numberOfTimesThisHappened=84646
+ * numberOfFilesRequiredToSearch=3 numberOfTimesThisHappened=2596
+ * numberOfFilesRequiredToSearch=4 numberOfTimesThisHappened=78
+ * numberOfFilesRequiredToSearch=5 numberOfTimesThisHappened=1
+ * Number of actually compactions: 46
+ * LEVEL_ZERO has 18900828 size in bytes
+ * LEVEL_ZERO has 1 files
+ * LEVEL_ONE has 368524978 size in bytes
+ * LEVEL_ONE has 78 files
+ * LEVEL_TWO has 879136722 size in bytes
+ * LEVEL_TWO has 186 files
+ *
+ * Interval
+ * writing time=11.1833474 , reading time=17.7931387 avg
+ * memory utilised=2079426944
+ * Number of threads: 10
+ * numberOfFilesRequiredToSearch=1 numberOfTimesThisHappened=1864692
+ * numberOfFilesRequiredToSearch=2 numberOfTimesThisHappened=82038
+ * numberOfFilesRequiredToSearch=3 numberOfTimesThisHappened=2279
+ * numberOfFilesRequiredToSearch=4 numberOfTimesThisHappened=45
+ * numberOfFilesRequiredToSearch=5 numberOfTimesThisHappened=1
+ * Number of actually compactions: 46
+ * LEVEL_ZERO has 18900828 size in bytes
+ * LEVEL_ZERO has 1 files
+ * LEVEL_ONE has 368524978 size in bytes
+ * LEVEL_ONE has 78 files
+ * LEVEL_TWO has 879136722 size in bytes
+ * LEVEL_TWO has 186 files
+ *
+ * RedBlack
+ * writing time=10.6726335 , reading time=16.344174966666667 avg
+ * memory utilised=1689131632
+ * Number of threads: 6
+ * numberOfFilesRequiredToSearch=0 numberOfTimesThisHappened=81750
+ * numberOfFilesRequiredToSearch=1 numberOfTimesThisHappened=1805195
+ * numberOfFilesRequiredToSearch=2 numberOfTimesThisHappened=60562
+ * numberOfFilesRequiredToSearch=3 numberOfTimesThisHappened=1523
+ * numberOfFilesRequiredToSearch=4 numberOfTimesThisHappened=24
+ * numberOfFilesRequiredToSearch=5 numberOfTimesThisHappened=1
+ * Number of actually compactions: 46
+ * LEVEL_ZERO has 18900828 size in bytes
+ * LEVEL_ZERO has 1 files
+ * LEVEL_ONE has 368524978 size in bytes
+ * LEVEL_ONE has 78 files
+ * LEVEL_TWO has 879136722 size in bytes
+ * LEVEL_TWO has 186 files
+ *
+ * Timebased
+ writing time=10.7055868 , reading time=16.943286099999998
+ memory utilised=1156747552
+ Number of threads: 6
+ numberOfFilesRequiredToSearch=1 numberOfTimesThisHappened=1864692
+ numberOfFilesRequiredToSearch=2 numberOfTimesThisHappened=82038
+ numberOfFilesRequiredToSearch=3 numberOfTimesThisHappened=2279
+ numberOfFilesRequiredToSearch=4 numberOfTimesThisHappened=45
+ numberOfFilesRequiredToSearch=5 numberOfTimesThisHappened=1
+ Number of actually compactions: 46
+ LEVEL_ZERO has 18900828 size in bytes
+ LEVEL_ZERO has 1 files
+ LEVEL_ONE has 368524978 size in bytes
+ LEVEL_ONE has 78 files
+ LEVEL_TWO has 879136722 size in bytes
+ LEVEL_TWO has 186 files
+ */

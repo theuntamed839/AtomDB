@@ -3,8 +3,8 @@ package org.g2n.atomdb.Table;
 import org.g2n.atomdb.Compaction.PointerList;
 import com.google.common.base.Preconditions;
 import com.google.common.hash.BloomFilter;
+import org.g2n.atomdb.SSTIO.Range;
 import org.g2n.atomdb.SSTIO.SSTHeader;
-import org.g2n.atomdb.SSTIO.SSTKeyRange;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -14,7 +14,7 @@ public class SSTInfo extends SSTHeader implements Comparable<SSTInfo> {
     private final PointerList pointers;
     private final BloomFilter<byte[]> filter;
     private final long number;
-    private final SSTKeyRange sstKeyRange;
+    private final Range range;
     private final int sstHashCode;
 
 
@@ -26,11 +26,11 @@ public class SSTInfo extends SSTHeader implements Comparable<SSTInfo> {
         this.sstHashCode = sstPath.toAbsolutePath().hashCode(); // todo do we need to do this ?
         this.pointers = pointers;
         this.filter = filter;
-        this.sstKeyRange = new SSTKeyRange(pointers.getFirst().key(), pointers.getLast().key());
+        this.range = new Range(pointers.getFirst().key(), pointers.getLast().key());
     }
 
-    public SSTKeyRange getSstKeyRange() {
-        return sstKeyRange;
+    public Range getSstKeyRange() {
+        return range;
     }
 
     public Path getSstPath() {
@@ -79,7 +79,7 @@ public class SSTInfo extends SSTHeader implements Comparable<SSTInfo> {
                 ", pointers=" + pointers.toString() +
                 ", filter=" + filter +
                 ", number=" + number +
-                ", sstKeyRange=" + sstKeyRange.toString() +
+                ", range=" + range.toString() +
                 ", sstHashCode=" + sstHashCode +
                 ", SSTHeader=" + super.toString() +
                 '}';
