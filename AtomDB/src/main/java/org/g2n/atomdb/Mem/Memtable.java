@@ -9,9 +9,5 @@ public interface Memtable<K, V> {
 
     int getNumberOfEntries();
 
-    K getFirstKey();
-
-    K getLastKey();
-
     boolean isFull();
 }

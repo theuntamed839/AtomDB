@@ -26,8 +26,7 @@ public class SkipListMemtable implements MutableMem<byte[], KVUnit>{
 
     @Override
     public void delete(KVUnit kvUnit) {
-        KVUnit removed = map.remove(kvUnit.getKey());
-        currentSize -= removed.getUnitSize();
+        put(kvUnit);
     }
 
     @Override
@@ -42,16 +41,6 @@ public class SkipListMemtable implements MutableMem<byte[], KVUnit>{
     @Override
     public int getNumberOfEntries() {
         return map.size();
-    }
-
-    @Override
-    public byte[] getFirstKey() {
-        return map.firstKey();
-    }
-
-    @Override
-    public byte[] getLastKey() {
-        return map.lastKey();
     }
 
     @Override

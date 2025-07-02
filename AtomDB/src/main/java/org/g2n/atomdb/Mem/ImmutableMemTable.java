@@ -30,16 +30,6 @@ public class ImmutableMemTable implements ImmutableMem<byte[], KVUnit> {
     }
 
     @Override
-    public byte[] getFirstKey() {
-        return map.firstKey();
-    }
-
-    @Override
-    public byte[] getLastKey() {
-        return map.lastKey();
-    }
-
-    @Override
     public boolean isFull() {
         return false;
     }
