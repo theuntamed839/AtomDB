@@ -20,11 +20,6 @@
             <version>1.8</version>
         </dependency>
         <dependency>
-            <groupId>com.sahilbondre</groupId>
-            <artifactId>fireflydb</artifactId>
-            <version>0.1.1</version>
-        </dependency>
-        <dependency>
             <groupId>org.iq80.leveldb</groupId>
             <artifactId>leveldb</artifactId>
             <version>0.12</version>
@@ -39,7 +34,11 @@
             <artifactId>jmh-generator-asm</artifactId>
             <version>1.37</version>
         </dependency>
-
+        <dependency>
+            <groupId>com.github.theuntamed839</groupId>
+            <artifactId>Atomdb</artifactId>
+            <version>1.0-SNAPSHOT</version>
+        </dependency>
     </dependencies>
     <build>
         <plugins>

@@ -5,4 +5,4 @@ import org.g2n.atomdb.Compaction.PointerList;
 
 import java.nio.file.Path;
 
-record Intermediate(Path path, SSTHeader sstHeader, PointerList pointers, BloomFilter<byte[]> filter) {}
+public record Intermediate(Path path, SSTHeader sstHeader, PointerList pointers, BloomFilter<byte[]> filter) {}

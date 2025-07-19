@@ -1,5 +1,7 @@
 package org.example;
 
+import org.example.dbs.BenchmarkDBAdapter;
+
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
@@ -7,10 +9,10 @@ import java.util.function.Supplier;
 public class Benchmark {
 
     public static void main(String[] args) throws Exception {
-        benchmarkWithRandomKVBytes(DBProvider.get(DB.LEVELDB),1000000, 50, 500);
+        benchmarkWithRandomKVBytes(DBProvider.get(DB.ATOMDB),1000000, 50, 500);
     }
 
-    private static void benchmarkWithRandomKVBytes(BenchmarkDB db, int totalEntryCount, int keyBytesLength, int valueBytesLength) throws Exception {
+    private static void benchmarkWithRandomKVBytes(BenchmarkDBAdapter db, int totalEntryCount, int keyBytesLength, int valueBytesLength) throws Exception {
         var map = getRandomKV(totalEntryCount, () -> keyBytesLength, () -> valueBytesLength);
 
         System.out.println("Number of threads: " + Thread.activeCount());
@@ -77,32 +79,3 @@ public class Benchmark {
         return map;
     }
 }
-
-/**
- * Results
- * benchmarkWithRandomKVBytes(DBProvider.get(DB.FIREFLYDB),500000, 50, 500); FIRE
- * writing time=7.0718969 , reading time=12.3250532
- * memory utilised=373248264
- * Number of threads: 2
- *
- * benchmarkWithRandomKVBytes(DBProvider.get(DB.LEVELDB),500000, 50, 500); LEVEL
- * writing time=21.5763701 , reading time=8.2168154
- * memory utilised=325047808
- * Number of threads: 2
- * 7 compactions
- *
- * benchmarkWithRandomKVBytes(DBProvider.get(DB.LEVELDB_NATIVE),500000, 50, 500); NATIVE
- * writing time=24.8875308 , reading time=3.7821177
- * memory utilised=307651760
- * Number of threads: 4
- * 6-7 compactions
- *
- *
- * AtomDB for 500000
- * writing time=10.9193016 , reading time=3.3202372
- * 1000000
- * writing time=78.9897571 , reading time=27.1927732
- *
- * LevelDB 1000000
- * writing time=63.0487536 , reading time=23.4485624
- */

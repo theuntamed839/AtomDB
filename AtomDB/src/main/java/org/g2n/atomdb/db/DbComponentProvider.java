@@ -1,13 +1,17 @@
 package org.g2n.atomdb.db;
 
+import org.g2n.atomdb.Constants.DBConstant;
 import org.g2n.atomdb.SSTIO.*;
 
 import java.io.IOException;
 import java.nio.file.Path;
 
 public final class DbComponentProvider {
-    IOReaderFactory readerFactory;
-    IOWriterFactory writerFactory;
+    private final byte clusterSize;
+    private final IOReaderFactory readerFactory;
+    private final IOWriterFactory writerFactory;
+    private final DBConstant.CHECKSUM_TYPE checksumType;
+    private final DBConstant.COMPRESSION_TYPE compressionType;
 
     public DbComponentProvider(DbOptions dbOptions) {
         if (dbOptions.isMMapAllowed()) {
@@ -17,6 +21,10 @@ public final class DbComponentProvider {
             this.readerFactory = IOFileChannelReader::new;
             this.writerFactory = IOFileChannelWriter::new;
         }
+
+        this.clusterSize = dbOptions.getClusterSize();
+        this.checksumType = dbOptions.getChecksumType();
+        this.compressionType = dbOptions.getCompressionType();
     }
 
     public IOReader getIOReader(Path file) throws IOException {
@@ -25,5 +33,17 @@ public final class DbComponentProvider {
 
     public IOWriter getIOWriter(Path filePath, long fileSize) throws IOException {
         return writerFactory.create(filePath, fileSize);
+    }
+
+    public byte getClusterSize() {
+        return clusterSize;
+    }
+
+    public DBConstant.CHECKSUM_TYPE getChecksumType() {
+        return this.checksumType;
+    }
+
+    public DBConstant.COMPRESSION_TYPE getCompressionType() {
+        return this.compressionType;
     }
 }

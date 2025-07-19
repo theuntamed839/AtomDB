@@ -1,6 +1,6 @@
 package org.g2n.atomdb;
 
-import org.g2n.atomdb.db.DB;
+
 import org.g2n.atomdb.db.DBImpl;
 import org.g2n.atomdb.db.DbOptions;
 
@@ -15,6 +15,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
+//$env:JAVA_HOME="C:\Users\GaneshNaik\.jdks\openjdk-22"
+// mvn clean install
 
 public class Benchmark {
 
@@ -83,7 +85,7 @@ public class Benchmark {
         var map = getRandomKV(totalEntryCount, () -> keyBytesLength, () -> valueBytesLength);
         var opt = new DbOptions();
         var dbName = Path.of("benchmarkWithRandomKVBytes_" + getSaltString());
-        opt.disallowUseOfMMap();
+//        opt.disallowUseOfMMap();
         var db = new DBImpl(dbName, opt);
         System.out.println("Number of threads: " + Thread.activeCount());
         long beforeUsedMem = Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();

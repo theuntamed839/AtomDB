@@ -21,6 +21,10 @@ public class SSTInfo extends SSTHeader implements Comparable<SSTInfo> {
     public SSTInfo(Path sstPath, SSTHeader header, PointerList pointers, BloomFilter<byte[]> filter, SSTFileNameMeta fileNameMeta) {
         super(header);
         Preconditions.checkArgument(Files.exists(sstPath), "SST file does not exist: " + sstPath);
+        Preconditions.checkNotNull(pointers, "Pointers cannot be null");
+        Preconditions.checkNotNull(filter, "Filter cannot be null");
+        Preconditions.checkNotNull(fileNameMeta, "File name meta cannot be null");
+
         this.number = fileNameMeta.seq();
         this.sstPath = sstPath;
         this.sstHashCode = sstPath.toAbsolutePath().hashCode(); // todo do we need to do this ?

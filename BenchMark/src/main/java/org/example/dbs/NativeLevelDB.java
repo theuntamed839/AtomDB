@@ -1,7 +1,9 @@
-package org.example;
+package org.example.dbs;
 
+import org.fusesource.leveldbjni.JniDBFactory;
 import org.iq80.leveldb.DB;
 import org.iq80.leveldb.Options;
+import static org.fusesource.leveldbjni.JniDBFactory.*;
 
 import java.io.File;
 import java.io.IOException;
@@ -11,18 +13,16 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.Comparator;
 
-import static org.iq80.leveldb.impl.Iq80DBFactory.factory;
-
-public class NativeLevelDBBenchmark implements BenchmarkDB{
-
-    private final DB db;
+public class NativeLevelDB implements BenchmarkDBAdapter {
     private final String dbName;
+    private final DB db;
 
-    public NativeLevelDBBenchmark() throws IOException {
-        dbName = "LEVELDB_NATIVE_" + LocalDateTime.now().toEpochSecond(ZoneOffset.UTC);
+    public NativeLevelDB() throws IOException {
+        dbName = "LEVELDB_" + LocalDateTime.now().toEpochSecond(ZoneOffset.UTC);
         Options options = new Options();
         options.createIfMissing(true);
         db = factory.open(new File(dbName), options);
+        JniDBFactory.pushMemoryPool(1024 * 1024 * 1024);
     }
 
     @Override
@@ -32,12 +32,13 @@ public class NativeLevelDBBenchmark implements BenchmarkDB{
 
     @Override
     public byte[] get(byte[] key) throws IOException {
-        return db.get(key);
+       return db.get(key);
     }
 
     @Override
     public void closeAndDestroy() throws IOException {
         db.close();
+        JniDBFactory.popMemoryPool();
         Files.walk(Path.of(dbName))
                 .sorted(Comparator.reverseOrder())
                 .map(Path::toFile)

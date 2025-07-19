@@ -384,9 +384,7 @@ public class Compactor implements AutoCloseable {
         try {
             var iterator = new MergedClusterIterator(Collections.unmodifiableCollection(overlappingFiles), dbComponentProvider);
             sstPersist.writeManyFiles(level.nextLevel(), iterator, getAverageNumOfEntriesInSST(overlappingFiles));
-            for (SSTInfo overlappingFile : overlappingFiles) {
-                table.removeSST(overlappingFile);
-            }
+            table.removeSST(overlappingFiles);
         } catch (Exception e) {
             logger.error("Error during compaction for level {}: {}", level, e.getMessage());
             e.printStackTrace();

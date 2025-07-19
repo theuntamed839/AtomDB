@@ -2,9 +2,10 @@ package org.g2n.atomdb.search;
 
 import org.g2n.atomdb.Compaction.Pointer;
 import org.g2n.atomdb.Compaction.PointerList;
-import org.g2n.atomdb.Compression.Lz4Compression;
-import org.g2n.atomdb.Constants.DBConstant;
+import org.g2n.atomdb.Compression.CompressionStrategyFactory;
+import org.g2n.atomdb.Compression.DataCompressionStrategy;
 import com.github.benmanes.caffeine.cache.Cache;
+import org.g2n.atomdb.Constants.DBConstant;
 import org.g2n.atomdb.db.DBComparator;
 import org.g2n.atomdb.db.KVUnit;
 import org.g2n.atomdb.SSTIO.IOReader;
@@ -19,13 +20,17 @@ public class Finder implements AutoCloseable{
     private final PointerList pointerList;
     private final IOReader reader;
     private final Cache<Pointer, Checksums> checksumsCache;
+    private final byte singleClusterSize;
+    private final DataCompressionStrategy compressionStrategy;
 
-    public Finder(PointerList pointerList, Cache<Pointer, Checksums> checksumsCache, IOReader reader) {
+    public Finder(PointerList pointerList, Cache<Pointer, Checksums> checksumsCache, IOReader reader, byte singleClusterSize, DBConstant.COMPRESSION_TYPE compressionStrategy) {
         // todo
         // we need not mapp the whole fileToWrite rather map only required potion, ie we  dont need header and pointers region
         this.reader = reader;
         this.pointerList = pointerList;
         this.checksumsCache = checksumsCache;
+        this.singleClusterSize = singleClusterSize;
+        this.compressionStrategy = CompressionStrategyFactory.getCompressionStrategy(compressionStrategy);
     }
 
     public KVUnit find(byte[] key, long keyChecksum) throws IOException {
@@ -33,8 +38,8 @@ public class Finder implements AutoCloseable{
         reader.position((int) pointer.position());
 
         Checksums check = checksumsCache.get(pointer, position -> {
-            var checksums = new long[DBConstant.CLUSTER_SIZE];
-            for (int i = 0; i < DBConstant.CLUSTER_SIZE; i++) {
+            var checksums = new long[this.singleClusterSize];
+            for (int i = 0; i < this.singleClusterSize; i++) {
                 try {
                     checksums[i] = reader.getLong();
                 } catch (IOException e) {
@@ -68,21 +73,21 @@ public class Finder implements AutoCloseable{
         }
 
         // directly moving to location block
-        reader.position( initialPosition + Long.BYTES * DBConstant.CLUSTER_SIZE + index * Integer.BYTES);
+        reader.position( initialPosition + Long.BYTES * this.singleClusterSize + index * Integer.BYTES);
         int keyLocation = reader.getInt();
         int nextKeyLocation = reader.getInt();
-        reader.position(initialPosition + Long.BYTES * DBConstant.CLUSTER_SIZE + (DBConstant.CLUSTER_SIZE + 1) * Integer.BYTES);
+        reader.position(initialPosition + Long.BYTES * this.singleClusterSize + (this.singleClusterSize + 1) * Integer.BYTES);
         // todo use the common prefix, to maybe validate.
         int commonPrefix = reader.getInt();
         reader.position((int) (initialPosition +
-                Long.BYTES * DBConstant.CLUSTER_SIZE +
-                (DBConstant.CLUSTER_SIZE + 1) * Integer.BYTES
+                Long.BYTES * this.singleClusterSize +
+                (this.singleClusterSize + 1) * Integer.BYTES
                 + Integer.BYTES + keyLocation));
 
         int blockSizeToRead = nextKeyLocation - keyLocation;
         var block = new byte[blockSizeToRead];
         reader.read(block);
-        byte[] decompress = Lz4Compression.getInstance().decompress(block);
+        byte[] decompress = compressionStrategy.decompress(block);
         var wrap = ByteBuffer.wrap(decompress);
         int keyLength = wrap.getInt();
         wrap.position(wrap.position() + keyLength);

@@ -24,6 +24,10 @@ public record Pointer(byte[] key, long position) implements Comparable<Pointer> 
         return new Pointer(key, position);
     }
 
+    public int getSize() {
+        return key.length + Long.BYTES;
+    }
+
     //    @Override
 //    public boolean equals(Object o) {
 //        if (this == o) return true;

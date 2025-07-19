@@ -19,6 +19,7 @@ AtomDB/.idea/**/dictionaries
 AtomDB/.idea/**/shelf
 AtomDB/.idea/*
 AtomDB/note
+AtomDB\.idea
 # AWS User-specific
 .idea/**/aws.xml
 
@@ -114,3 +115,4 @@ replay_pid*
 */.idea
 BenchMark/target
 BenchMark/.idea
+BenchMark/.idea/*
