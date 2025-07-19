@@ -5,7 +5,6 @@ import org.g2n.atomdb.Table.SSTInfo;
 import org.g2n.atomdb.db.DbComponentProvider;
 import org.g2n.atomdb.db.KVUnit;
 import org.g2n.atomdb.SSTIO.IOReader;
-import org.g2n.atomdb.SSTIO.IOMMappedReader;
 
 import java.io.IOException;
 import java.util.ArrayDeque;
@@ -15,7 +14,7 @@ class IndexedClusterIterator implements AutoCloseable {
     private final IOReader reader;
     private final int clusterEndPoint;
     private final SSTInfo sstInfo;
-    private final byte numberOfKeysInSingleCluster;
+    private final byte singleClusterSize;
     private final ArrayDeque<KVUnit> queue;
     private int retrievedClusterCount = 0;
 
@@ -23,8 +22,8 @@ class IndexedClusterIterator implements AutoCloseable {
         this.sstInfo = Objects.requireNonNull(sstInfo, "SSTInfo cannot be null");
         this.reader = dbComponentProvider.getIOReader(sstInfo.getSstPath());
         this.clusterEndPoint = (int) Math.abs(sstInfo.getPointers().get(sstInfo.getPointers().size() - 1).position());
-        this.numberOfKeysInSingleCluster = sstInfo.getNumberOfKeysInSingleCluster();
-        this.queue = new ArrayDeque<>(DBConstant.CLUSTER_SIZE);
+        this.singleClusterSize = sstInfo.getSingleClusterSize();
+        this.queue = new ArrayDeque<>(sstInfo.getSingleClusterSize());
     }
 
     public boolean hasNext() throws IOException {
@@ -52,7 +51,7 @@ class IndexedClusterIterator implements AutoCloseable {
     private void loadNextClusterToQueue() throws IOException {
         ensureNotAtEnd("Cannot load cluster, end of path reached");
         try {
-            IndexedCluster.fillQueue(reader, sstInfo.getPointers().get(retrievedClusterCount++), numberOfKeysInSingleCluster, queue);
+            IndexedCluster.fillQueue(reader, sstInfo.getPointers().get(retrievedClusterCount++), singleClusterSize, sstInfo.getCompressionStrategy(), queue);
         } catch (IOException e) {
             throw new IllegalStateException("Error while reading the next cluster", e);
         }

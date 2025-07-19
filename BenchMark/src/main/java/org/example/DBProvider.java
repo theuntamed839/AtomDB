@@ -1,19 +1,22 @@
 package org.example;
 
-import java.io.IOException;
+import org.example.dbs.AtomDB;
+import org.example.dbs.BenchmarkDBAdapter;
+import org.example.dbs.NativeLevelDB;
+import org.example.dbs.PureJavaLevelDB;
 
 public class DBProvider {
-    public static BenchmarkDB get(DB db) throws IOException {
+    public static BenchmarkDBAdapter get(DB db) throws Exception {
         return switch (db) {
-            case LEVELDB -> new LevelDBBenchmark();
-            case FIREFLYDB -> new FireFlyDBBenchmark();
-            case LEVELDB_NATIVE -> new NativeLevelDBBenchmark();
+            case LEVELDB -> new PureJavaLevelDB();
+            case LEVELDB_NATIVE -> new NativeLevelDB();
+            case ATOMDB -> new AtomDB();
         };
     }
 }
 
 enum DB {
     LEVELDB,
-    FIREFLYDB,
+    ATOMDB,
     LEVELDB_NATIVE
 }

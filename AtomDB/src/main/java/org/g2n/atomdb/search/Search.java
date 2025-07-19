@@ -9,13 +9,13 @@ import org.g2n.atomdb.Table.SSTInfo;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
+import org.g2n.atomdb.Table.Table;
 import org.g2n.atomdb.db.DBComparator;
 import org.g2n.atomdb.db.DbComponentProvider;
 import org.g2n.atomdb.db.KVUnit;
 
 import java.io.IOException;
 import java.util.*;
-import java.util.concurrent.ConcurrentSkipListSet;
 
 public class Search implements AutoCloseable{
 
@@ -23,11 +23,12 @@ public class Search implements AutoCloseable{
     private final LoadingCache<SSTInfo, Finder> readerCache;
     private final Cache<Pointer, Checksums> checksumsCache;
     private final HashMap<Integer, Integer> readerStats;
+    private final Table table;
     private final DbComponentProvider dbComponentProvider;
     private ImmutableMem<byte[], KVUnit> secondaryMem;
-    private final SortedSet<SSTInfo> fileList = new ConcurrentSkipListSet<>();
 
-    public Search(DbComponentProvider dbComponentProvider) {
+    public Search(Table table, DbComponentProvider dbComponentProvider) {
+        this.table = table;
         this.dbComponentProvider = dbComponentProvider;
         this.kvCache = Caffeine.newBuilder()
                 .maximumWeight(DBConstant.KEY_VALUE_CACHE_SIZE)
@@ -35,30 +36,36 @@ public class Search implements AutoCloseable{
                 .build(this::findKey);
         this.readerCache = Caffeine.newBuilder()
                 .maximumSize(900)
+                .removalListener((key, value, cause) -> {
+                    try {
+                        ((AutoCloseable)value).close();
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                })
                 .build(this::getFinder);
         this.checksumsCache = Caffeine.newBuilder()
                 .maximumWeight(500 * 1024 * 1024)
-                .weigher((Pointer pos, Checksums check) -> DBConstant.CLUSTER_SIZE * Long.BYTES)
+                .weigher((Pointer pos, Checksums checks) -> pos.getSize() + checks.getSize())
                 .build();
         this.secondaryMem = new ImmutableMemTable(new TreeMap<>(DBComparator.byteArrayComparator), 0);
         this.readerStats = new HashMap<>();
     }
 
-    public void addSSTInfo(SSTInfo info) {
-        fileList.add(info);
-    }
-
-    public void removeSSTInfo(SSTInfo info) throws Exception {
-        fileList.remove(info);
-        Finder exists = readerCache.getIfPresent(info);
-        if (exists != null) {
-            exists.close();
-        }
-        readerCache.invalidate(info);
+    public void removeSSTInfo(Collection<SSTInfo> info) {
+        readerCache.getAllPresent(info).forEach((key, finder) -> {
+            try {
+                finder.close();
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        });
+        readerCache.invalidateAll(info);
     }
 
     private Finder getFinder(SSTInfo sst) throws IOException {
-        return new Finder(sst.getPointers(), checksumsCache, dbComponentProvider.getIOReader(sst.getSstPath()));
+        return new Finder(sst.getPointers(), checksumsCache, dbComponentProvider.getIOReader(sst.getSstPath()),
+                sst.getSingleClusterSize(), sst.getCompressionStrategy());
     }
 
     public KVUnit findKey(byte[] key) throws IOException {
@@ -72,7 +79,7 @@ public class Search implements AutoCloseable{
 
         int fileRequiredToSearch = 0;
 
-        for (SSTInfo sstInfo : fileList) {
+        for (SSTInfo sstInfo : table.getFileListView()) {
             if (sstInfo.getSstKeyRange().inRange(key) && sstInfo.mightContainElement(key)) {
                 fileRequiredToSearch++;
                 Finder finder = readerCache.get(sstInfo);
@@ -125,9 +132,6 @@ public class Search implements AutoCloseable{
     public void close() throws Exception {
         for (Map.Entry<Integer, Integer> entry : readerStats.entrySet()) {
             System.out.println("numberOfFilesRequiredToSearch="+entry.getKey()+" numberOfTimesThisHappened="+entry.getValue());
-        }
-        for (Finder value : readerCache.asMap().values()) {
-            value.close();
         }
         kvCache.invalidateAll();
         readerCache.invalidateAll();

@@ -53,14 +53,6 @@ public class ExpandingByteBuffer extends OutputStream {
         return buffer;
     }
 
-    public byte[] toByteArray() {
-        // Prepare buffer for reading and convert to byte array
-        buffer.flip();
-        byte[] byteArray = new byte[buffer.remaining()];
-        buffer.get(byteArray);
-        return byteArray;
-    }
-
     public void clear() {
         // Reset the buffer
         buffer.clear();
@@ -81,7 +73,7 @@ public class ExpandingByteBuffer extends OutputStream {
         return this.buffer.position();
     }
 
-    public ExpandingByteBuffer position(int position) {
+    public ExpandingByteBuffer position(int position) { // todo make the position long
         this.buffer.position(position);
         return this;
     }

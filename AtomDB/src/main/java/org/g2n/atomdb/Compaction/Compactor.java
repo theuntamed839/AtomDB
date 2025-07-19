@@ -18,16 +18,17 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
- * 3. choose the one which has many deleted entries. ( we have count the number of deleted entries in org.g2n.atomdb.sst and store in the header.)
- * 4. we can have a hit count for org.g2n.atomdb.sst, whicinsth can tell us how optimized the org.g2n.atomdb.sst is. if more success hits then we might not consider
+  * TODO:
+ * 1. we can choose the one which has many deleted entries. ( we have count the number of deleted entries in org.g2n.atomdb.sst and store in the header.)
+ * 2. we can have a hit count for org.g2n.atomdb.sst, which can tell us how optimized the org.g2n.atomdb.sst is. if more success hits then we might not consider
  * the fileToWrite for compaction and choose the one with less hit success. (hit success is finding and getting data)
+ * 3. we should search for dead entries in the below levels and remove if no entries present.
  */
 public class Compactor implements AutoCloseable {
     private final Table table;
     private final DbComponentProvider dbComponentProvider;
     private final SSTPersist sstPersist;
-    private AtomicInteger numberOfActuallyCompactions = new AtomicInteger(0);
-    // todo we need to shutdown this threadpool
+    private final AtomicInteger numberOfActuallyCompactions = new AtomicInteger(0);
     private final ExecutorService executors = Executors.newCachedThreadPool();
     private static final Logger logger = LoggerFactory.getLogger(Compactor.class.getName());
     private final Map<Level, ReentrantLock> locks = new HashMap<>();
@@ -383,9 +384,7 @@ public class Compactor implements AutoCloseable {
         try {
             var iterator = new MergedClusterIterator(Collections.unmodifiableCollection(overlappingFiles), dbComponentProvider);
             sstPersist.writeManyFiles(level.nextLevel(), iterator, getAverageNumOfEntriesInSST(overlappingFiles));
-            for (SSTInfo overlappingFile : overlappingFiles) {
-                table.removeSST(overlappingFile);
-            }
+            table.removeSST(overlappingFiles);
         } catch (Exception e) {
             logger.error("Error during compaction for level {}: {}", level, e.getMessage());
             e.printStackTrace();
@@ -407,6 +406,7 @@ public class Compactor implements AutoCloseable {
     @Override
     public void close() throws Exception {
         executors.shutdown();
+        executors.awaitTermination(1, TimeUnit.MINUTES); // todo this return value can be used to identify if compaction was unsuccessful, which can help in deleting delete files.
         executors.close();
         System.out.println("Number of actually compactions: " + numberOfActuallyCompactions.get());
         // number of files in each levels

@@ -24,9 +24,10 @@ public class SSTFileNamer {
             return stream
                     .parallel()
                     .map(Path::getFileName)
+                    .filter(this::isValidSST)
                     .map(Path::toString)
-                    .filter(n -> n.startsWith("SST_") && n.endsWith(".sst"))
-                    .mapToLong(n -> Long.parseLong(n.split("_")[2]))
+                    .map(n -> n.replace("SST_", "").replace(".sst", ""))
+                    .mapToLong(n -> Long.parseLong(n.split("_")[1]))
                     .max().orElse(0L);
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -50,10 +51,9 @@ public class SSTFileNamer {
         try (var stream = Files.list(directory)) {
             return stream
                     .parallel()
-                    .map(Path::getFileName)
                     .filter(this::isValidSST)
                     .map(this::parse)
-                    .collect(Collectors.toCollection(ConcurrentSkipListSet::new));
+                    .collect(Collectors.toSet());
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

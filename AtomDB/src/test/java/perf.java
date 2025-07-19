@@ -15,30 +15,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
-/*
-TODO
-org.g2n.atomdb.Compaction.IndexedCluster.storeAsBytes ()	67,593 ms (27.4%)	67,593 ms (27.4%)
-Self time	4,403 ms (1.8%)	4,403 ms (1.8%)
-org.g2n.atomdb.Compaction.MergedClusterIterator.fetchNextKVUnit ()	114,212 ms (46.3%)	114,212 ms (46.3%)
-org.g2n.atomdb.Compaction.IndexedCluster.fillQueue ()	109,790 ms (44.5%)	109,790 ms (44.5%)
-org.g2n.atomdb.search.Search.findKey ()	2,406,669 ms (91.8%)	2,406,669 ms (94.4%) itself takes lot of time, see below line
-Self time	973,221 ms (37.1%)	973,221 ms (38.2%)
-org.g2n.atomdb.Compaction.MergedClusterIterator.fetchNextKVUnit ()	12,829 ms (44.4%)	12,829 ms (45.2%) itself takes lot of time see below line
-Self time	4,715 ms (16.3%)	4,715 ms (16.6%)
-org.g2n.atomdb.Compaction.IndexedClusterIterator.loadNextClusterToQueue ()	7,720 ms (26.7%)	7,720 ms (27.2%) look to optimize this path
-org.g2n.atomdb.Compaction.Compactor.acquireLocks ()	3,285 ms (14.8%)	0.0 ms (0%), we should implement a scheduler, which knows what level is under compaction and schedule.
-org.g2n.atomdb.Compaction.IndexedCluster.storeAsBytes ()	6,845 ms (30.9%)	6,845 ms (36.3%), see for any optimization
-org.g2n.atomdb.Compaction.IndexedCluster.calculateCommonPrefix ()	521 ms (2.4%)	521 ms (2.8%), is slow.
-org.g2n.atomdb.Compaction.MergedClusterIterator.fetchNextKVUnit ()	7,450 ms (33.6%)	7,450 ms (39.5%). itself is slow
-Self time	1,438 ms (6.5%)	1,438 ms (7.6%)
-org.g2n.atomdb.search.Finder.getCluster ()	126,105 ms (4.8%)	126,105 ms (4.9%), check why is this slow
-writing time=5.4812078 , reading time=8.3590173
-writing time=5.5229372 , reading time=7.3959285
-writing time=5.1570694 , reading time=7.2155728
-writing time=4.9185669 , reading time=7.3372383
-
- */
-
 public class perf {
 
     public static final int SEED = 1234;
