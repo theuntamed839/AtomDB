@@ -3,6 +3,7 @@ package org.g2n.atomdb.search;
 import org.g2n.atomdb.Checksum.Crc32cChecksum;
 import org.g2n.atomdb.Compaction.Pointer;
 import org.g2n.atomdb.Constants.DBConstant;
+import org.g2n.atomdb.Level.Level;
 import org.g2n.atomdb.Mem.ImmutableMem;
 import org.g2n.atomdb.Mem.ImmutableMemTable;
 import org.g2n.atomdb.Table.SSTInfo;
@@ -25,6 +26,7 @@ public class Search implements AutoCloseable{
     private final HashMap<Integer, Integer> readerStats;
     private final Table table;
     private final DbComponentProvider dbComponentProvider;
+    private final SortedSet<SSTInfo> tableView;
     private ImmutableMem<byte[], KVUnit> secondaryMem;
 
     public Search(Table table, DbComponentProvider dbComponentProvider) {
@@ -50,6 +52,7 @@ public class Search implements AutoCloseable{
                 .build();
         this.secondaryMem = new ImmutableMemTable(new TreeMap<>(DBComparator.byteArrayComparator), 0);
         this.readerStats = new HashMap<>();
+        this.tableView = table.getFileListView();
     }
 
     public void removeSSTInfo(Collection<SSTInfo> info) {
@@ -74,12 +77,11 @@ public class Search implements AutoCloseable{
             return kvUnit;
         }
 
-        Crc32cChecksum crc32cChecksum = Crc32cChecksum.getInstance();//new Crc32cChecksum();
-        long keyChecksum = crc32cChecksum.compute(key);
+        long keyChecksum = getKeyChecksum(key);
 
         int fileRequiredToSearch = 0;
 
-        for (SSTInfo sstInfo : table.getFileListView()) {
+        for (SSTInfo sstInfo : tableView) {
             if (sstInfo.getSstKeyRange().inRange(key) && sstInfo.mightContainElement(key)) {
                 fileRequiredToSearch++;
                 Finder finder = readerCache.get(sstInfo);
@@ -92,6 +94,11 @@ public class Search implements AutoCloseable{
         }
         readerStats.put(fileRequiredToSearch, readerStats.getOrDefault(fileRequiredToSearch, 0) + 1);
         return null;
+    }
+
+    private static long getKeyChecksum(byte[] key) {
+        Crc32cChecksum crc32cChecksum = Crc32cChecksum.getInstance();//new Crc32cChecksum();
+        return crc32cChecksum.compute(key);
     }
 
 //    public KVUnit findKey(byte[] key) throws IOException {
@@ -137,5 +144,24 @@ public class Search implements AutoCloseable{
         readerCache.invalidateAll();
         kvCache.cleanUp();
         readerCache.cleanUp();
+    }
+
+    public Collection<SSTInfo> getAllSSTsWithKey(byte[] key, Level fromLevel) throws IOException {
+        var keyChecksum = getKeyChecksum(key);
+
+        var ssts = new ArrayList<SSTInfo>();
+        for (SSTInfo sstInfo : tableView) {
+            if (sstInfo.getLevel().compareTo(fromLevel) < 0) {
+                continue;
+            }
+            if (sstInfo.getSstKeyRange().inRange(key) && sstInfo.mightContainElement(key)) { // todo can settle for only mightContainElement check ?
+                Finder finder = readerCache.get(sstInfo);
+                var unit = finder.find(key, keyChecksum);
+                if (unit != null) {
+                    ssts.add(sstInfo);
+                }
+            }
+        }
+        return ssts;
     }
 }

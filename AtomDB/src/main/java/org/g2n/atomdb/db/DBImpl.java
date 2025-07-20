@@ -43,7 +43,7 @@ public class DBImpl implements DB{
         this.memtable = new SkipListMemtable(dbOptions.memtableSize, dbOptions.comparator);
         this.table = new Table(dbPath, dbComponentProvider);
         this.search = new Search(table, dbComponentProvider);
-        this.compactor = new Compactor(table, dbPath, dbComponentProvider);
+        this.compactor = new Compactor(table, search, dbPath, dbComponentProvider);
         this.options = dbOptions;
         walManager.restore(this);
     }

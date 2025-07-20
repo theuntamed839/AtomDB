@@ -8,6 +8,7 @@ import org.g2n.atomdb.Table.SSTInfo;
 import org.g2n.atomdb.db.DbComponentProvider;
 import org.g2n.atomdb.db.KVUnit;
 import org.g2n.atomdb.SSTIO.SSTPersist;
+import org.g2n.atomdb.search.Search;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -26,6 +27,7 @@ import java.util.concurrent.locks.ReentrantLock;
  */
 public class Compactor implements AutoCloseable {
     private final Table table;
+    private final Search search;
     private final DbComponentProvider dbComponentProvider;
     private final SSTPersist sstPersist;
     private final AtomicInteger numberOfActuallyCompactions = new AtomicInteger(0);
@@ -33,8 +35,9 @@ public class Compactor implements AutoCloseable {
     private static final Logger logger = LoggerFactory.getLogger(Compactor.class.getName());
     private final Map<Level, ReentrantLock> locks = new HashMap<>();
 
-    public Compactor(Table table, Path dbPath, DbComponentProvider dbComponentProvider) {
+    public Compactor(Table table, Search search, Path dbPath, DbComponentProvider dbComponentProvider) {
         this.table = table;
+        this.search = search;
         this.dbComponentProvider = dbComponentProvider;
         this.sstPersist = new SSTPersist(table, dbPath, dbComponentProvider);
         for (Level level : Level.values()) {
@@ -382,7 +385,7 @@ public class Compactor implements AutoCloseable {
         numberOfActuallyCompactions.addAndGet(1);
         long start = System.nanoTime();
         try {
-            var iterator = new MergedClusterIterator(Collections.unmodifiableCollection(overlappingFiles), dbComponentProvider);
+            var iterator = new MergedClusterIterator(Collections.unmodifiableCollection(overlappingFiles), search, dbComponentProvider);
             sstPersist.writeManyFiles(level.nextLevel(), iterator, getAverageNumOfEntriesInSST(overlappingFiles));
             table.removeSST(overlappingFiles);
         } catch (Exception e) {

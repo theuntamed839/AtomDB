@@ -9,6 +9,7 @@ import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadInfo;
 import java.lang.management.ThreadMXBean;
 import java.nio.file.Files;
+import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -17,7 +18,7 @@ import java.util.function.Supplier;
 
 public class perf {
 
-    public static final int SEED = 1234;
+    public static final long SEED = 1234;
 
     public static void main(String[] args) throws Exception {
         Runtime runtime = Runtime.getRuntime();
@@ -50,7 +51,7 @@ public class perf {
         var opt = new DbOptions();
         opt.disallowUseOfMMap();
         var jimfs = Jimfs.newFileSystem(Configuration.unix());
-        var dbPath = Files.createTempDirectory(jimfs.getPath("/"), "benchmarkWithRandomKVBytes_" + getSaltString());
+        var dbPath = Files.createTempDirectory(jimfs.getPath("/"), "benchmarkWithRandomKVBytes_" + Instant.now().toEpochMilli());
         var db = new DBImpl(dbPath, opt);
 
         benchmarkWithRandomKVBytes(db, 20_000_00, 500, 50);
@@ -122,19 +123,6 @@ public class perf {
         } finally {
             db.close();
         }
-    }
-
-    static String getSaltString() {
-        String SALTCHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890";
-        StringBuilder salt = new StringBuilder();
-        Random rnd = new Random(SEED);
-        while (salt.length() < 18) { // length of the random string.
-            int index = (int) (rnd.nextFloat() * SALTCHARS.length());
-            salt.append(SALTCHARS.charAt(index));
-        }
-        String saltStr = salt.toString();
-        return saltStr;
-
     }
 
     private static Map<byte[], byte[]> getRandomKV(int totalEntryCount, Supplier<Integer> keyBytesLength, Supplier<Integer> valueBytesLength) {

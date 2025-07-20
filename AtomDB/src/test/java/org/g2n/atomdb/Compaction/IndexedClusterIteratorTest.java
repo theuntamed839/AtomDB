@@ -37,7 +37,7 @@ class IndexedClusterIteratorTest {
         var dbComponentProvider = new DbComponentProvider(dbOptions);
         var table = new Table(dbPath, dbComponentProvider);
         var sstPersist = new SSTPersist(table, dbPath, dbComponentProvider);
-        this.sortedKVs = getSortedKVs(MAX_ENTRIES);
+        this.sortedKVs = generateSortedRandomKVs(MAX_ENTRIES);
         sstPersist.writeSingleFile(
                 Level.LEVEL_ZERO,
                 MAX_ENTRIES,
@@ -54,7 +54,7 @@ class IndexedClusterIteratorTest {
         }
     }
 
-    private List<KVUnit> getSortedKVs(int count) {
+    private List<KVUnit> generateSortedRandomKVs(int count) {
         var rand = new Random();
         List<KVUnit> kvUnits = new ArrayList<>();
         for (int i = 0; i < count; i++) {
