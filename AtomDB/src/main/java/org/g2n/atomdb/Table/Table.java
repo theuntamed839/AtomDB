@@ -26,8 +26,8 @@ import static java.util.Objects.requireNonNull;
 
 public class Table {
     private static final Logger logger = LoggerFactory.getLogger(Table.class);
-    private final Map<Level, Integer> tableSize;
-    private final Map<Level, SortedSet<SSTInfo>> levelToFilesMap;
+    private final Map<Level, Integer> tableSize = new ConcurrentHashMap<>();
+    private final Map<Level, SortedSet<SSTInfo>> levelToFilesMap = new ConcurrentHashMap<>();
     private final SortedSet<SSTInfo> allFilesSet = new ConcurrentSkipListSet<>();
     private final SortedSet<SSTInfo> fileListView = Collections.unmodifiableSortedSet(allFilesSet);
     private final SSTFileNamer sstFileNamer;
@@ -36,9 +36,6 @@ public class Table {
     public Table(Path dbPath, DbComponentProvider dbComponentProvider) {
         this.sstFileNamer = new SSTFileNamer(dbPath);
         this.dbComponentProvider = dbComponentProvider;
-        levelToFilesMap = new ConcurrentHashMap<>();
-        tableSize = new ConcurrentHashMap<>() ;
-
         for (Level value : Level.values()) {
             levelToFilesMap.put(value, new TreeSet<>());
         }
@@ -67,7 +64,6 @@ public class Table {
     public synchronized void addToTheTable(List<Intermediate> intermediates) throws IOException {
         Preconditions.checkArgument(intermediates.stream().map(Intermediate::sstHeader).map(SSTHeader::getLevel).distinct().count() == 1,
                 "All intermediates must be of the same level");
-//        Level level = intermediates.iterator().next().sstHeader().getLevel();
         Level level = intermediates.getFirst().sstHeader().getLevel();
         int torsoSize = 0;
         SortedSet<SSTInfo> levelSSTInfos = levelToFilesMap.get(level);
@@ -102,12 +98,12 @@ public class Table {
             try {
                 Files.deleteIfExists(info.getSstPath());
             } catch (Exception e) {
-                logger.error("Failed to delete SST file: " + info.getSstPath().toAbsolutePath(), e);
+                logger.error("Failed to delete SST file: {}", info.getSstPath().toAbsolutePath(), e);
             }
         }
     }
 
-    public synchronized SortedSet<SSTInfo> getFileListView() {
+    public SortedSet<SSTInfo> getFileListView() {
         return fileListView;
     }
 

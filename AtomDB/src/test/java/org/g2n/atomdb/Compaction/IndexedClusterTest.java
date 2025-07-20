@@ -129,14 +129,14 @@ class IndexedClusterTest{
     }
 
     @Test
-    public void storeAsBytes_worksForAllNumberOfKeys() throws IOException {
+    public void testStoreAsBytes_worksForAllNumberOfKeys() throws IOException {
         for (int i = 1; i <= 100; i++) {
             validateStoreBytes(i);
         }
     }
 
     @Test
-    public void fillQueue_worksForAllNumberOfKeys() throws IOException {
+    public void testFillQueue_worksForAllNumberOfKeys() throws IOException {
         for (int i = 1; i <= 100; i++) {
             validateFillQueue(i);
         }
@@ -250,15 +250,16 @@ class IndexedClusterTest{
 
     private List<KVUnit> loadAndGet(int numberOfKeys, IndexedCluster cluster) {
         var rand = new Random();
-        var kvs = new ArrayList<KVUnit>();
-        for (int i = 0; i < numberOfKeys; i++) {
+        var set = new HashSet<KVUnit>();
+        while (set.size() < numberOfKeys) {
             byte[] key = new byte[rand.nextInt(1, 100)];
             rand.nextBytes(key);
             byte[] value = new byte[rand.nextInt(1, 100)];
             rand.nextBytes(value);
             KVUnit kvUnit = new KVUnit(key, value);
-            kvs.add(kvUnit);
+            set.add(kvUnit);
         }
+        var kvs = new ArrayList<>(set);
         kvs.sort((a, b) -> Arrays.compare(a.getKey(), b.getKey()));
         kvs.forEach(cluster::add);
         return kvs;

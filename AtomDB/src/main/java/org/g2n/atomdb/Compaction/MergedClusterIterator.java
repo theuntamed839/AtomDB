@@ -24,7 +24,7 @@ public class MergedClusterIterator implements Iterator<KVUnit>, AutoCloseable {
     private List<IndexedClusterIterator> initializeIterators(Collection<SSTInfo> sstInfoCollection) throws IOException {
         List<IndexedClusterIterator> iterators = new ArrayList<>(sstInfoCollection.size());
         for (SSTInfo sstInfo : sstInfoCollection) {
-            iterators.add(new IndexedClusterIterator(sstInfo, dbComponentProvider)); // todo should we directly provide a reader, instead of sending DbComponentProvider?
+            iterators.add(new IndexedClusterIterator(sstInfo, dbComponentProvider));
         }
         iterators.sort((a, b) -> {
             try {

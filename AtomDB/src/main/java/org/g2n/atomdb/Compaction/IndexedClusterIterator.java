@@ -1,6 +1,5 @@
 package org.g2n.atomdb.Compaction;
 
-import org.g2n.atomdb.Constants.DBConstant;
 import org.g2n.atomdb.Table.SSTInfo;
 import org.g2n.atomdb.db.DbComponentProvider;
 import org.g2n.atomdb.db.KVUnit;
@@ -31,8 +30,7 @@ class IndexedClusterIterator implements AutoCloseable {
     }
 
     private boolean isFileLimitReached() throws IOException {
-        // todo which one comes the first, we can optimize this
-        return reader.position() == clusterEndPoint || retrievedClusterCount == sstInfo.getPointers().size();
+        return reader.position() == clusterEndPoint || retrievedClusterCount == sstInfo.getPointers().size() - 1;
     }
 
     public byte[] nextClusterSmallestKey() throws IOException {

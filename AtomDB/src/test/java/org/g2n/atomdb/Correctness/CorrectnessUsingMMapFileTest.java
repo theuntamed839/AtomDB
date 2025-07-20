@@ -1,10 +1,10 @@
 package org.g2n.atomdb.Correctness;
 
+import org.g2n.atomdb.db.DB;
 import org.g2n.atomdb.db.DBImpl;
 import org.g2n.atomdb.db.DbOptions;
 
 import java.io.File;
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
@@ -22,7 +22,9 @@ public class CorrectnessUsingMMapFileTest extends CorrectnessTest{
     }
 
     @Override
-    protected void destroy() throws IOException {
+    protected void destroy(DB db) throws Exception {
+        db.close();
+        db.destroy();
         Files.walk(dbPath)
                 .sorted(Comparator.reverseOrder())
                 .map(Path::toFile)

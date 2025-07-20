@@ -202,16 +202,34 @@ public class IndexedCluster {
                                  byte numberOfKeysInSingleCluster,
                                  DBConstant.COMPRESSION_TYPE compressionStrategy,
                                  Queue<KVUnit> queue) throws IOException {
+        var decompressor = CompressionStrategyFactory.getCompressionStrategy(compressionStrategy);
         reader.position((int) (pointer.position() + Long.BYTES * numberOfKeysInSingleCluster)); // skip checksums
-        List<Integer> locations = getLocationList(getBytes(reader, Integer.BYTES * (numberOfKeysInSingleCluster + 1)), numberOfKeysInSingleCluster);
-        int commonPrefix = reader.getInt();
-        ByteBuffer bytes = getBytes(reader, getTotalSizeToReadForKVs(locations));
-        DataCompressionStrategy decompressor = CompressionStrategyFactory.getCompressionStrategy(compressionStrategy);
 
-        for (int i = 0; bytes.hasRemaining(); i++) {
-            var block = decompressBlock(locations, i, bytes, decompressor);
+        List<Integer> locations = getLocationList(reader, numberOfKeysInSingleCluster);
+        int commonPrefix = reader.getInt();
+        long beforeReadingKV = reader.position();
+        int kvCount = getTotalKVsInCluster(locations);
+        for (int i = 0; i < kvCount; i++) {
+            var block = decompressBlock(locations, i, reader, decompressor);
             queue.add(parseKV(pointer, block, commonPrefix));
         }
+
+        if (queue.size() != kvCount) {
+            throw new IllegalStateException("Queue size does not match expected number of KVs in cluster");
+        }
+
+        if (reader.position() != locations.get(kvCount) + beforeReadingKV) {
+            throw new IllegalStateException("Reader position does not match expected end of cluster" + reader.position() + " != " + (locations.get(kvCount) + beforeReadingKV));
+        }
+    }
+
+    private static int getTotalKVsInCluster(List<Integer> locations) {
+        for (int i = 0; i < locations.size(); i++) {
+            if (locations.get(i) == DUMMY_LOCATION) {
+                return i - 1;
+            }
+        }
+        return locations.size() - 1;
     }
 
     private static KVUnit parseKV(Pointer pointer, ByteBuffer block, int commonPrefix) {
@@ -233,29 +251,14 @@ public class IndexedCluster {
         }
     }
 
-    private static ByteBuffer decompressBlock(List<Integer> locations, int index, ByteBuffer bytes, DataCompressionStrategy decompressor) throws IOException {
+    private static ByteBuffer decompressBlock(List<Integer> locations, int index, IOReader bytes, DataCompressionStrategy decompressor) throws IOException {
         byte[] block = new byte[locations.get(index + 1) - locations.get(index)];
         bytes.get(block);
         byte[] decompress = decompressor.decompress(block);
         return ByteBuffer.wrap(decompress);
     }
 
-    private static int getTotalSizeToReadForKVs(List<Integer> locations) {
-        for (int i = 0; i < locations.size(); i++) {
-            if (locations.get(i) == DUMMY_LOCATION) {
-                return locations.get(i - 1);
-            }
-        }
-        return locations.getLast();
-    }
-
-    private static ByteBuffer getBytes(IOReader reader, int size) throws IOException {
-        byte[] bytes = new byte[size];
-        reader.read(bytes);
-        return ByteBuffer.wrap(bytes);
-    }
-
-    private static List<Integer> getLocationList(ByteBuffer wrap, int sizeOfCluster) {
+    private static List<Integer> getLocationList(IOReader wrap, int sizeOfCluster) throws IOException {
         List<Integer> locations = new ArrayList<>();
         for (int i = 0; i < sizeOfCluster + 1; i++) {
             locations.add(wrap.getInt());
