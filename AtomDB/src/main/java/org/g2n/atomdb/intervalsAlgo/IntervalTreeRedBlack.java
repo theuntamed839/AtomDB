@@ -1,6 +1,6 @@
 package org.g2n.atomdb.intervalsAlgo;
 
-import org.g2n.atomdb.Table.SSTInfo;
+import org.g2n.atomdb.table.SSTInfo;
 
 import java.util.ArrayList;
 import java.util.Arrays;

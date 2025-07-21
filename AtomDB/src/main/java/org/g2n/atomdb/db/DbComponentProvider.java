@@ -1,7 +1,7 @@
 package org.g2n.atomdb.db;
 
-import org.g2n.atomdb.Constants.DBConstant;
-import org.g2n.atomdb.SSTIO.*;
+import org.g2n.atomdb.constants.DBConstant;
+import org.g2n.atomdb.sstIO.*;
 
 import java.io.IOException;
 import java.nio.file.Path;

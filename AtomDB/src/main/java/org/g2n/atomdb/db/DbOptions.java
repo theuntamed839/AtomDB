@@ -1,8 +1,6 @@
 package org.g2n.atomdb.db;
 
-import org.g2n.atomdb.Compression.DataCompressionStrategy;
-import org.g2n.atomdb.Compression.Lz4Compression;
-import org.g2n.atomdb.Constants.DBConstant;
+import org.g2n.atomdb.constants.DBConstant;
 import sun.misc.Unsafe;
 
 import java.lang.reflect.Field;

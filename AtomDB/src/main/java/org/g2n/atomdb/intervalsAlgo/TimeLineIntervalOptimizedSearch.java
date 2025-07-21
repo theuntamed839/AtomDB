@@ -1,6 +1,6 @@
 package org.g2n.atomdb.intervalsAlgo;
 
-import org.g2n.atomdb.SSTIO.Range;
+import org.g2n.atomdb.sstIO.Range;
 
 import java.util.*;
 
