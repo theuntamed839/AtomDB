@@ -10,11 +10,11 @@ public final class DbOptions {
 
     public int pageSize;
     public int memtableSize = DBConstant.MEMTABLE_SIZE;
-    public Comparator<byte[]> comparator = DBComparator.byteArrayComparator;
+    private Comparator<byte[]> comparator = DBComparator.byteArrayComparator;
     private byte clusterSize = DBConstant.CLUSTER_SIZE;
     private DBConstant.COMPRESSION_TYPE compressionType = DBConstant.COMPRESSION_TYPE.LZ4;
     private DBConstant.CHECKSUM_TYPE checksumType = DBConstant.CHECKSUM_TYPE.CRC32C;
-
+    private int sstFileSize = DBConstant.COMPACTED_SST_FILE_SIZE;
     private boolean isMMapAllowed = true;
 
     public DbOptions() {
@@ -31,12 +31,10 @@ public final class DbOptions {
     }
 
     public void setSSTFileSize(int sstSize) {
-        if (sstSize <= DBConstant.MIN_SST_FILE_SIZE) {
+        if (sstSize <= DBConstant.MIN_SST_FILE_SIZE) { // todo find the actual min size
             throw new IllegalArgumentException("SST file size must be greater than " + DBConstant.MIN_SST_FILE_SIZE);
         }
-        // todo
-        // need to store this size and use it throughout the DB implementation
-        // moreover we should have the memtableSize same as the SST file size
+        sstFileSize = sstSize;
     }
 
     public void disallowUseOfMMap() {
@@ -78,5 +76,17 @@ public final class DbOptions {
 
     public void setCompressionType(DBConstant.COMPRESSION_TYPE compressionType) {
         this.compressionType = compressionType;
+    }
+
+    public int getSSTSize() {
+        return sstFileSize;
+    }
+
+    public Comparator<byte[]> getComparator() {
+        return comparator;
+    }
+
+    public void setComparator(Comparator<byte[]> comparator) {
+        this.comparator = comparator;
     }
 }

@@ -5,6 +5,7 @@ import org.g2n.atomdb.sstIO.*;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.Comparator;
 
 public final class DbComponentProvider {
     private final byte clusterSize;
@@ -12,6 +13,8 @@ public final class DbComponentProvider {
     private final IOWriterFactory writerFactory;
     private final DBConstant.CHECKSUM_TYPE checksumType;
     private final DBConstant.COMPRESSION_TYPE compressionType;
+    private final int sstFileSize;
+    private final Comparator<byte[]> comparator;
 
     public DbComponentProvider(DbOptions dbOptions) {
         if (dbOptions.isMMapAllowed()) {
@@ -25,6 +28,8 @@ public final class DbComponentProvider {
         this.clusterSize = dbOptions.getClusterSize();
         this.checksumType = dbOptions.getChecksumType();
         this.compressionType = dbOptions.getCompressionType();
+        this.sstFileSize = dbOptions.getSSTSize();
+        this.comparator = dbOptions.getComparator();
     }
 
     public IOReader getIOReader(Path file) throws IOException {
@@ -45,5 +50,13 @@ public final class DbComponentProvider {
 
     public DBConstant.COMPRESSION_TYPE getCompressionType() {
         return this.compressionType;
+    }
+
+    public int getSSTSize() {
+        return sstFileSize;
+    }
+
+    public Comparator<byte[]> getComparator() {
+        return comparator;
     }
 }

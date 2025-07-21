@@ -4,7 +4,7 @@ import org.g2n.atomdb.compaction.Compactor;
 import org.g2n.atomdb.constants.DBConstant;
 import org.g2n.atomdb.constants.Operations;
 import org.g2n.atomdb.level.Level;
-import org.g2n.atomdb.logs.WALManager;
+import org.g2n.atomdb.wal.WALManager;
 import org.g2n.atomdb.mem.ImmutableMem;
 import org.g2n.atomdb.mem.SkipListMemtable;
 import org.g2n.atomdb.table.Table;
@@ -40,7 +40,7 @@ public class DBImpl implements DB{
         Files.createDirectories(dbPath);
         acquireDBLock();
         this.walManager = new WALManager(dbPath, dbComponentProvider);
-        this.memtable = new SkipListMemtable(dbOptions.memtableSize, dbOptions.comparator);
+        this.memtable = new SkipListMemtable(dbOptions.memtableSize, dbOptions.getComparator());
         this.table = new Table(dbPath, dbComponentProvider);
         this.search = new Search(table, dbComponentProvider);
         this.compactor = new Compactor(table, search, dbPath, dbComponentProvider);
@@ -49,7 +49,7 @@ public class DBImpl implements DB{
     }
 
     @Override
-    public void put(byte[] key, byte[] value) throws Exception {
+    public synchronized void put(byte[] key, byte[] value) throws Exception {
         ensureOpen();
         var kvUnit = new KVUnit(key, value);
 
@@ -62,7 +62,7 @@ public class DBImpl implements DB{
     }
 
     @Override
-    public byte[] get(byte[] key) throws Exception {
+    public synchronized byte[] get(byte[] key) throws Exception {
         ensureOpen();
         Objects.requireNonNull(key);
         var kvUnit = memtable.get(key);
@@ -73,7 +73,7 @@ public class DBImpl implements DB{
     }
 
     @Override
-    public void delete(byte[] key) throws Exception {
+    public synchronized void delete(byte[] key) throws Exception {
         ensureOpen();
         KVUnit kvUnit = new KVUnit(key);
         walManager.log(Operations.DELETE, kvUnit);
@@ -87,7 +87,7 @@ public class DBImpl implements DB{
         search.addSecondaryMemtable(immutableMem);
 
         walManager.rotateLog();
-        memtable = new SkipListMemtable(options.memtableSize, options.comparator); // todo we can have more memtable
+        memtable = new SkipListMemtable(options.memtableSize, options.getComparator()); // todo we can have more memtable
 
         compactor.tryCompaction(Level.LEVEL_ZERO);
     }
