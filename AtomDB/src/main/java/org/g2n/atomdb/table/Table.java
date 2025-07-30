@@ -25,33 +25,33 @@ import static java.util.Objects.requireNonNull;
 
 public class Table {
     private static final Logger logger = LoggerFactory.getLogger(Table.class);
-    private final Map<Level, Integer> tableSize = new ConcurrentHashMap<>();
+    private final Map<Level, Long> tableSize = new ConcurrentHashMap<>();
     private final Map<Level, SortedSet<SSTInfo>> levelToFilesMap = new ConcurrentHashMap<>();
     private final SortedSet<SSTInfo> allFilesSet = new ConcurrentSkipListSet<>();
     private final SortedSet<SSTInfo> fileListView = Collections.unmodifiableSortedSet(allFilesSet);
     private final SSTFileNamer sstFileNamer;
     private final DbComponentProvider dbComponentProvider;
 
-    public Table(Path dbPath, DbComponentProvider dbComponentProvider) {
+    public Table(Path dbPath, DbComponentProvider dbComponentProvider) throws IOException {
         this.sstFileNamer = new SSTFileNamer(dbPath);
         this.dbComponentProvider = dbComponentProvider;
         for (Level value : Level.values()) {
             levelToFilesMap.put(value, new TreeSet<>());
         }
         for (Level value : Level.values()) {
-            tableSize.put(value, 0);
+            tableSize.put(value, 0L);
         }
         fillLevels();
     }
 
-    private void fillLevels() {
+    private void fillLevels() throws IOException {
         Set<SSTFileNameMeta> validSSTFiles = sstFileNamer.getValidSSTFiles();
         for (SSTFileNameMeta sstMeta : validSSTFiles) {
             var sstInfo = SSTFileHelper.getSSTInfo(sstMeta, dbComponentProvider);
             Level level = sstInfo.getLevel();
             levelToFilesMap.get(level).add(sstInfo);
             allFilesSet.add(sstInfo);
-            tableSize.put(level, tableSize.get(level) + sstInfo.getFileTorsoSize());
+            tableSize.put(level, tableSize.get(level) + sstInfo.getFileSize());
         }
     }
 
@@ -64,7 +64,7 @@ public class Table {
         Preconditions.checkArgument(intermediates.stream().map(Intermediate::sstHeader).map(SSTHeader::getLevel).distinct().count() == 1,
                 "All intermediates must be of the same level");
         Level level = intermediates.getFirst().sstHeader().getLevel();
-        int torsoSize = 0;
+        long torsoSize = 0;
         SortedSet<SSTInfo> levelSSTInfos = levelToFilesMap.get(level);
 
         for (Intermediate inter : intermediates) {
@@ -77,14 +77,14 @@ public class Table {
                     inter.filter(),
                     meta
             );
-            torsoSize += info.getFileTorsoSize();
+            torsoSize += info.getFileSize();
             levelSSTInfos.add(info);
             allFilesSet.add(info);
         }
         tableSize.put(level, tableSize.get(level) + torsoSize);
     }
 
-    public synchronized void removeSST(Collection<SSTInfo> ssts) {
+    public synchronized void removeSST(Collection<SSTInfo> ssts) throws IOException {
         for (SSTInfo info : ssts) {
             Level level = info.getLevel();
             if (!levelToFilesMap.get(level).contains(info)) {
@@ -93,7 +93,7 @@ public class Table {
             }
             levelToFilesMap.get(level).remove(info);
             allFilesSet.remove(info);
-            tableSize.put(level, tableSize.get(level) - info.getFileTorsoSize());
+            tableSize.put(level, tableSize.get(level) - info.getFileSize());
             try {
                 Files.deleteIfExists(info.getSstPath());
             } catch (Exception e) {
@@ -110,7 +110,7 @@ public class Table {
         return levelToFilesMap.get(level);
     }
 
-    public int getCurrentLevelSize(Level level) {
+    public Long getCurrentLevelSize(Level level) {
         return tableSize.get(level);
     }
 }

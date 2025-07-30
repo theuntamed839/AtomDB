@@ -19,12 +19,25 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
-  * TODO:
- * 1. we can choose the one which has many deleted entries. ( we have count the number of deleted entries in org.g2n.atomdb.sst and store in the header.)
- * 2. we can have a hit count for org.g2n.atomdb.sst, which can tell us how optimized the org.g2n.atomdb.sst is. if more success hits then we might not consider
- * the fileToWrite for compaction and choose the one with less hit success. (hit success is finding and getting data)
- * 3. we should search for dead entries in the below levels and remove if no entries present.
+ * TODO:
+ *  1. we can choose the one which has many deleted entries.
+ *     For that we can have the number of deleted entries in org.g2n.atomdb.sst in the header
+ *  2. We should maintain a hit count for each org.g2n.atomdb.sst file to evaluate how optimized it is.
+ *     Files with a higher hit success rate (i.e., more successful lookups) are likely well-optimized and can be skipped during compaction.
+ *
+ *  Note:
+ *   1. We must ensure that we always compact the older files first, and that we avoid compacting files that overlap with other files in the same level.
+ *      consider that level 1 has 2 files named A and B. where B is the latest and A is the oldest.
+ *      B has 23 and 29 number in it.
+ *      A has 23 number in it.
+ *      consider that we choose the files having 29 to compact, and we search for files having 29 and compact to next Level 2.
+ *      Now the issue starts, when we try to find number 23 we first look into the Level 1 and since we have file A containing 23 in it we return that.
+ *      But turns out the newest value for 23 was in B which is now compacted to Level 2
+ *      So we have to make sure that all the olds files are compacted first and if we can't compact the old files, then we should choose the files which are not overlapping
+ *      with the old files.
  */
+
+
 public class Compactor implements AutoCloseable {
     private final Table table;
     private final Search search;
@@ -49,104 +62,61 @@ public class Compactor implements AutoCloseable {
         sstPersist.writeSingleFile(Level.LEVEL_ZERO, memtable.getNumberOfEntries(), memtable.getKeySetIterator());
     }
 
-    /**
-     *
-     * TODO:
-     * Compactions needs more thought
-     * we have to make sure that we always compact the old files and those files which doesn't overlap with the same level path.
-     *
-     * consider that level 1 has 2 files named A and B. where B is the new path and A is the old path.
-     * B has 23 and 29 number in it.
-     * A has 23 number in it.
-     * consider that we choose the files having 29 to compact, and we search for files having 29 and compact to Level 2.
-     * Now the issue starts, when we try to find number 23 we first look into the Level 1 and since we have path named A containing 23 in it we return that.
-     * But turns out the newest value for 23 was in B which is now compacted to Level 2
-     *
-     * So we have to make sure that all the olds files are compacted first and if we can't compact the old files, then we should choose the files which are not overlapping
-     * with the old files.
-     */
-
     public void tryCompaction(Level level) {
-        //System.out.println(level + " start tryCompaction" + Thread.currentThread().getName());
         if (table.getCurrentLevelSize(level) < level.limitingSize()) {
-            //System.out.println(level + " not enough files to compact" + Thread.currentThread().getName());
             return;
         }
 
-        // todo to remove
-//        long sum = 0;
-//        for (SSTInfo sstInfo : table.getSSTInfoSet(level)) {
-//            sum += sstInfo.getFileTorsoSize();
-//        }
-//        if (sum < level.limitingSize()) {
-//            //System.out.println(level + "Why is the sum less" + Thread.currentThread().getName());
-//            throw new RuntimeException(level + "Not good");
-//        }
-        // end
-
-        sleepIfLevelOneCompactionUnderProcess(level);
-        //System.out.println(level + " providing to executors" + Thread.currentThread().getName());
+        waitUntilLevelZeroCompactionFree(level); // otherwise main thread is just going to submit to executors, and let the files increase in level 0
+        if (executors.isShutdown()) {
+            return;
+        }
         executors.execute(() -> {
-            //System.out.println(level + "start of the executor lambda" + Thread.currentThread().getName());
             ReentrantLock lock1 = locks.get(level);
             ReentrantLock lock2 = locks.get(level.nextLevel());
             try {
-                acquireLocks(lock1, lock2);
-                //System.out.println(level + " got the locks" + Thread.currentThread().getName());
-                Collection<SSTInfo> overlapping = getCurrAndNextLevelOverlappins2(level);
+                lock1.lock();
+                lock2.lock();
+                Collection<SSTInfo> overlapping = getCurrentAndNextLevelOverlappingFiles(level);
                 if (overlapping.size() <= 1) {
-                    //System.out.println(level + "WOW".repeat(10) + Thread.currentThread().getName());
                     return;
                 }
-                //System.out.println(level + "overlapping files are " + overlapping.size() + Thread.currentThread().getName());
                 performCompaction(level, overlapping);
             } catch (Exception e) {
-                //System.out.println(level + "exception boss" + Thread.currentThread().getName());
                 e.printStackTrace();
             } finally {
-                //System.out.println(level + " releasing the locks" + Thread.currentThread().getName());
                 if (lock1.isHeldByCurrentThread()) {
                     lock1.unlock();
-                    //System.out.println(level + " released lock1" + Thread.currentThread().getName());
                 }
                 if (lock2.isHeldByCurrentThread()) {
                     lock2.unlock();
-                    //System.out.println(level + " released lock2" + Thread.currentThread().getName());
                 }
             }
-            //System.out.println(level + "trying compaction for next level" + Thread.currentThread().getName());
             if (Level.LEVEL_SEVEN != level.nextLevel()) {
                 tryCompaction(level.nextLevel());
             }
-            //System.out.println(level + "end of the executor lambda" + Thread.currentThread().getName());
         });
-        //System.out.println(level + " end of tryCompaction" + Thread.currentThread().getName());
     }
 
-    private static void acquireLocks(ReentrantLock lock1, ReentrantLock lock2) throws InterruptedException {
-        while(!lock1.tryLock()) {
-            Thread.sleep(1);
+    private void waitUntilLevelZeroCompactionFree(Level level) {
+        if (level != Level.LEVEL_ZERO) {
+            return;
         }
-        while(!lock2.tryLock()) {
-            Thread.sleep(1);
-        }
-    }
-
-    private void sleepIfLevelOneCompactionUnderProcess(Level level) {
-        var isLevelZero = level == Level.LEVEL_ZERO;
-        while (isLevelZero && (locks.get(level).isLocked() || locks.get(level.nextLevel()).isLocked())) {
+        ReentrantLock lock1 = locks.get(level);
+        ReentrantLock lock2 = locks.get(level.nextLevel());
+        lock1.lock();
+        try {
+            lock2.lock();
             try {
-                //System.out.println("level=" + level + " is locked" + Thread.currentThread().getName());
-                //System.out.println(locks.get(level).isLocked() + " " + locks.get(level.nextLevel()).isLocked() + Thread.currentThread().getName());
-                //System.out.println("waiting for zero compaction to finish" + Thread.currentThread().getName());
-                Thread.sleep(100);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
+            } finally {
+                lock2.unlock();
             }
+        } finally {
+            lock1.unlock();
         }
     }
 
-    private Range getSSTKeyRange(SortedSet<SSTInfo> sortedSet) {
+    private Range computeCombinedRange(SortedSet<SSTInfo> sortedSet) {
         byte[] greatestKey = sortedSet.getLast().getSstKeyRange().getGreatest();
         byte[] smallestKey = sortedSet.getLast().getSstKeyRange().getSmallest();
         for(SSTInfo sstInfo : sortedSet) {
@@ -160,241 +130,113 @@ public class Compactor implements AutoCloseable {
         return new Range(smallestKey, greatestKey);
     }
 
-    private SortedSet<SSTInfo> getOverlappingSSTs(SortedSet<SSTInfo> sstInfos, Range range) {
-        var greatestKey = range.getGreatest();
-        var smallestKey = range.getSmallest();
-
-        SortedSet<SSTInfo> overlappingFiles = new TreeSet<>();
-        addFilesContainingKey(overlappingFiles, greatestKey, sstInfos);
-        addFilesContainingKey(overlappingFiles, smallestKey, sstInfos);
-        if (overlappingFiles.isEmpty()) {
-            return overlappingFiles;
-        }
-        var wideRange = getSSTKeyRange(overlappingFiles);
-
-        addFilesContainingKey(overlappingFiles, wideRange.getSmallest(), sstInfos);
-        addFilesContainingKey(overlappingFiles, wideRange.getGreatest(), sstInfos);
-        return overlappingFiles;
-    }
-
-    private Collection<SSTInfo> getCurrAndNextLevelOverlappins(Level level) {
+    private Collection<SSTInfo> getCurrentAndNextLevelOverlappingFiles(Level level) {
         SortedSet<SSTInfo> currentLevelSSTSet = table.getSSTInfoSet(level);
+        if (currentLevelSSTSet.isEmpty()) {
+            return Collections.emptyList();
+        }
+
         SortedSet<SSTInfo> nextLevelSSTSet = table.getSSTInfoSet(level.nextLevel());
-        if (currentLevelSSTSet.isEmpty()) {
-            return Collections.emptyList();
-        }
-
-        var currLevelOverlappings = getOverlappingSSTs(currentLevelSSTSet, currentLevelSSTSet.getLast().getSstKeyRange());
-        if (nextLevelSSTSet.isEmpty() || currLevelOverlappings.isEmpty()) {
-            return currLevelOverlappings;
-        }
-
-        var wideRange = getSSTKeyRange(currLevelOverlappings);
-        var nextLevelOverlappings = getOverlappingSSTs(nextLevelSSTSet, wideRange);
-        currLevelOverlappings.addAll(nextLevelOverlappings);
-        return currLevelOverlappings;
-    }
-
-    private Collection<SSTInfo> getCurrAndNextLevelOverlappins1(Level level) {
-        SortedSet<SSTInfo> currentLevelSSTSet = table.getSSTInfoSet(level);
-        if (currentLevelSSTSet.isEmpty()) {
-            return Collections.emptyList();
-        }
-        var currLevelOverlappings = getTransitivelyOverlapping(currentLevelSSTSet, currentLevelSSTSet.getLast().getSstKeyRange());
-        //System.out.println("Level " + level + " has " + currentLevelSSTSet.size() + " files and overlapping files are " + currLevelOverlappings.size());
-//        SortedSet<SSTInfo> nextLevelSSTSet = table.getSSTInfoSet(level.nextLevel());
-//        if (nextLevelSSTSet.closed() || currLevelOverlappings.closed()) {
-//            return currLevelOverlappings;
-//        }
-//
-//        var wideRange = getSSTKeyRange(currLevelOverlappings);
-//        var nextLevelOverlappings = getTransitivelyOverlapping(nextLevelSSTSet, wideRange);
-//        currLevelOverlappings.addAll(nextLevelOverlappings);
-//        //System.out.println("Level " + level.nextLevel() + " has " + nextLevelSSTSet.size() + " files and overlapping files are " + nextLevelOverlappings.size());
-        return currLevelOverlappings;
-    }
-
-    private Collection<SSTInfo> getCurrAndNextLevelOverlappins2(Level level) {
-        //System.out.println(level + " start getCurrAndNextLevelOverlappins2" + Thread.currentThread().getName());
-        /*
-        we can actually use only the ssts which has low dependecy and their recursive dependecies.
-         */
-        SortedSet<SSTInfo> currentLevelSSTSet = table.getSSTInfoSet(level);
-        SortedSet<SSTInfo> nextLevelSSTSet = table.getSSTInfoSet(level.nextLevel());
-        //System.out.println(level + " currentLevelSSTSet size is " + currentLevelSSTSet.size() + Thread.currentThread().getName());
-        //System.out.println(level + " nextLevelSSTSet size is " + nextLevelSSTSet.size() + Thread.currentThread().getName());
-        if (currentLevelSSTSet.isEmpty()) {
-            //System.out.println(level + " currentLevelSSTSet is empty" + Thread.currentThread().getName());
-            return Collections.emptyList();
-        }
-
         for (SSTInfo sstInfo : currentLevelSSTSet.reversed()) {
-            //System.out.println(level + " getAllOverlappingFilesToCompactWithGivenRange" + Thread.currentThread().getName());
-            var set = getAllOverlappingFilesToCompactWithGivenRange(level, sstInfo.getSstKeyRange(), currentLevelSSTSet, nextLevelSSTSet);
-            if (!set.isEmpty()) {
-                //System.out.println(level + " set size is " + set.size() + Thread.currentThread().getName());
+            var set = getAllOverlappingFilesToCompactWithGivenRange(sstInfo.getSstKeyRange(), currentLevelSSTSet, nextLevelSSTSet);
+            if (set.size() > 1) {
                 return set;
             }
         }
-        //System.out.println(level + " currentLevelSSTSet is empty" + Thread.currentThread().getName());
         return List.of();
     }
 
-    private SortedSet<SSTInfo> getAllOverlappingFilesToCompactWithGivenRange(Level level, Range range, SortedSet<SSTInfo> currentLevelSSTSet, SortedSet<SSTInfo> nextLevelSSTSet) {
-        /***
-         * todo we can actually get all the depenmdent files, we can actually have limited number of files to be compacted per level, and based on that we can choose which depenedcy links to include
-         *
-         */
-        var greatestKey = range.getGreatest();
-        var smallestKey = range.getSmallest();
-        SortedSet<SSTInfo> overlappingFiles = new TreeSet<>();
-        addFilesContainingKey(overlappingFiles, greatestKey, currentLevelSSTSet);
-        addFilesContainingKey(overlappingFiles, smallestKey, currentLevelSSTSet);
+    private SortedSet<SSTInfo> getAllOverlappingFilesToCompactWithGivenRange(Range range, SortedSet<SSTInfo> currentLevelSSTSet,
+                                                                             SortedSet<SSTInfo> nextLevelSSTSet) {
+        /*
+            IMPORTANT:
+            Ideally, we want to select:
+            All overlapping files from the current level, along with any files they further overlap with.
+            All overlapping files from the next level with the current level files, including their further overlapping files.
 
-        Queue<SSTInfo> queue = new LinkedList<>(overlappingFiles);
-        SortedSet<SSTInfo> real = new TreeSet<>();
-        while (!queue.isEmpty()) {
-            var sst = queue.poll();
-            if (real.contains(sst)) {
+            These would lead to highly optimized SSTs but could be very expensive process too as we might take all the SSTs from both the levels.
+
+            To mitigate this,
+            1.We can avoid the newer overlapping files from the current level.
+             (since reading is done with the newest first, we are not messing the structure, if we take newer files and keep the older files, then compaction
+              is going to push these new files to next level, thus reading is going to happen with the older files first)
+
+            2.We can avoid taking older overlapping files from the next level.
+             (Why avoid older files ? consider opposite, we take older files and avoid newer files, since it's the compaction from the previous level, newly
+             compacted files will be pushed as newer files in this level, leading to messed up reading structure, as we're going to read the older values first)
+         */
+
+        SortedSet<SSTInfo> initiallyOverlapping = new TreeSet<>();
+        for (SSTInfo sst : currentLevelSSTSet) {
+            if (range.overlapsWith(sst.getSstKeyRange())) {
+                initiallyOverlapping.add(sst);
+            }
+        }
+
+        SortedSet<SSTInfo> expandedOverlappingSet = expandOverlappingFiles(currentLevelSSTSet, initiallyOverlapping);
+        var wideRange = computeCombinedRange(expandedOverlappingSet);
+        expandedOverlappingSet.addAll(findNextLevelNonOverlappingSSTs(nextLevelSSTSet, wideRange));
+        return expandedOverlappingSet;
+    }
+
+
+    private static SortedSet<SSTInfo> expandOverlappingFiles(SortedSet<SSTInfo> allSSTs, SortedSet<SSTInfo> initialOverlappingSet) {
+        Deque<SSTInfo> toProcess = new ArrayDeque<>(initialOverlappingSet);
+        SortedSet<SSTInfo> result = new TreeSet<>();
+        while (!toProcess.isEmpty()) {
+            var current = toProcess.poll();
+            if (result.contains(current)) {
                 continue;
             }
-            for (SSTInfo sstInfo : currentLevelSSTSet) {
-                if (sstInfo.compareTo(sst) <= 0) {
+            for (SSTInfo candidate : allSSTs) {
+                if (candidate.equals(current) || candidate.isNewerThan(current)) { //avoid newer ssts.
                     continue;
                 }
-                if (sstInfo.getSstKeyRange().inRange(sst.getSstKeyRange().getSmallest()) ||
-                        sstInfo.getSstKeyRange().inRange(sst.getSstKeyRange().getGreatest())) {
-                    // todo this could lead to taking whole level ssts to compact.
-                    queue.add(sstInfo);
+                if (current.getSstKeyRange().overlapsWith(candidate.getSstKeyRange())) {
+                    toProcess.add(candidate);
                 }
             }
-            real.add(sst);
-//            //System.out.println("File " + sst.getSstPath().getName() + " has " + list.size() + " dependency of files");
+            result.add(current);
         }
-        if (real.isEmpty()) {
-            return real;
-        }
-        var wideRange = getSSTKeyRange(real);
-        real.addAll(getZeroDependentSSTs(nextLevelSSTSet, wideRange));
-
-        //System.out.println("Level " + level + " has " + currentLevelSSTSet.size() + " files and overlapping files are " + real.size());
-        return real;
-    }
-
-    private Collection<? extends SSTInfo> getZeroDependentSSTs(SortedSet<SSTInfo> nextLevelSSTSet, Range wideRange) {
-        SortedSet<SSTInfo> overlappingFiles = new TreeSet<>();
-        for (SSTInfo original : nextLevelSSTSet) {
-            if (original.getSstKeyRange().inRange(wideRange.getSmallest()) ||
-                    original.getSstKeyRange().inRange(wideRange.getGreatest())) {
-                boolean doesNotHaveDependency = true;
-                for (SSTInfo toCompare : nextLevelSSTSet) {
-                    if (toCompare.equals(original)) {
-                        continue;
-                    }
-                    if (toCompare.getSstKeyRange().inRange(original.getSstKeyRange().getSmallest()) ||
-                            toCompare.getSstKeyRange().inRange(original.getSstKeyRange().getGreatest())) {
-                        doesNotHaveDependency = false;
-                        break;
-                    }
-                }
-                if(doesNotHaveDependency) {
-                    overlappingFiles.add(original);
-                }
-            }
-        }
-        return overlappingFiles;
-    }
-
-    private SortedSet<SSTInfo> getTransitivelyOverlapping(SortedSet<SSTInfo> sstInfos, Range baseRange) {
-        if (sstInfos.isEmpty()) return new TreeSet<>();
-        byte[] low = baseRange.getSmallest();
-        byte[] high = baseRange.getGreatest();
-
-        SortedSet<SSTInfo> result = new TreeSet<>();
-        boolean expanded;
-
-        do {
-            expanded = false;
-            for (SSTInfo sst : sstInfos) {
-                if (result.contains(sst)) continue;
-                Range r = sst.getSstKeyRange();
-                if (Arrays.compare(r.getSmallest(), high) <= 0 &&
-                        Arrays.compare(r.getGreatest(), low) >= 0) {
-                    result.add(sst);
-                    if (Arrays.compare(r.getSmallest(), low) < 0) {
-                        low = r.getSmallest();
-                        expanded = true;
-                    }
-                    if (Arrays.compare(r.getGreatest(), high) > 0) {
-                        high = r.getGreatest();
-                        expanded = true;
-                    }
-                }
-            }
-        } while (expanded);
-
         return result;
     }
 
-    private Collection<SSTInfo> getOverlappingSSTs(Level level) {
-        SortedSet<SSTInfo> currentLevelSSTSet = table.getSSTInfoSet(level);
-        SortedSet<SSTInfo> nextLevelSSTSet = table.getSSTInfoSet(level.nextLevel());
-        Collection<SSTInfo> overlapsByBoundaryKeys = findOverlapsByBoundaryKeys(currentLevelSSTSet, nextLevelSSTSet);
-        //System.out.println("we took B, size="+overlapsByBoundaryKeys.size());
-        return overlapsByBoundaryKeys;
-    }
-
-    private Collection<SSTInfo> findOverlapsByBoundaryKeys(SortedSet<SSTInfo> currentLevelSet, SortedSet<SSTInfo> nextLevelSet) {
-        for (Iterator<SSTInfo> it = ((TreeSet<SSTInfo>) currentLevelSet).descendingIterator(); it.hasNext(); ) {
-            SSTInfo sstInfo = it.next();
-
-            byte[] greatestKey = sstInfo.getSstKeyRange().getGreatest();
-            byte[] smallestKey = sstInfo.getSstKeyRange().getSmallest();
-
-            var overlapping = findOverlapping(greatestKey, currentLevelSet, nextLevelSet);
-            if (overlapping.size() > 1) {
-                findOverlapping(smallestKey, currentLevelSet, nextLevelSet);
-                //System.out.println("took greatest key");
-                return overlapping;
-            }
-
-            overlapping = findOverlapping(smallestKey, currentLevelSet, nextLevelSet);
-            if (overlapping.size() > 1) {
-                //System.out.println("took smallest key");
-                return overlapping;
+    private Collection<? extends SSTInfo> findNextLevelNonOverlappingSSTs(SortedSet<SSTInfo> ssts, Range range) {
+        SortedSet<SSTInfo> result = new TreeSet<>();
+        for (SSTInfo candidate : ssts) {
+            // the older method seems to be working faster, with less efficiency of compacting, but faster compactions.
+            boolean oldMethod = true && (candidate.getSstKeyRange().inRange(range.getSmallest()) || candidate.getSstKeyRange().inRange(range.getGreatest()));
+            boolean newMethod = true; //&& range.overlapsWith(candidate.getSstKeyRange());
+            // todo: in new method, experiment and see what happens if we directly move older files from a level which is full which doesn't have any overlapping files among them.
+            if (oldMethod && newMethod) {
+                boolean toInclude = true;
+                for (SSTInfo other : ssts) {
+                    if (other.equals(candidate)) {
+                        continue;
+                    }
+//                  if sst is older than don't accept
+                    if (candidate.getSstKeyRange().overlapsWith(other.getSstKeyRange()) && candidate.isOlderThan(other)) {
+                        toInclude = false;
+                        break;
+                    }
+                }
+                if(toInclude) {
+                    result.add(candidate);
+                }
             }
         }
-        return Collections.emptyList();
+        return result;
     }
 
-    private Collection<SSTInfo> findOverlapping(byte[] common, SortedSet<SSTInfo> currentLevelSet, SortedSet<SSTInfo> nextLevelSet) {
-        Collection<SSTInfo> overlappingFiles = new ArrayList<>();
-        addFilesContainingKey(overlappingFiles, common, nextLevelSet);
-        addFilesContainingKey(overlappingFiles, common, currentLevelSet);
-        return overlappingFiles;
-    }
-
-    private void addFilesContainingKey(Collection<SSTInfo> collection, byte[] key, SortedSet<SSTInfo> levelFileSet) {
-        levelFileSet.stream()
-                .filter(sstInfo -> sstInfo.getSstKeyRange().inRange(key))
-                .forEach(collection::add);
-    }
-
-    private Level performCompaction(Level level, Collection<SSTInfo> overlappingFiles) {
-        //System.out.println(level + " org.g2n.atomdb.Compaction Started " + Thread.currentThread().getName());
+    private void performCompaction(Level level, Collection<SSTInfo> overlappingFiles) {
         numberOfActuallyCompactions.addAndGet(1);
-        long start = System.nanoTime();
         try {
             var iterator = new MergedClusterIterator(Collections.unmodifiableCollection(overlappingFiles), search, dbComponentProvider);
             sstPersist.writeManyFiles(level.nextLevel(), iterator, getAverageNumOfEntriesInSST(overlappingFiles));
             table.removeSST(overlappingFiles);
         } catch (Exception e) {
             logger.error("Error during compaction for level {}: {}", level, e.getMessage());
-            e.printStackTrace();
-            System.exit(123);
         }
-        //System.out.println(level + " org.g2n.atomdb.Compaction Ended   " + Thread.currentThread().getName() + " took=" + (System.nanoTime() - start) / 1_000_000_000.0 + " Seconds");
-        return level;
     }
 
     private int getAverageNumOfEntriesInSST(Collection<SSTInfo> overlappingFiles) {

@@ -73,7 +73,7 @@ public class MergedClusterIterator implements Iterator<KVUnit>, AutoCloseable {
     private void generateNextKV() throws IOException {
         for(; !clusterIterators.isEmpty() ;) {
             KVUnit kvUnit = fetchNextKVUnit();
-            if (kvUnit.isDeleted() && isKeyNotFoundInFurtherLevels(kvUnit.getKey())) {
+            if (kvUnit == null || (kvUnit.isDeleted() && isKeyNotFoundInFurtherLevels(kvUnit.getKey()))) {
                 continue;
             }
             this.next = kvUnit;
@@ -89,10 +89,9 @@ public class MergedClusterIterator implements Iterator<KVUnit>, AutoCloseable {
     }
 
     private KVUnit fetchNextKVUnit() throws IOException {
-        KVUnit unit = clusterIterators.getFirst().getNextKVUnit();
-        IndexedClusterIterator curr = clusterIterators.getFirst();
+        KVUnit currUnit = null;
+        IndexedClusterIterator curr = null;
         var toRemove = new ArrayList<IndexedClusterIterator>();
-
         for (IndexedClusterIterator iterator : clusterIterators) {
             if (!iterator.hasNext()) {
                 iterator.close();
@@ -100,15 +99,17 @@ public class MergedClusterIterator implements Iterator<KVUnit>, AutoCloseable {
                 continue;
             }
 
-            if (iterator.equals(curr)) {
+            KVUnit potentialUnit = iterator.getNextKVUnit();
+            if (currUnit == null) {
+                currUnit = potentialUnit;
+                curr = iterator;
                 continue;
             }
 
-            KVUnit potentialUnit = iterator.getNextKVUnit();
-            int compare = DBComparator.byteArrayComparator.compare(potentialUnit.getKey(), unit.getKey());
+            int compare = DBComparator.byteArrayComparator.compare(potentialUnit.getKey(), currUnit.getKey());
 
             if (compare <= -1) {
-                unit = potentialUnit;
+                currUnit = potentialUnit;
                 curr = iterator;
             }
 
@@ -117,9 +118,14 @@ public class MergedClusterIterator implements Iterator<KVUnit>, AutoCloseable {
             }
         }
 
-        KVUnit kvUnit = curr.pollNextKVUnit();
         entriesServed++;
 
+        if (curr == null) {
+            clusterIterators.removeAll(toRemove);
+            return null; // no more KV units available
+        }
+
+        KVUnit kvUnit = curr.pollNextKVUnit();
         if (!curr.hasNext()) {
             curr.close();
             toRemove.add(curr);

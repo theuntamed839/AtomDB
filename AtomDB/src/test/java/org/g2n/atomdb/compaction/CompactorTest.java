@@ -241,18 +241,18 @@ class CompactorTest {
     @Test
     void testTryCompaction_shouldAvoidNextLevelSSTsWithDependenciesToLimitCompactionSet() throws Exception {
         sstPersist.writeSingleFile(Level.LEVEL_ONE, 2,
-                List.of(new KVUnit(new byte[]{-2}, "value1".getBytes()),
-                        new KVUnit(new byte[]{-1}, "value2".getBytes())).iterator());
+                List.of(new KVUnit(new byte[]{-9}, "value1".getBytes()),
+                        new KVUnit(new byte[]{-5}, "value2".getBytes())).iterator());
         sstPersist.writeSingleFile(Level.LEVEL_ONE, 2,
-                List.of(new KVUnit(new byte[]{-4}, "value1".getBytes()),
-                        new KVUnit(new byte[]{-2}, "value2".getBytes())).iterator());
+                List.of(new KVUnit(new byte[]{-11}, "value1".getBytes()),
+                        new KVUnit(new byte[]{-9}, "value2".getBytes())).iterator());
 
         sstPersist.writeSingleFile(Level.LEVEL_ZERO, 2,
-                List.of(new KVUnit(new byte[]{-6}, "value1".getBytes()),
+                List.of(new KVUnit(new byte[]{-5}, "value1".getBytes()),
                         new KVUnit(new byte[]{-1}, "value2".getBytes())).iterator());
         sstPersist.writeSingleFile(Level.LEVEL_ZERO, 2,
-                List.of(new KVUnit(new byte[]{-7}, "value1".getBytes()),
-                        new KVUnit(new byte[]{-1}, "value2".getBytes())).iterator());
+                List.of(new KVUnit(new byte[]{-5}, "value1".getBytes()),
+                        new KVUnit(new byte[]{-4}, "value2".getBytes())).iterator());
 
         generateFatSSTToTriggerCompactionNew(sstPersist, Level.LEVEL_ZERO);
         var sstCount_LEVEL_ZERO = table.getSSTInfoSet(Level.LEVEL_ZERO).size();

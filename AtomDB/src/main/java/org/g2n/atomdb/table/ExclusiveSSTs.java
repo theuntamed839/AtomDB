@@ -22,7 +22,7 @@ class ExclusiveSSTs {
             return true;
         }
 
-        if (!range.overLapping(info.getSstKeyRange())) {
+        if (!range.overlapsWith(info.getSstKeyRange())) {
             insert(info);
             return true;
         }

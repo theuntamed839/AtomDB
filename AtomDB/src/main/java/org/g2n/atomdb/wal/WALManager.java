@@ -66,8 +66,8 @@ public class WALManager implements AutoCloseable {
     }
 
     private Instant extractTimestamp(Path file) {
-        String timestampStr = file.getFileName().toString().replace(LOG_PREFIX + "-", "").replace('_', ':');
-        return Instant.parse(timestampStr);
+        String timestampStr = file.getFileName().toString().replace(LOG_PREFIX + "-", "");
+        return Instant.ofEpochMilli(Long.parseLong(timestampStr));
     }
 
     private int compareLogFiles(Path file1, Path file2) {
@@ -85,12 +85,12 @@ public class WALManager implements AutoCloseable {
     }
 
     private Path generateNewLogFile() throws IOException {
-        Path path = this.logDirPath.resolve(LOG_PREFIX + "-" + Instant.now().toString().replace(':', '_'));
+        Path path = this.logDirPath.resolve(LOG_PREFIX + "-" + Instant.now().toEpochMilli());
         Files.createFile(path);
         return path;
     }
 
-    public void log(Operations operations, KVUnit kvUnit) throws IOException {
+    public synchronized void log(Operations operations, KVUnit kvUnit) throws IOException {
         var buffer = bufferThreadLocal.get();
         buffer.clear();
         walEncoderDecoder.encode(buffer, operations, kvUnit);
@@ -98,7 +98,7 @@ public class WALManager implements AutoCloseable {
         writer.write(buffer.getBuffer());
     }
 
-    public void rotateLog() throws Exception {
+    public synchronized void rotateLog() throws Exception {
         closeCurrentLog();
         startNewLog();
     }

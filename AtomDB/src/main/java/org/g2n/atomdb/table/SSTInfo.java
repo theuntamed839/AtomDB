@@ -6,6 +6,7 @@ import com.google.common.hash.BloomFilter;
 import org.g2n.atomdb.sstIO.Range;
 import org.g2n.atomdb.sstIO.SSTHeader;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -57,9 +58,8 @@ public class SSTInfo extends SSTHeader implements Comparable<SSTInfo> {
         return  Byte.compare(this.getLevel().value(), sstInfo.getLevel().value());
     }
 
-    public int getFileTorsoSize() {
-        // todo change this name
-        return (int) (getPointersPosition() - pointers.getLast().position());
+    public long getFileSize() throws IOException {
+        return Files.size(sstPath);
     }
 
     @Override
@@ -87,5 +87,13 @@ public class SSTInfo extends SSTHeader implements Comparable<SSTInfo> {
                 ", sstHashCode=" + sstHashCode +
                 ", SSTHeader=" + super.toString() +
                 '}';
+    }
+
+    public boolean isNewerThan(SSTInfo sst) {
+        return compareTo(sst) < 0;
+    }
+
+    public boolean isOlderThan(SSTInfo sst) {
+        return compareTo(sst) > 0;
     }
 }
