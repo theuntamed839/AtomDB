@@ -28,20 +28,12 @@ public class Range {
         this.size = smallest.length + greatest.length + Integer.BYTES * 2 + Long.BYTES;
     }
 
-    public int getRequiredSizeToStoreKeyRange() {
-        return size;
-    }
-
     public byte[] getSmallest() {
         return smallest;
     }
 
     public byte[] getGreatest() {
         return greatest;
-    }
-
-    public long getChecksum() {
-        return checksum;
     }
 
     // TODO unit test these methods
@@ -53,6 +45,11 @@ public class Range {
     public boolean overlapsWith(Range other) {
         return DBComparator.byteArrayComparator.compare(this.smallest, other.getGreatest()) <= 0 &&
                 DBComparator.byteArrayComparator.compare(this.greatest, other.getSmallest()) >= 0;
+    }
+
+    public boolean contains(Range range) {
+        return DBComparator.byteArrayComparator.compare(this.smallest, range.smallest) <= 0 &&
+                DBComparator.byteArrayComparator.compare(this.greatest, range.greatest) >= 0;
     }
 
     @Override

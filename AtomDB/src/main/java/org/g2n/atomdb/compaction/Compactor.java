@@ -174,8 +174,8 @@ public class Compactor implements AutoCloseable {
         }
 
         SortedSet<SSTInfo> expandedOverlappingSet = expandOverlappingFiles(currentLevelSSTSet, initiallyOverlapping);
-        var wideRange = computeCombinedRange(expandedOverlappingSet);
-        expandedOverlappingSet.addAll(findNextLevelNonOverlappingSSTs(nextLevelSSTSet, wideRange));
+//        var wideRange = computeCombinedRange(expandedOverlappingSet);
+        expandedOverlappingSet.addAll(findNextLevelNonOverlappingSSTs(nextLevelSSTSet, range));
         return expandedOverlappingSet;
     }
 
@@ -202,13 +202,19 @@ public class Compactor implements AutoCloseable {
     }
 
     private Collection<? extends SSTInfo> findNextLevelNonOverlappingSSTs(SortedSet<SSTInfo> ssts, Range range) {
+        /*
+        range.overlapsWith(candidate.getSstKeyRange());
+        this can go in the below if condition, it generates highly optimized ssts, but is very expensive, as it gets a lot of ssts to compact
+
+
+        candidate.getSstKeyRange().contains(range)
+        because further level ssts are highly compact, and decided whether to get compacted based on the range
+
+        candidate.getSstKeyRange().inRange(range.getSmallest()) || candidate.getSstKeyRange().inRange(range.getGreatest());
+         */
         SortedSet<SSTInfo> result = new TreeSet<>();
         for (SSTInfo candidate : ssts) {
-            // the older method seems to be working faster, with less efficiency of compacting, but faster compactions.
-            boolean oldMethod = true && (candidate.getSstKeyRange().inRange(range.getSmallest()) || candidate.getSstKeyRange().inRange(range.getGreatest()));
-            boolean newMethod = true; //&& range.overlapsWith(candidate.getSstKeyRange());
-            // todo: in new method, experiment and see what happens if we directly move older files from a level which is full which doesn't have any overlapping files among them.
-            if (oldMethod && newMethod) {
+            if (candidate.getSstKeyRange().contains(range)) {
                 boolean toInclude = true;
                 for (SSTInfo other : ssts) {
                     if (other.equals(candidate)) {

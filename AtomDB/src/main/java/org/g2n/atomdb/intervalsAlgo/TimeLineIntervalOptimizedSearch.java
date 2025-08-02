@@ -15,7 +15,7 @@ class idk {
     }
 
     public boolean insertIfMutuallyExclusive(Interval interval) {
-        if (!range.overLapping(interval.get().getSstKeyRange())) {
+        if (!range.overlapsWith(interval.get().getSstKeyRange())) {
             insert(interval);
             return true;
         }
