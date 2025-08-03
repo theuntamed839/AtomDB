@@ -51,9 +51,9 @@ class MergedClusterIteratorTest {
         var dbOptions = new DbOptions();
         dbOptions.disallowUseOfMMap();
         this.dbComponentProvider = new DbComponentProvider(dbOptions);
-        this.table = new Table(dbPath, dbComponentProvider);
+        this.search = new Search(dbComponentProvider);
+        this.table = new Table(dbPath, search, dbComponentProvider);
         this.sstPersist = new SSTPersist(table, dbPath, dbComponentProvider);
-        this.search = new Search(table, dbComponentProvider);
     }
 
     @Test
@@ -66,7 +66,7 @@ class MergedClusterIteratorTest {
         sstPersist.writeSingleFile(Level.LEVEL_ONE, kvs2.size(), kvs2.iterator());
         sstPersist.writeSingleFile(Level.LEVEL_ZERO, kvs3.size(), kvs3.iterator());
 
-        SortedSet<SSTInfo> fileListView = table.getFileListView();
+        SortedSet<SSTInfo> fileListView = getFileListView();
         ArrayList<SSTInfo> sstInfos = new ArrayList<>(fileListView);
         Collections.shuffle(sstInfos);
 
@@ -94,7 +94,7 @@ class MergedClusterIteratorTest {
         sstPersist.writeSingleFile(Level.LEVEL_ONE, kvs2.size(), kvs2.iterator());
         sstPersist.writeSingleFile(Level.LEVEL_ZERO, kvs3.size(), kvs3.iterator());
 
-        SortedSet<SSTInfo> fileListView = table.getFileListView();
+        SortedSet<SSTInfo> fileListView = getFileListView();
         ArrayList<SSTInfo> sstInfos = new ArrayList<>(fileListView);
         Collections.shuffle(sstInfos);
 
@@ -124,7 +124,7 @@ class MergedClusterIteratorTest {
         sstPersist.writeSingleFile(Level.LEVEL_ONE, kvs2.size(), kvs2.iterator());
         sstPersist.writeSingleFile(Level.LEVEL_ZERO, kvs3.size(), kvs3.iterator());
 
-        SortedSet<SSTInfo> fileListView = table.getFileListView();
+        SortedSet<SSTInfo> fileListView = getFileListView();
         ArrayList<SSTInfo> sstInfos = new ArrayList<>(fileListView);
         Collections.shuffle(sstInfos);
 
@@ -158,7 +158,7 @@ class MergedClusterIteratorTest {
         sstPersist.writeSingleFile(Level.LEVEL_ONE, kvs2.size(), kvs2.iterator());
         sstPersist.writeSingleFile(Level.LEVEL_ZERO, kvs3.size(), kvs3.iterator());
 
-        SortedSet<SSTInfo> fileListView = table.getFileListView();
+        SortedSet<SSTInfo> fileListView = getFileListView();
         ArrayList<SSTInfo> sstInfos = new ArrayList<>(fileListView);
         Collections.shuffle(sstInfos);
 
@@ -191,7 +191,7 @@ class MergedClusterIteratorTest {
         sstPersist.writeSingleFile(Level.LEVEL_ONE, kvs2.size(), kvs2.iterator());
         sstPersist.writeSingleFile(Level.LEVEL_ZERO, kvs3.size(), kvs3.iterator());
 
-        SortedSet<SSTInfo> fileListView = table.getFileListView();
+        SortedSet<SSTInfo> fileListView = getFileListView();
         ArrayList<SSTInfo> sstInfos = new ArrayList<>(fileListView);
         Collections.shuffle(sstInfos);
 
@@ -227,7 +227,7 @@ class MergedClusterIteratorTest {
         sstPersist.writeSingleFile(Level.LEVEL_ONE, kvs2.size(), kvs2.iterator());
         sstPersist.writeSingleFile(Level.LEVEL_ZERO, kvs3.size(), kvs3.iterator());
 
-        SortedSet<SSTInfo> fileListView = table.getFileListView();
+        SortedSet<SSTInfo> fileListView = getFileListView();
         ArrayList<SSTInfo> sstInfos = new ArrayList<>(fileListView);
         Collections.shuffle(sstInfos);
 
@@ -265,7 +265,7 @@ class MergedClusterIteratorTest {
         sstPersist.writeSingleFile(Level.LEVEL_ONE, kvs2.size(), kvs2.iterator());
         sstPersist.writeSingleFile(Level.LEVEL_ZERO, kvs3.size(), kvs3.iterator());
 
-        SortedSet<SSTInfo> fileListView = table.getFileListView();
+        SortedSet<SSTInfo> fileListView = getFileListView();
         ArrayList<SSTInfo> sstInfos = new ArrayList<>(fileListView);
         Collections.shuffle(sstInfos);
 
@@ -302,7 +302,7 @@ class MergedClusterIteratorTest {
         sstPersist.writeSingleFile(Level.LEVEL_ONE, kvs2.size(), kvs2.iterator());
         sstPersist.writeSingleFile(Level.LEVEL_ZERO, kvs3.size(), kvs3.iterator());
 
-        SortedSet<SSTInfo> fileListView = table.getFileListView();
+        SortedSet<SSTInfo> fileListView = getFileListView();
         ArrayList<SSTInfo> sstInfos = new ArrayList<>(fileListView);
         Collections.shuffle(sstInfos);
 
@@ -337,7 +337,7 @@ class MergedClusterIteratorTest {
         sstPersist.writeSingleFile(Level.LEVEL_ONE, kvs2.size(), kvs2.iterator());
         sstPersist.writeSingleFile(Level.LEVEL_ZERO, kvs3.size(), kvs3.iterator());
 
-        SortedSet<SSTInfo> fileListView = table.getFileListView();
+        SortedSet<SSTInfo> fileListView = getFileListView();
         ArrayList<SSTInfo> sstInfos = new ArrayList<>(fileListView);
         Collections.shuffle(sstInfos);
 
@@ -374,7 +374,7 @@ class MergedClusterIteratorTest {
         sstPersist.writeSingleFile(Level.LEVEL_ONE, kvs2.size(), kvs2.iterator());
         sstPersist.writeSingleFile(Level.LEVEL_ZERO, kvs3.size(), kvs3.iterator());
 
-        SortedSet<SSTInfo> fileListView = table.getFileListView();
+        SortedSet<SSTInfo> fileListView = getFileListView();
         ArrayList<SSTInfo> sstInfos = new ArrayList<>(fileListView);
         Collections.shuffle(sstInfos);
 
@@ -411,5 +411,13 @@ class MergedClusterIteratorTest {
         kvUnits.addAll(toInclude);
         kvUnits.sort(Comparator.comparing(KVUnit::getKey, DBComparator.byteArrayComparator));
         return kvUnits;
+    }
+    
+    private SortedSet<SSTInfo> getFileListView() {
+        var set = new TreeSet<SSTInfo>();
+        for (Level value : Level.values()) {
+            set.addAll(table.getSSTInfoSet(value));
+        }
+        return set;
     }
 }

@@ -6,6 +6,7 @@ import org.g2n.atomdb.compaction.Pointer;
 import org.g2n.atomdb.compaction.PointerList;
 import org.g2n.atomdb.constants.DBConstant;
 import org.g2n.atomdb.level.Level;
+import org.g2n.atomdb.table.SSTInfo;
 import org.g2n.atomdb.table.Table;
 import com.google.common.hash.BloomFilter;
 import com.google.common.hash.Funnels;
@@ -39,7 +40,7 @@ public class SSTPersist {
 
     public void writeSingleFile(Level level, int maxEntries, Iterator<KVUnit> iterator) throws Exception {
         var inter = writeOptimized1(createNewIntermediateSST(level), level, maxEntries, iterator, () -> true, Integer.MAX_VALUE);
-        table.addToTheTable(Collections.singletonList(inter));
+        table.addToTheTableAndDelete(Collections.singletonList(inter), Collections.emptyList());
     }
 
     public void save(Path path, ExpandingByteBuffer buffer) throws Exception {
@@ -56,7 +57,7 @@ public class SSTPersist {
         return filePath;
     }
 
-    public void writeManyFiles(Level level, MergedClusterIterator iterator, int avgNumberOfEntriesInSST) throws Exception {
+    public void writeManyFiles(Level level, MergedClusterIterator iterator, int avgNumberOfEntriesInSST, Collection<SSTInfo> overlappingFiles) throws Exception {
         var intermediates = new ArrayList<Intermediate>();
         while (iterator.hasNext()) {
             int finalAvgNumberOfEntriesInSST = avgNumberOfEntriesInSST;
@@ -66,7 +67,7 @@ public class SSTPersist {
             avgNumberOfEntriesInSST = (intermediate.sstHeader().getNumberOfEntries() + avgNumberOfEntriesInSST) / 2;
             intermediates.add(intermediate);
         }
-        table.addToTheTable(intermediates);
+        table.addToTheTableAndDelete(intermediates, overlappingFiles);
     }
 
     private Intermediate writeOptimized1(Path filePath,

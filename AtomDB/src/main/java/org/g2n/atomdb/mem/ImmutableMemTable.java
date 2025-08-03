@@ -5,6 +5,7 @@ import org.g2n.atomdb.db.KVUnit;
 
 import java.util.Iterator;
 import java.util.Objects;
+import java.util.Set;
 import java.util.SortedMap;
 
 public class ImmutableMemTable implements ImmutableMem<byte[], KVUnit> {
@@ -40,7 +41,11 @@ public class ImmutableMemTable implements ImmutableMem<byte[], KVUnit> {
     }
 
     @Override
-    public Iterator<KVUnit> getKeySetIterator() {
+    public Iterator<KVUnit> getValuesIterator() {
         return map.values().iterator();
+    }
+
+    public Set<byte[]> getkeySet(){
+        return map.keySet();
     }
 }

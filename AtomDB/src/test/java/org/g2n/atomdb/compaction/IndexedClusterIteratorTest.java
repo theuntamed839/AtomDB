@@ -3,6 +3,7 @@ package org.g2n.atomdb.compaction;
 import com.google.common.jimfs.Configuration;
 import com.google.common.jimfs.Jimfs;
 import org.g2n.atomdb.level.Level;
+import org.g2n.atomdb.search.Search;
 import org.g2n.atomdb.sstIO.*;
 import org.g2n.atomdb.table.SSTInfo;
 import org.g2n.atomdb.table.Table;
@@ -21,8 +22,6 @@ import java.time.Instant;
 import java.util.*;
 
 class IndexedClusterIteratorTest {
-
-
     public static final int MAX_ENTRIES = 100000;
     private SSTInfo sstInfo;
     private IndexedClusterIterator indexedClusterIterator;
@@ -35,7 +34,7 @@ class IndexedClusterIteratorTest {
         var dbOptions = new DbOptions();
         dbOptions.disallowUseOfMMap();
         var dbComponentProvider = new DbComponentProvider(dbOptions);
-        var table = new Table(dbPath, dbComponentProvider);
+        var table = new Table(dbPath,new Search(dbComponentProvider), dbComponentProvider);
         var sstPersist = new SSTPersist(table, dbPath, dbComponentProvider);
         this.sortedKVs = generateSortedRandomKVs(MAX_ENTRIES);
         sstPersist.writeSingleFile(
@@ -43,7 +42,7 @@ class IndexedClusterIteratorTest {
                 MAX_ENTRIES,
                 this.sortedKVs.iterator()
         );
-        this.sstInfo = table.getFileListView().first();
+        this.sstInfo = table.getSSTInfoSet(Level.LEVEL_ZERO).first();
         this.indexedClusterIterator = new IndexedClusterIterator(sstInfo, dbComponentProvider);
     }
 

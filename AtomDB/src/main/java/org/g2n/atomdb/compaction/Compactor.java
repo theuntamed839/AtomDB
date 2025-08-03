@@ -59,11 +59,11 @@ public class Compactor implements AutoCloseable {
     }
 
     public void persistLevel0(ImmutableMem<byte[], KVUnit> memtable) throws Exception {
-        sstPersist.writeSingleFile(Level.LEVEL_ZERO, memtable.getNumberOfEntries(), memtable.getKeySetIterator());
+        sstPersist.writeSingleFile(Level.LEVEL_ZERO, memtable.getNumberOfEntries(), memtable.getValuesIterator());
     }
 
     public void tryCompaction(Level level) {
-        if (table.getCurrentLevelSize(level) < level.limitingSize()) {
+        if (table.getCurrentLevelSize(level) <= level.limitingSize()) {
             return;
         }
 
@@ -238,8 +238,7 @@ public class Compactor implements AutoCloseable {
         numberOfActuallyCompactions.addAndGet(1);
         try {
             var iterator = new MergedClusterIterator(Collections.unmodifiableCollection(overlappingFiles), search, dbComponentProvider);
-            sstPersist.writeManyFiles(level.nextLevel(), iterator, getAverageNumOfEntriesInSST(overlappingFiles));
-            table.removeSST(overlappingFiles);
+            sstPersist.writeManyFiles(level.nextLevel(), iterator, getAverageNumOfEntriesInSST(overlappingFiles), overlappingFiles);
         } catch (Exception e) {
             logger.error("Error during compaction for level {}: {}", level, e.getMessage());
         }

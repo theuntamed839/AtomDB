@@ -2,6 +2,7 @@ package org.g2n.atomdb.table;
 
 import org.g2n.atomdb.level.Level;
 import com.google.common.base.Preconditions;
+import org.g2n.atomdb.search.Search;
 import org.g2n.atomdb.sstIO.Intermediate;
 import org.g2n.atomdb.sstIO.SSTHeader;
 import org.g2n.atomdb.db.DbComponentProvider;
@@ -13,28 +14,23 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListSet;
-
-/**
- * TODO:
- * We need to have a shared lock between the table and the search, as the file can change underneath while we are searching.
- */
+import java.util.stream.Collectors;
 
 public class Table {
     private static final Logger logger = LoggerFactory.getLogger(Table.class);
-    private final Map<Level, Long> tableSize = new ConcurrentHashMap<>();
-    private final Map<Level, SortedSet<SSTInfo>> levelToFilesMap = new ConcurrentHashMap<>();
-    private final SortedSet<SSTInfo> allFilesSet = new ConcurrentSkipListSet<>();
-    private final SortedSet<SSTInfo> fileListView = Collections.unmodifiableSortedSet(allFilesSet);
+    private final Map<Level, Long> tableSize = new HashMap<>();
+    private final Map<Level, SortedSet<SSTInfo>> levelToFilesMap = new HashMap<>();
     private final SSTFileNamer sstFileNamer;
+    private final Search search;
     private final DbComponentProvider dbComponentProvider;
 
-    public Table(Path dbPath, DbComponentProvider dbComponentProvider) throws IOException {
+    public Table(Path dbPath, Search search, DbComponentProvider dbComponentProvider) {
         this.sstFileNamer = new SSTFileNamer(dbPath);
+        this.search = search;
         this.dbComponentProvider = dbComponentProvider;
         for (Level value : Level.values()) {
-            levelToFilesMap.put(value, new TreeSet<>());
+            levelToFilesMap.put(value, new ConcurrentSkipListSet<>());
         }
         for (Level value : Level.values()) {
             tableSize.put(value, 0L);
@@ -42,32 +38,43 @@ public class Table {
         fillLevels();
     }
 
-    private void fillLevels() throws IOException {
+    private void fillLevels() {
         Set<SSTFileNameMeta> validSSTFiles = sstFileNamer.getValidSSTFiles();
         for (SSTFileNameMeta sstMeta : validSSTFiles) {
             var sstInfo = SSTFileHelper.getSSTInfo(sstMeta, dbComponentProvider);
             Level level = sstInfo.getLevel();
             levelToFilesMap.get(level).add(sstInfo);
-            allFilesSet.add(sstInfo);
         }
         for (Map.Entry<Level, SortedSet<SSTInfo>> entry : levelToFilesMap.entrySet()) {
             tableSize.put(entry.getKey(), (long) entry.getValue().size());
         }
+        search.addAndRemoveSST(
+                levelToFilesMap.values().stream().flatMap(Set::stream).collect(Collectors.toSet()),
+                Collections.emptyList()
+        );
     }
 
-    public synchronized SSTFileNameMeta getNewSST(Level level) {
-        Preconditions.checkNotNull(level);
-        return sstFileNamer.nextSst(level);
-    }
-
-    public synchronized void addToTheTable(List<Intermediate> intermediates) throws IOException {
-        Preconditions.checkArgument(intermediates.stream().map(Intermediate::sstHeader).map(SSTHeader::getLevel).distinct().count() == 1,
+    public synchronized void addToTheTableAndDelete(List<Intermediate> intermediatesToAdd, Collection<SSTInfo> toRemove) throws IOException {
+        Preconditions.checkArgument(intermediatesToAdd.stream().map(Intermediate::sstHeader).map(SSTHeader::getLevel).distinct().count() == 1,
                 "All intermediates must be of the same level");
-        Level level = intermediates.getFirst().sstHeader().getLevel();
-        SortedSet<SSTInfo> levelSSTInfos = levelToFilesMap.get(level);
+        toRemove.stream()
+                .filter(info -> !levelToFilesMap.get(info.getLevel()).contains(info))
+                .findFirst()
+                .ifPresent(info -> {
+                    throw new IllegalArgumentException("Trying to remove SST that is not in the table: " +
+                            info.getSstPath().toAbsolutePath());
+                });
 
+        SortedSet<SSTInfo> added = addToTheTable(intermediatesToAdd);
+        search.addAndRemoveSST(added, toRemove);
+        removeSST(toRemove);
+    }
+
+    private SortedSet<SSTInfo> addToTheTable(List<Intermediate> intermediates) throws IOException {
+        Level level = intermediates.getFirst().sstHeader().getLevel();
+        SortedSet<SSTInfo> ssts = new TreeSet<>();
         for (Intermediate inter : intermediates) {
-            SSTFileNameMeta meta = getNewSST(level);
+            SSTFileNameMeta meta = sstFileNamer.nextSst(level);
             Files.move(inter.path(), meta.path(), StandardCopyOption.ATOMIC_MOVE);
             SSTInfo info = new SSTInfo(
                     meta.path(),
@@ -76,22 +83,17 @@ public class Table {
                     inter.filter(),
                     meta
             );
-            levelSSTInfos.add(info);
-            allFilesSet.add(info);
-
+            ssts.add(info);
         }
+        levelToFilesMap.get(level).addAll(ssts);
         tableSize.put(level, tableSize.get(level) + intermediates.size());
+        return ssts;
     }
 
-    public synchronized void removeSST(Collection<SSTInfo> ssts) throws IOException {
+    public void removeSST(Collection<SSTInfo> ssts) {
         for (SSTInfo info : ssts) {
             Level level = info.getLevel();
-            if (!levelToFilesMap.get(level).contains(info)) {
-                throw new IllegalStateException("Trying to remove SST that is not in the table: " + info.getSstPath().toAbsolutePath()
-                        + " all files: " + levelToFilesMap.get(level).stream().map(SSTInfo::getSstPath).toList());
-            }
             levelToFilesMap.get(level).remove(info);
-            allFilesSet.remove(info);
             tableSize.put(level,tableSize.get(level) - 1);
             try {
                 Files.deleteIfExists(info.getSstPath());
@@ -101,12 +103,8 @@ public class Table {
         }
     }
 
-    public SortedSet<SSTInfo> getFileListView() {
-        return fileListView;
-    }
-
     public SortedSet<SSTInfo> getSSTInfoSet(Level level) {
-        return levelToFilesMap.get(level);
+        return Collections.unmodifiableSortedSet(levelToFilesMap.get(level));
     }
 
     public Long getCurrentLevelSize(Level level) {

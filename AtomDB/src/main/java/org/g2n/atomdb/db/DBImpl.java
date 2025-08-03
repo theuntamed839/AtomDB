@@ -41,8 +41,8 @@ public class DBImpl implements DB{
         acquireDBLock();
         this.walManager = new WALManager(dbPath, dbComponentProvider);
         this.memtable = new SkipListMemtable(dbOptions.memtableSize, dbOptions.getComparator());
-        this.table = new Table(dbPath, dbComponentProvider);
-        this.search = new Search(table, dbComponentProvider);
+        this.search = new Search(dbComponentProvider);
+        this.table = new Table(dbPath, search, dbComponentProvider);
         this.compactor = new Compactor(table, search, dbPath, dbComponentProvider);
         this.options = dbOptions;
         walManager.restore(this);
