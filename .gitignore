@@ -10,7 +10,6 @@
 
 
 AtomDB/ExampleDB/**
-AtomDB/**/LOG*
 AtomDB/**/*.sst
 AtomDB/.idea/**/workspace.xml
 AtomDB/.idea/**/tasks.xml
