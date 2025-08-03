@@ -63,7 +63,7 @@ class CompactorTest {
                 List.of(new KVUnit(new byte[]{-4}, "value1".getBytes()),
                         new KVUnit(new byte[]{-1}, "value2".getBytes())).iterator()); // overlapping with the previous one
 
-        generateFatSSTToTriggerCompactionNew(sstPersist, Level.LEVEL_ZERO);
+        generateSSTToTriggerCompactionNew(sstPersist, Level.LEVEL_ZERO);
         var sstCount = table.getSSTInfoSet(Level.LEVEL_ZERO).size();
         compactor.tryCompaction(Level.LEVEL_ZERO);
         compactor.close();
@@ -91,7 +91,7 @@ class CompactorTest {
                 List.of(new KVUnit(new byte[]{-7}, "value1".getBytes()),
                         new KVUnit(new byte[]{-6}, "value2".getBytes())).iterator()); // overlapping with the previous one
 
-        generateFatSSTToTriggerCompactionNew(sstPersist, Level.LEVEL_ZERO);
+        generateSSTToTriggerCompactionNew(sstPersist, Level.LEVEL_ZERO);
         var sstCount = table.getSSTInfoSet(Level.LEVEL_ZERO).size();
         compactor.tryCompaction(Level.LEVEL_ZERO);
         compactor.close();
@@ -119,7 +119,7 @@ class CompactorTest {
                 List.of(new KVUnit(new byte[]{-7}, "value1".getBytes()),
                         new KVUnit(new byte[]{-6}, "value2".getBytes())).iterator()); // overlapping with the previous one
 
-        generateFatSSTToTriggerCompactionNew(sstPersist, Level.LEVEL_ZERO);
+        generateSSTToTriggerCompactionNew(sstPersist, Level.LEVEL_ZERO);
         var sstCount = table.getSSTInfoSet(Level.LEVEL_ZERO).size();
         compactor.tryCompaction(Level.LEVEL_ZERO);
         compactor.close();
@@ -145,7 +145,7 @@ class CompactorTest {
                 List.of(new KVUnit(new byte[]{-7}, "value1".getBytes()),
                         new KVUnit(new byte[]{-1}, "value2".getBytes())).iterator());
 
-        generateFatSSTToTriggerCompactionNew(sstPersist, Level.LEVEL_ZERO);
+        generateSSTToTriggerCompactionNew(sstPersist, Level.LEVEL_ZERO);
         var sstCount_LEVEL_ZERO = table.getSSTInfoSet(Level.LEVEL_ZERO).size();
 
         compactor.tryCompaction(Level.LEVEL_ZERO);
@@ -167,7 +167,7 @@ class CompactorTest {
                 List.of(new KVUnit(new byte[]{-6}, "value1".getBytes()),
                         new KVUnit(new byte[]{-1}, "value2".getBytes())).iterator());
 
-        generateFatSSTToTriggerCompactionNew(sstPersist, Level.LEVEL_ZERO);
+        generateSSTToTriggerCompactionNew(sstPersist, Level.LEVEL_ZERO);
         var sstCount_LEVEL_ZERO = table.getSSTInfoSet(Level.LEVEL_ZERO).size();
 
         compactor.tryCompaction(Level.LEVEL_ZERO);
@@ -194,7 +194,7 @@ class CompactorTest {
                 List.of(new KVUnit(new byte[]{-7}, "value1".getBytes()),
                         new KVUnit(new byte[]{-1}, "value2".getBytes())).iterator());
 
-        generateFatSSTToTriggerCompactionNew(sstPersist, Level.LEVEL_ZERO);
+        generateSSTToTriggerCompactionNew(sstPersist, Level.LEVEL_ZERO);
         var sstCount_LEVEL_ZERO = table.getSSTInfoSet(Level.LEVEL_ZERO).size();
 
         compactor.tryCompaction(Level.LEVEL_ZERO);
@@ -224,7 +224,7 @@ class CompactorTest {
                 List.of(new KVUnit(new byte[]{-7}, "value1".getBytes()),
                         new KVUnit(new byte[]{-1}, "value2".getBytes())).iterator());
 
-        generateFatSSTToTriggerCompactionNew(sstPersist, Level.LEVEL_ZERO);
+        generateSSTToTriggerCompactionNew(sstPersist, Level.LEVEL_ZERO);
         var sstCount_LEVEL_ZERO = table.getSSTInfoSet(Level.LEVEL_ZERO).size();
 
         compactor.tryCompaction(Level.LEVEL_ZERO);
@@ -254,7 +254,7 @@ class CompactorTest {
                 List.of(new KVUnit(new byte[]{-5}, "value1".getBytes()),
                         new KVUnit(new byte[]{-4}, "value2".getBytes())).iterator());
 
-        generateFatSSTToTriggerCompactionNew(sstPersist, Level.LEVEL_ZERO);
+        generateSSTToTriggerCompactionNew(sstPersist, Level.LEVEL_ZERO);
         var sstCount_LEVEL_ZERO = table.getSSTInfoSet(Level.LEVEL_ZERO).size();
 
         compactor.tryCompaction(Level.LEVEL_ZERO);
@@ -285,7 +285,7 @@ class CompactorTest {
                 List.of(new KVUnit(new byte[]{-8}, "value1".getBytes()),
                         new KVUnit(new byte[]{-7}, "value2".getBytes())).iterator());
 
-        generateFatSSTToTriggerCompactionNew(sstPersist, Level.LEVEL_ZERO);
+        generateSSTToTriggerCompactionNew(sstPersist, Level.LEVEL_ZERO);
 
         compactor.tryCompaction(Level.LEVEL_ZERO);
         compactor.close(); // wait for compaction to complete.
@@ -296,9 +296,9 @@ class CompactorTest {
         assertTrue(table.getSSTInfoSet(Level.LEVEL_ZERO).stream().anyMatch(sstInfo -> sstInfo.getSstPath().getFileName().toString().equals("SST_0_4.sst")));
     }
 
-    private void generateFatSSTToTriggerCompactionNew(SSTPersist sstPersist, Level level) {
+    private void generateSSTToTriggerCompactionNew(SSTPersist sstPersist, Level level) {
         while(table.getCurrentLevelSize(level) < level.limitingSize()) {
-            var units = getUniqueEntries(10000);
+            var units = getUniqueEntries(100);
             try {
                 sstPersist.writeSingleFile(level, units.size(), units.iterator());
             } catch (Exception e) {
