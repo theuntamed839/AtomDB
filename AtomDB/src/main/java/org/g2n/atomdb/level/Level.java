@@ -51,14 +51,14 @@ public enum Level {
 
     public long limitingSize() {
         return switch (this) {
-            case LEVEL_ZERO -> 10L * DBConstant.MB; // 5
-            case LEVEL_ONE -> 100L * DBConstant.MB; // 50
-            case LEVEL_TWO -> 1000L * DBConstant.MB; // 500
-            case LEVEL_THREE -> 10000L * DBConstant.MB; // 5000
-            case LEVEL_FOUR -> 100000L * DBConstant.MB;
-            case LEVEL_FIVE -> 1000000L * DBConstant.MB;
-            case LEVEL_SIX -> 10000000L * DBConstant.MB;
-            case LEVEL_SEVEN -> 100000000L * DBConstant.MB;
+            case LEVEL_ZERO ->  (10L * DBConstant.MB)/DBConstant.COMPACTED_SST_FILE_SIZE;
+            case LEVEL_ONE ->   (100L * DBConstant.MB)/DBConstant.COMPACTED_SST_FILE_SIZE;
+            case LEVEL_TWO ->   (1000L * DBConstant.MB)/DBConstant.COMPACTED_SST_FILE_SIZE;
+            case LEVEL_THREE -> (10000L * DBConstant.MB)/DBConstant.COMPACTED_SST_FILE_SIZE;
+            case LEVEL_FOUR ->  (100000L * DBConstant.MB)/DBConstant.COMPACTED_SST_FILE_SIZE;
+            case LEVEL_FIVE ->  (1000000L * DBConstant.MB)/DBConstant.COMPACTED_SST_FILE_SIZE;
+            case LEVEL_SIX ->   (10000000L * DBConstant.MB)/DBConstant.COMPACTED_SST_FILE_SIZE;
+            case LEVEL_SEVEN -> (100000000L * DBConstant.MB)/DBConstant.COMPACTED_SST_FILE_SIZE;
         };
     }
 }

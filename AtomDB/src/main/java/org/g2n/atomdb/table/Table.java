@@ -16,8 +16,6 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListSet;
 
-import static java.util.Objects.requireNonNull;
-
 /**
  * TODO:
  * We need to have a shared lock between the table and the search, as the file can change underneath while we are searching.
@@ -51,7 +49,9 @@ public class Table {
             Level level = sstInfo.getLevel();
             levelToFilesMap.get(level).add(sstInfo);
             allFilesSet.add(sstInfo);
-            tableSize.put(level, tableSize.get(level) + sstInfo.getFileSize());
+        }
+        for (Map.Entry<Level, SortedSet<SSTInfo>> entry : levelToFilesMap.entrySet()) {
+            tableSize.put(entry.getKey(), (long) entry.getValue().size());
         }
     }
 
@@ -64,7 +64,6 @@ public class Table {
         Preconditions.checkArgument(intermediates.stream().map(Intermediate::sstHeader).map(SSTHeader::getLevel).distinct().count() == 1,
                 "All intermediates must be of the same level");
         Level level = intermediates.getFirst().sstHeader().getLevel();
-        long torsoSize = 0;
         SortedSet<SSTInfo> levelSSTInfos = levelToFilesMap.get(level);
 
         for (Intermediate inter : intermediates) {
@@ -77,11 +76,11 @@ public class Table {
                     inter.filter(),
                     meta
             );
-            torsoSize += info.getFileSize();
             levelSSTInfos.add(info);
             allFilesSet.add(info);
+
         }
-        tableSize.put(level, tableSize.get(level) + torsoSize);
+        tableSize.put(level, tableSize.get(level) + intermediates.size());
     }
 
     public synchronized void removeSST(Collection<SSTInfo> ssts) throws IOException {
@@ -93,7 +92,7 @@ public class Table {
             }
             levelToFilesMap.get(level).remove(info);
             allFilesSet.remove(info);
-            tableSize.put(level, tableSize.get(level) - info.getFileSize());
+            tableSize.put(level,tableSize.get(level) - 1);
             try {
                 Files.deleteIfExists(info.getSstPath());
             } catch (Exception e) {
