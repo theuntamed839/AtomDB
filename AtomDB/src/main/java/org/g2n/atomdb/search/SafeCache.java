@@ -1,0 +1,159 @@
+package org.g2n.atomdb.search;
+
+import java.util.Collection;
+import java.util.Enumeration;
+import java.util.concurrent.*;
+import java.util.concurrent.locks.StampedLock;
+import java.util.function.Function;
+
+public class SafeCache<K, V extends AutoCloseable> implements AutoCloseable{
+    private final ConcurrentHashMap<K, RefCounted<V>> cache = new ConcurrentHashMap<>();
+    private final int maxSize;
+    private final Function<K, V> valueLoader;
+    private final StampedLock lock = new StampedLock();
+    int maxElementCount = 0;
+
+    public SafeCache(int maxSize, Function<K, V> valueLoader) {
+        if (maxSize < Runtime.getRuntime().availableProcessors() * 2) {
+            throw new IllegalArgumentException("maxSize must be greater than available thread count");
+        }
+        this.maxSize = maxSize;
+        this.valueLoader = valueLoader;
+    }
+
+    public V acquire(K key) throws Exception {
+        evictIfOverLimit();
+        long readStamp = lock.readLock();
+        try {
+            RefCounted<V> existing = cache.compute(key, (k, value) -> { // returns old value.
+                if (value == null || value.isClosed()) {
+                    try {
+                        value = new RefCounted<>(valueLoader.apply(key));
+                    } catch (Exception e) {
+                        throw new CompletionException(e);
+                    }
+                }
+                value.retain();
+                return value;
+            });
+            maxElementCount = Math.max(maxElementCount, cache.size());
+            return existing.value;
+        }finally {
+            lock.unlockRead(readStamp);
+        }
+    }
+
+    public V get(K key) throws Exception {
+        return acquire(key);
+    }
+
+    public void release(K key) {
+        long stamp = lock.readLock();
+        try {
+            RefCounted<V> ref = cache.get(key);
+            if (ref != null) {
+                ref.release();
+            }
+        }finally {
+            lock.unlockRead(stamp);
+        }
+    }
+
+    private void evictIfOverLimit() throws Exception {
+        long l = lock.tryOptimisticRead();
+        if (cache.size() < maxSize && lock.validate(l)) {
+            return; // no need to evict
+        }
+        long stamp = lock.writeLock();
+        try {
+            if (cache.size() > maxSize) {
+                int deletedCount = 0;
+                Enumeration<K> keys = cache.keys();
+                while(cache.size() > Math.floor(maxSize * 0.9) && keys.hasMoreElements()) {
+                    K keyToEvict = keys.nextElement();
+                    if (keyToEvict == null) {
+                        continue;
+                    }
+                    RefCounted<V> vRefCounted = cache.get(keyToEvict);
+                    if (vRefCounted == null) {
+                        continue;
+                    }
+                    if (vRefCounted.isClosed()) {
+                        cache.remove(keyToEvict);
+                        deletedCount++;
+                        continue;
+                    }
+                    if (vRefCounted.getRefCount() == 0) {
+                        deletedCount++;
+                        cache.remove(keyToEvict);
+                        vRefCounted.markForClose();
+                    }
+                }
+                if (deletedCount == 0) {
+                    throw new RuntimeException("Reference to values are still held, unable to evict");
+                }
+            }
+        }finally {
+            lock.unlockWrite(stamp);
+        }
+    }
+
+    public void forceEvictAll() {
+        long stamp = lock.writeLock();
+        try {
+            cache.values().forEach(ref -> {
+                try {
+                    ref.forceClose();
+                } catch (Exception e) {
+                    throw new RuntimeException("Error while closing resource", e);
+                }
+            });
+            cache.clear();
+        } finally {
+            lock.unlockWrite(stamp);
+        }
+    }
+
+    public void evict(K key) throws Exception {
+        long stamp = lock.writeLock();
+        try {
+            RefCounted<V> ref = cache.remove(key);
+            if (ref != null) {
+                ref.markForClose();
+            }
+        } finally {
+            lock.unlockWrite(stamp);
+        }
+    }
+
+    public void evictAll(Collection<K> toRemove) throws Exception {
+        long stamp = lock.writeLock();
+        try {
+            for (K key : toRemove) {
+                if (key == null) {
+                    continue; // skip null keys
+                }
+
+                RefCounted<V> ref = cache.remove(key);
+                if (ref != null) {
+                    ref.markForClose();
+                }
+            }
+        } finally {
+            lock.unlockWrite(stamp);
+        }
+    }
+
+    @Override
+    public void close() throws Exception {
+        long stamp = lock.writeLock();
+        try {
+            for (RefCounted<V> ref : cache.values()) {
+                ref.markForClose();
+            }
+            cache.clear();
+        } finally {
+            lock.unlockWrite(stamp);
+        }
+    }
+}

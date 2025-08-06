@@ -17,6 +17,10 @@ import java.util.*;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.stream.Collectors;
 
+/*
+TODO: we should find a strategy which avoids creating too many SST files in the same folder, surely there would be some limit how many files can a directory hold.
+ */
+
 public class Table {
     private static final Logger logger = LoggerFactory.getLogger(Table.class);
     private final Map<Level, Long> tableSize = new HashMap<>();

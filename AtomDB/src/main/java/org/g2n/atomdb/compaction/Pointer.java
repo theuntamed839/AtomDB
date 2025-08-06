@@ -6,7 +6,6 @@ import org.g2n.atomdb.sstIO.IOReader;
 
 import java.io.IOException;
 
-// todo make the position int.
 public record Pointer(byte[] key, long position) implements Comparable<Pointer> {
 
     public void storeAsBytes(ExpandingByteBuffer writer) {

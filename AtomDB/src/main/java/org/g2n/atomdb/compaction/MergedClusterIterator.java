@@ -26,7 +26,7 @@ public class MergedClusterIterator implements Iterator<KVUnit>, AutoCloseable {
     private int entriesServed = 0;
     private KVUnit next;
 
-    public MergedClusterIterator(Collection<SSTInfo> sstInfoCollection, Search search, DbComponentProvider dbComponentProvider) throws IOException {
+    public MergedClusterIterator(Collection<SSTInfo> sstInfoCollection, Search search, DbComponentProvider dbComponentProvider) throws Exception {
         this.search = search;
         this.dbComponentProvider = dbComponentProvider;
         Objects.requireNonNull(sstInfoCollection, "SSTInfo collection cannot be null");
@@ -64,13 +64,13 @@ public class MergedClusterIterator implements Iterator<KVUnit>, AutoCloseable {
         KVUnit current = next;
         try {
             generateNextKV();
-        } catch (IOException e) {
+        } catch (Exception e) {
             throw new RuntimeException("Error while generating next KV unit", e);
         }
         return current;
     }
 
-    private void generateNextKV() throws IOException {
+    private void generateNextKV() throws Exception {
         for(; !clusterIterators.isEmpty() ;) {
             KVUnit kvUnit = fetchNextKVUnit();
             if (kvUnit == null || (kvUnit.isDeleted() && isKeyNotFoundInFurtherLevels(kvUnit.getKey()))) {
@@ -82,7 +82,7 @@ public class MergedClusterIterator implements Iterator<KVUnit>, AutoCloseable {
         this.next = null;
     }
 
-    private boolean isKeyNotFoundInFurtherLevels(byte[] key) throws IOException {
+    private boolean isKeyNotFoundInFurtherLevels(byte[] key) throws Exception {
         var ssts = search.getAllSSTsWithKey(key, lowestLevel);
         ssts.removeAll(originalCollection);
         return ssts.isEmpty(); // no further levels contain the key

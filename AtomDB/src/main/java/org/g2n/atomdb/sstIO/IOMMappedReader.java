@@ -14,7 +14,7 @@ public class IOMMappedReader extends IOReader {
 
     public IOMMappedReader(Path path) throws IOException {
         this.channel = FileChannel.open(path, StandardOpenOption.READ);
-        this.arena = Arena.ofShared(); // TODO: can we have this ofConfined ?
+        this.arena = Arena.ofShared();
         this.map = this.channel.map(FileChannel.MapMode.READ_ONLY, 0, channel.size(), arena).asByteBuffer();
     }
 

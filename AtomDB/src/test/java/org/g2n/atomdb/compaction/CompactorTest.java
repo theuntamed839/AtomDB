@@ -40,7 +40,7 @@ class CompactorTest {
         dbComponentProvider = new DbComponentProvider(dbOptions);
         jimfs = Jimfs.newFileSystem(Configuration.unix());
         dbPath = Files.createTempDirectory(jimfs.getPath("/"), "CompactorTest_" + Instant.now().toEpochMilli());
-        table = new Table(dbPath, dbComponentProvider);
+        table = new Table(dbPath, new Search(dbComponentProvider), dbComponentProvider);
         compactor = new Compactor(table, mock(Search.class), dbPath, dbComponentProvider);
         sstPersist = new SSTPersist(table, dbPath, dbComponentProvider);
     }

@@ -49,7 +49,7 @@ public abstract class CRUDTest {
     }
 
     @Test
-    public void TestSequentialReadForward() throws Exception {
+    public void testSequentialReadForward() throws Exception {
         var entries = fillDB(TOTAL, db, 1234567890);
         for (Map.Entry<byte[], byte[]> entry : entries.entrySet()) {
             Assertions.assertArrayEquals(db.get(entry.getKey()), entry.getValue());
@@ -57,7 +57,7 @@ public abstract class CRUDTest {
     }
 
     @Test
-    public void TestSequentialReadBackward() throws Exception {
+    public void testSequentialReadBackward() throws Exception {
         var entries = fillDB(TOTAL, db, 1234567890);
 
         List<byte[]> keys = new ArrayList<>(entries.keySet());
@@ -68,7 +68,7 @@ public abstract class CRUDTest {
     }
 
     @Test
-    public void TestRandomRead() throws Exception {
+    public void testRandomRead() throws Exception {
         var entries = fillDB(TOTAL, db, 1234567890);
 
         List<byte[]> keys = new ArrayList<>(entries.keySet());
@@ -80,7 +80,7 @@ public abstract class CRUDTest {
 
     @Test
     public void testConcurrentReadWriteSimultaneously() throws Exception {
-        var safeEntries = new ConcurrentHashMap<byte[], byte[]>();
+        var safeEntries = new ConcurrentSkipListMap<byte[], byte[]>(Arrays::compare);
         var writing = new AtomicBoolean(true);
         int writerCount = 4;
         int readerCount = 4;
@@ -133,6 +133,92 @@ public abstract class CRUDTest {
 
         for (Map.Entry<byte[], byte[]> entry : safeEntries.entrySet()) {
             Assertions.assertArrayEquals(db.get(entry.getKey()), entry.getValue());
+        }
+    }
+
+    @Test
+    public void testConcurrentReadWriteDeleteSimultaneously() throws Exception {
+        var safeEntries = new ConcurrentSkipListMap<byte[], byte[]>(Arrays::compare);
+        var writing = new AtomicBoolean(true);
+        int writerCount = 4;
+        int readerCount = 4;
+        int deleteCount = 2;
+        var deleted = new byte[0];
+
+        ExecutorService executor = Executors.newFixedThreadPool(writerCount + readerCount + deleteCount);
+        Runnable writer = () -> {
+            try {
+                var rand = new Random(123);
+                for (int i = 0; i < 25000; i++) {
+                    var key = new byte[50];
+                    var value = new byte[500];
+                    rand.nextBytes(key);
+                    rand.nextBytes(value);
+                    db.put(key, value);
+                    safeEntries.put(key, value);
+                }
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        };
+
+        Runnable reader = () -> {
+            try {
+                while (writing.get()) {
+                    var list = new ArrayList<>(safeEntries.keySet());
+                    Collections.shuffle(list);
+                    for (byte[] key : list) {
+                        if (safeEntries.get(key) == deleted) {
+                            Assertions.assertNull(db.get(key), "Expected null for deleted key: " + Arrays.toString(key));
+                        }else {
+                            Assertions.assertArrayEquals(db.get(key), safeEntries.get(key));
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        };
+
+        Runnable delete = () -> {
+            try {
+                var rand = new Random(1234);
+                while (writing.get()) {
+                    var list = new ArrayList<>(safeEntries.keySet());
+                    byte[] key = list.get(rand.nextInt(list.size()));
+                    db.delete(key);
+                    safeEntries.put(key, deleted);
+                }
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        };
+
+        List<Future<?>> writers = new ArrayList<>();
+        for (int i = 0; i < writerCount; i++) {
+            writers.add(executor.submit(writer));
+            executor.submit(reader);
+            executor.submit(delete);
+        }
+
+
+        // Wait for writers to finish
+        for (Future<?> f : writers) {
+            f.get();
+        }
+        writing.set(false); // Signal readers to stop
+
+        executor.shutdown();
+        executor.awaitTermination(10, TimeUnit.SECONDS);
+        executor.close();
+
+        for (Map.Entry<byte[], byte[]> entry : safeEntries.entrySet()) {
+            if (entry.getValue() == deleted) {
+                Assertions.assertNull(db.get(entry.getKey()), "Expected null for deleted key: " + Arrays.toString(entry.getKey()));
+            }else {
+                Assertions.assertArrayEquals(db.get(entry.getKey()), entry.getValue(),
+                        "Expected value for key: " + Arrays.toString(entry.getValue()));
+            }
         }
     }
 

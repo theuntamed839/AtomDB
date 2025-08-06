@@ -17,7 +17,7 @@ public class SSTInfo extends SSTHeader implements Comparable<SSTInfo> {
     private final long number;
     private final Range range;
     private final int sstHashCode;
-
+    private final Path sstNormalizedPath;
 
     public SSTInfo(Path sstPath, SSTHeader header, PointerList pointers, BloomFilter<byte[]> filter, SSTFileNameMeta fileNameMeta) {
         super(header);
@@ -28,7 +28,8 @@ public class SSTInfo extends SSTHeader implements Comparable<SSTInfo> {
 
         this.number = fileNameMeta.seq();
         this.sstPath = sstPath;
-        this.sstHashCode = sstPath.toAbsolutePath().hashCode(); // todo do we need to do this ?
+        this.sstHashCode = sstPath.toAbsolutePath().normalize().hashCode();
+        this.sstNormalizedPath = sstPath.toAbsolutePath().normalize();
         this.pointers = pointers;
         this.filter = filter;
         this.range = new Range(pointers.getFirst().key(), pointers.getLast().key());
@@ -68,7 +69,7 @@ public class SSTInfo extends SSTHeader implements Comparable<SSTInfo> {
         if (o == null || getClass() != o.getClass()) return false;
 
         SSTInfo sstInfo = (SSTInfo) o;
-        return sstPath.toAbsolutePath().equals(sstInfo.sstPath.toAbsolutePath());
+        return sstNormalizedPath.equals(sstInfo.sstNormalizedPath); // todo store absolute path in SSTInfo and access that.
     }
 
     @Override
