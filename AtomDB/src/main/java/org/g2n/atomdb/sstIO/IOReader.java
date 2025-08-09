@@ -20,7 +20,7 @@ public abstract class IOReader extends InputStream {
 
     public abstract long position() throws IOException;
 
-    public abstract void position(int positionToMove) throws IOException;
+    public abstract void position(long positionToMove) throws IOException;
 
     public abstract boolean hasRemaining() throws IOException;
 

@@ -1,13 +1,11 @@
 package org.g2n.atomdb.search;
 
 import org.g2n.atomdb.checksum.Crc32cChecksum;
-import org.g2n.atomdb.compaction.Pointer;
 import org.g2n.atomdb.constants.DBConstant;
 import org.g2n.atomdb.level.Level;
 import org.g2n.atomdb.mem.ImmutableMem;
 import org.g2n.atomdb.mem.ImmutableMemTable;
 import org.g2n.atomdb.table.SSTInfo;
-import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import org.g2n.atomdb.db.DBComparator;
@@ -21,8 +19,7 @@ import java.util.concurrent.locks.StampedLock;
 public class Search implements AutoCloseable{
 
     private final LoadingCache<byte[], KVUnit> kvCache;
-    private final LoadingCache<SSTInfo, Finder> readerCache;
-    private final Cache<Pointer, Checksums> checksumsCache;
+    private final SafeCache<SSTInfo, Finder> readerCache;
     private final HashMap<Integer, Integer> readerStats;
     private final DbComponentProvider dbComponentProvider;
     private final SortedSet<SSTInfo> tableView = new TreeSet<>();
@@ -35,40 +32,30 @@ public class Search implements AutoCloseable{
                 .maximumWeight(DBConstant.KEY_VALUE_CACHE_SIZE)
                 .weigher((byte[] k, KVUnit v) -> k.length + v.getUnitSize())
                 .build(this::findKeyInternal);
-        this.readerCache = Caffeine.newBuilder()
-                .maximumSize(900)
-                .removalListener((key, value, cause) -> {
-                    try {
-                        ((AutoCloseable)value).close();
-                    } catch (Exception e) {
-                        throw new RuntimeException(e);
-                    }
-                })
-                .build(this::getFinder);
-        this.checksumsCache = Caffeine.newBuilder()
-                .maximumWeight(100 * DBConstant.MB)
-                .weigher((Pointer pos, Checksums checks) -> pos.getSize() + checks.getSize())
-                .build();
+        this.readerCache = new SafeCache<>(900, this::getFinder);
         this.secondaryMem = new ImmutableMemTable(new TreeMap<>(DBComparator.byteArrayComparator), 0);
         this.readerStats = new HashMap<>();
     }
 
-    private Finder getFinder(SSTInfo sst) throws IOException {
-        return new Finder(sst.getPointers(), checksumsCache, dbComponentProvider.getIOReader(sst.getSstPath()),
-                sst.getSingleClusterSize(), sst.getCompressionStrategy());
+    private Finder getFinder(SSTInfo sst) {
+        try {
+            return new Finder(sst.getPointers(), dbComponentProvider.getIOReader(sst.getSstPath()),
+                    sst.getSingleClusterSize(), sst.getCompressionStrategy());
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
-    public KVUnit findKey(byte[] key) throws IOException {
+    public KVUnit findKey(byte[] key) {
         long stamp = lock.readLock();
         try {
-//            return kvCache.get(key);
-            return findKeyInternal(key);
+            return kvCache.get(key);
         } finally {
             lock.unlockRead(stamp);
         }
     }
 
-    private KVUnit findKeyInternal(byte[] key) throws IOException {
+    private KVUnit findKeyInternal(byte[] key) throws Exception {
         KVUnit kvUnit = secondaryMem.get(key);
         if (kvUnit != null) {
             return kvUnit;
@@ -82,10 +69,14 @@ public class Search implements AutoCloseable{
             if (sstInfo.getSstKeyRange().inRange(key) && sstInfo.mightContainElement(key)) {
                 fileRequiredToSearch++;
                 Finder finder = readerCache.get(sstInfo);
-                var unit = finder.find(key, keyChecksum);
-                if (unit != null) {
-                    readerStats.put(fileRequiredToSearch, readerStats.getOrDefault(fileRequiredToSearch, 0) + 1);
-                    return unit;
+                try {
+                    var unit = finder.find(key, keyChecksum);
+                    if (unit != null) {
+                        readerStats.put(fileRequiredToSearch, readerStats.getOrDefault(fileRequiredToSearch, 0) + 1);
+                        return unit;
+                    }
+                } finally {
+                    readerCache.release(sstInfo);
                 }
             }
         }
@@ -93,7 +84,7 @@ public class Search implements AutoCloseable{
         return null;
     }
 
-    public Collection<SSTInfo> getAllSSTsWithKey(byte[] key, Level fromLevel) throws IOException {
+    public Collection<SSTInfo> getAllSSTsWithKey(byte[] key, Level fromLevel) throws Exception {
         long stamp = lock.readLock();
         try {
             var keyChecksum = getKeyChecksum(key);
@@ -134,9 +125,11 @@ public class Search implements AutoCloseable{
         try {
             tableView.addAll(added);
             tableView.removeAll(toRemove);
-            readerCache.invalidateAll(toRemove);
+            readerCache.evictAll(toRemove);
             kvCache.invalidateAll();
             kvCache.cleanUp();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
         } finally {
             lock.unlockWrite(writeStamp);
         }
@@ -154,8 +147,7 @@ public class Search implements AutoCloseable{
             System.out.println("numberOfFilesRequiredToSearch="+entry.getKey()+" numberOfTimesThisHappened= "+(entry.getValue() * 100.0/totalReads) + "%");
         }
         kvCache.invalidateAll();
-        readerCache.invalidateAll();
         kvCache.cleanUp();
-        readerCache.cleanUp();
+        readerCache.close();
     }
 }

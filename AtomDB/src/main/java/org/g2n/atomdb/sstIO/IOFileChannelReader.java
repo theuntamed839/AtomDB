@@ -63,7 +63,7 @@ public class IOFileChannelReader extends IOReader {
     }
 
     @Override
-    public void position(int positionToMove) throws IOException {
+    public void position(long positionToMove) throws IOException {
         channel.position(positionToMove);
     }
 

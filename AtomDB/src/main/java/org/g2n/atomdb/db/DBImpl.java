@@ -20,7 +20,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.Objects;
 
-public class DBImpl implements DB{
+public class DBImpl implements DB, AutoCloseable{
     private final Logger logger = LoggerFactory.getLogger(getClass());
     private final Path dbPath;
     private final WALManager walManager;
@@ -50,19 +50,17 @@ public class DBImpl implements DB{
 
     @Override
     public synchronized void put(byte[] key, byte[] value) throws Exception {
+        // todo we can get rid of synchronized if whole other code is handled for thread safety.
         ensureOpen();
         var kvUnit = new KVUnit(key, value);
 
         walManager.log(Operations.WRITE, kvUnit);
         memtable.put(kvUnit);
-
-        if (memtable.isFull()){
-            handleMemtableFull();
-        }
+        handleIfFull();
     }
 
     @Override
-    public synchronized byte[] get(byte[] key) throws Exception {
+    public synchronized byte[] get(byte[] key) throws Exception { // todo do we need synchronized here?
         ensureOpen();
         Objects.requireNonNull(key);
         var kvUnit = memtable.get(key);
@@ -78,9 +76,14 @@ public class DBImpl implements DB{
         KVUnit kvUnit = new KVUnit(key);
         walManager.log(Operations.DELETE, kvUnit);
         memtable.delete(kvUnit);
+        handleIfFull();
     }
 
-    private void handleMemtableFull() throws Exception {
+    private void handleIfFull() throws Exception {
+        if (!memtable.isFull()){
+            return;
+        }
+
         var immutableMem = ImmutableMem.of(memtable);
 
         compactor.persistLevel0(immutableMem);

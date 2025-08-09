@@ -1,20 +1,24 @@
 package org.g2n.atomdb.search;
 
+import com.github.benmanes.caffeine.cache.Caffeine;
 import org.g2n.atomdb.compaction.Pointer;
 import org.g2n.atomdb.compaction.PointerList;
 import org.g2n.atomdb.compression.CompressionStrategyFactory;
 import org.g2n.atomdb.compression.DataCompressionStrategy;
 import com.github.benmanes.caffeine.cache.Cache;
 import org.g2n.atomdb.constants.DBConstant;
-import org.g2n.atomdb.db.DBComparator;
 import org.g2n.atomdb.db.KVUnit;
 import org.g2n.atomdb.sstIO.IOReader;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
+import static org.g2n.atomdb.db.DBComparator.byteArrayComparator;
+
 /**
- *  we should work on moving respective code to thier respective classes.
+ *TODO:
+ * 1. we need not map the whole file, as we only reading the cluster region only, this would save the overhead of mapping and other stuff.
+ *
  */
 public class Finder implements AutoCloseable{
     private final PointerList pointerList;
@@ -23,96 +27,107 @@ public class Finder implements AutoCloseable{
     private final byte singleClusterSize;
     private final DataCompressionStrategy compressionStrategy;
 
-    public Finder(PointerList pointerList, Cache<Pointer, Checksums> checksumsCache, IOReader reader, byte singleClusterSize, DBConstant.COMPRESSION_TYPE compressionStrategy) {
-        // todo
-        // we need not mapp the whole fileToWrite rather map only required potion, ie we  dont need header and pointers region
+    public Finder(PointerList pointerList, IOReader reader, byte singleClusterSize, DBConstant.COMPRESSION_TYPE compressionStrategy) {
         this.reader = reader;
         this.pointerList = pointerList;
-        this.checksumsCache = checksumsCache;
+        this.checksumsCache = Caffeine.newBuilder()
+                .softValues() //todo should we have hard limit instead ?
+                .build();
         this.singleClusterSize = singleClusterSize;
         this.compressionStrategy = CompressionStrategyFactory.getCompressionStrategy(compressionStrategy);
     }
 
     public KVUnit find(byte[] key, long keyChecksum) throws IOException {
-        Pointer pointer = getPointer(key);
-        reader.position((int) pointer.position());
+        var pointer = getPointerToCluster(key);
+        if (pointer == null) {
+            return null; // No pointer found for the key.
+        }
+        reader.position(pointer.position());
 
-        Checksums check = checksumsCache.get(pointer, position -> {
-            var checksums = new long[this.singleClusterSize];
+        var checksums = checksumsCache.get(pointer, _pointer -> {
+            var arr = new long[this.singleClusterSize];
             for (int i = 0; i < this.singleClusterSize; i++) {
                 try {
-                    checksums[i] = reader.getLong();
+                    arr[i] = reader.getLong();
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
             }
-            return new Checksums(checksums);
-        });
+            return new Checksums(arr);
+        }).checksums();
 
-        int index = getIndex(check, keyChecksum);
-        if (index == -1) {
-            return null;
-        }
-
-        return getLocation(key, keyChecksum, index, (int) pointer.position());
-    }
-
-    private int getIndex(Checksums check, long keyChecksum) {
-        long[] checksums = check.checksums();
         for (int i = 0; i < checksums.length; i++) {
             if (keyChecksum == checksums[i]) {
-                return i;
+                var kv = getLocation(pointer, i);
+                if (byteArrayComparator.compare(key, kv.getKey()) == 0) {
+                    return kv;
+                }
             }
         }
-        return -1;
+        return null;
     }
 
-    private KVUnit getLocation(byte[] key, long keyChecksum, int index, int initialPosition) throws IOException {
-        if (index == -1) {
-            return null;
-        }
+    private KVUnit getLocation(Pointer point, int index) throws IOException {
+        // Moving to location block
+        long afterChecksums = point.position() + Long.BYTES * this.singleClusterSize;
+        long keysLocatingIndexPos = afterChecksums + (long) index * Integer.BYTES;
+        long skipChecksumsAndLocations = afterChecksums + (this.singleClusterSize + 1) * Integer.BYTES;
+        long skipClusterMetaData = skipChecksumsAndLocations + Integer.BYTES;
 
-        // directly moving to location block
-        reader.position( initialPosition + Long.BYTES * this.singleClusterSize + index * Integer.BYTES);
-        int keyLocation = reader.getInt();
-        int nextKeyLocation = reader.getInt();
-        reader.position(initialPosition + Long.BYTES * this.singleClusterSize + (this.singleClusterSize + 1) * Integer.BYTES);
-        // todo use the common prefix, to maybe validate.
+        reader.position(keysLocatingIndexPos);
+        int internalKeyLocation = reader.getInt();
+        int internalNextKeyLocation = reader.getInt();
+
+
+        reader.position(skipChecksumsAndLocations);
         int commonPrefix = reader.getInt();
-        reader.position((int) (initialPosition +
-                Long.BYTES * this.singleClusterSize +
-                (this.singleClusterSize + 1) * Integer.BYTES
-                + Integer.BYTES + keyLocation));
 
-        int blockSizeToRead = nextKeyLocation - keyLocation;
+        long keyLocation = skipClusterMetaData + internalKeyLocation;
+        reader.position(keyLocation);
+
+        int blockSizeToRead = internalNextKeyLocation - internalKeyLocation;
         var block = new byte[blockSizeToRead];
         reader.read(block);
-        byte[] decompress = compressionStrategy.decompress(block);
-        var wrap = ByteBuffer.wrap(decompress);
-        int keyLength = wrap.getInt();
-        wrap.position(wrap.position() + keyLength);
-        byte isDeleted = wrap.get();
-        if (KVUnit.DeletionStatus.isDeleted(isDeleted)) return new KVUnit(key);
-        int valueLength = wrap.getInt();
-        byte[] bytes = new byte[valueLength];
-        wrap.get(bytes);
-        return new KVUnit(key, bytes);
+
+        return getKvUnit(point.key(), commonPrefix, block);
     }
 
-    private Pointer getPointer(byte[] key) {
-        int index = getCluster(key);
+    private KVUnit getKvUnit(byte[] pointerKey, int commonPrefix, byte[] block) throws IOException {
+        byte[] decompress = compressionStrategy.decompress(block);
+        var wrapper = ByteBuffer.wrap(decompress);
+        int keyLength = wrapper.getInt();
+        byte[] foundKey = new byte[keyLength + commonPrefix];
+
+        System.arraycopy(pointerKey, 0, foundKey, 0, commonPrefix);
+        wrapper.get(foundKey, commonPrefix, keyLength);
+
+        byte isDeleted = wrapper.get();
+        if (KVUnit.DeletionStatus.isDeleted(isDeleted)) return new KVUnit(foundKey);
+        int valueLength = wrapper.getInt();
+        byte[] foundValue = new byte[valueLength];
+        wrapper.get(foundValue);
+        return new KVUnit(foundKey, foundValue);
+    }
+
+    private Pointer getPointerToCluster(byte[] key) {
+        int index = getPointerIndex(key);
+
+        if (index < 0) {
+           return null;
+        }
+
         if (index == pointerList.size() -1) {
             index--; // finding the last element.
         }
         return pointerList.get(index);
     }
 
-    private int getCluster(byte[] key) {
+    private int getPointerIndex(byte[] key) {
         int l = 0, h = pointerList.size() - 1;
         while(l <= h) {
             int mid = (l + h) >>> 1;
             Pointer midPointer = pointerList.get(mid);
-            int compare = DBComparator.byteArrayComparator.compare(midPointer.key(), key);
+            int compare = byteArrayComparator.compare(midPointer.key(), key);
             if (compare < 0){
                 l = mid + 1;
             }

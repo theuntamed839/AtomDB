@@ -61,8 +61,8 @@ public class IOMMappedReader extends IOReader {
     }
 
     @Override
-    public void position(int positionToMove) {
-        map.position(positionToMove);
+    public void position(long positionToMove) {
+        map.position((int) positionToMove);
     }
 
     @Override

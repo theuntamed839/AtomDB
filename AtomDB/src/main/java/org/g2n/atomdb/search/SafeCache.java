@@ -6,6 +6,15 @@ import java.util.concurrent.*;
 import java.util.concurrent.locks.StampedLock;
 import java.util.function.Function;
 
+/*
+Note:
+I wanted the cache to be aware of the reference to the value which was acquired from the cache. So that it can avoid closing this object and move to next, when auto evicting.
+Otherwise in a multithreaded environment, it could happen that one thread acquires a value, and cache maybe try to evict the same value,
+ which would lead to closing the value while it is still in use.
+
+https://www.reddit.com/r/javahelp/comments/1mh4znd/i_am_having_trouble_in_finding_the_cause_and/
+ */
+
 public class SafeCache<K, V extends AutoCloseable> implements AutoCloseable{
     private final ConcurrentHashMap<K, RefCounted<V>> cache = new ConcurrentHashMap<>();
     private final int maxSize;
