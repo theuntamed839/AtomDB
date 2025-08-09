@@ -9,7 +9,7 @@ import java.util.function.Supplier;
 public class Benchmark {
 
     public static void main(String[] args) throws Exception {
-        benchmarkWithRandomKVBytes(DBProvider.get(DB.ATOMDB),1000000, 50, 500);
+        benchmarkWithRandomKVBytes(DBProvider.get(DB.LEVELDB),20_000_00, 500, 50);
     }
 
     private static void benchmarkWithRandomKVBytes(BenchmarkDBAdapter db, int totalEntryCount, int keyBytesLength, int valueBytesLength) throws Exception {
@@ -22,13 +22,13 @@ public class Benchmark {
             System.out.println("Writing... " + totalEntryCount);
             startTime = System.nanoTime();
             AtomicInteger i = new AtomicInteger();
-            map.entrySet().forEach(each -> {
+            map.forEach((key, value) -> {
                 try {
                     if (i.get() % 10000 == 0) {
                         System.out.println("progress="+i);
                     }
                     i.getAndIncrement();
-                    db.put(each.getKey(), each.getValue());
+                    db.put(key, value);
                 } catch (Exception e) {
                     throw new RuntimeException(e);
                 }
@@ -39,7 +39,8 @@ public class Benchmark {
 
             var list = new ArrayList<>(map.keySet());
             Collections.shuffle(list);
-
+            var scan = new Scanner(System.in);
+            scan.nextLine();
             System.out.println("Reading... ");
             startTime = System.nanoTime();
             list.forEach(each -> {
@@ -67,11 +68,11 @@ public class Benchmark {
     private static Map<byte[], byte[]> getRandomKV(int totalEntryCount, Supplier<Integer> keyBytesLength, Supplier<Integer> valueBytesLength) {
         // total entries
         System.out.println("random generation");
-        var rand = new Random(123456789L);
+        var rand = new Random(1234);
         Map<byte[], byte[]> map = new HashMap<>(totalEntryCount);
         for (int i = 0; i < totalEntryCount; i++) {
-            var key = new byte[keyBytesLength.get()];
-            var value = new byte[valueBytesLength.get()];
+            var key = new byte[rand.nextInt(10, keyBytesLength.get())];
+            var value = new byte[rand.nextInt(10, valueBytesLength.get())];
             rand.nextBytes(key); rand.nextBytes(value);
             map.put(key, value);
         }
