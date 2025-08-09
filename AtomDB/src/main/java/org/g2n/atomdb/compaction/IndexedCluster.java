@@ -203,7 +203,7 @@ public class IndexedCluster {
                                  DBConstant.COMPRESSION_TYPE compressionStrategy,
                                  Queue<KVUnit> queue) throws IOException {
         var decompressor = CompressionStrategyFactory.getCompressionStrategy(compressionStrategy);
-        reader.position((int) (pointer.position() + Long.BYTES * numberOfKeysInSingleCluster)); // skip checksums
+        reader.position(pointer.position() + Long.BYTES * numberOfKeysInSingleCluster); // skip checksums
 
         List<Integer> locations = getLocationList(reader, numberOfKeysInSingleCluster);
         int commonPrefix = reader.getInt();

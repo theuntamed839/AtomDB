@@ -71,7 +71,7 @@ public class Finder implements AutoCloseable{
         // Moving to location block
         long afterChecksums = point.position() + Long.BYTES * this.singleClusterSize;
         long keysLocatingIndexPos = afterChecksums + (long) index * Integer.BYTES;
-        long skipChecksumsAndLocations = afterChecksums + (this.singleClusterSize + 1) * Integer.BYTES;
+        long skipChecksumsAndLocations = afterChecksums + (this.singleClusterSize + 1) *  ((long) Integer.BYTES);
         long skipClusterMetaData = skipChecksumsAndLocations + Integer.BYTES;
 
         reader.position(keysLocatingIndexPos);

@@ -81,7 +81,6 @@ public class Table {
             SSTFileNameMeta meta = sstFileNamer.nextSst(level);
             Files.move(inter.path(), meta.path(), StandardCopyOption.ATOMIC_MOVE);
             SSTInfo info = new SSTInfo(
-                    meta.path(),
                     inter.sstHeader(),
                     inter.pointers(),
                     inter.filter(),

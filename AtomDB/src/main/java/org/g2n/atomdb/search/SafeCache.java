@@ -20,7 +20,6 @@ public class SafeCache<K, V extends AutoCloseable> implements AutoCloseable{
     private final int maxSize;
     private final Function<K, V> valueLoader;
     private final StampedLock lock = new StampedLock();
-    int maxElementCount = 0;
 
     public SafeCache(int maxSize, Function<K, V> valueLoader) {
         if (maxSize < Runtime.getRuntime().availableProcessors() * 2) {
@@ -34,7 +33,7 @@ public class SafeCache<K, V extends AutoCloseable> implements AutoCloseable{
         evictIfOverLimit();
         long readStamp = lock.readLock();
         try {
-            RefCounted<V> existing = cache.compute(key, (k, value) -> { // returns old value.
+            RefCounted<V> existing = cache.compute(key, (_, value) -> { // returns old value.
                 if (value == null || value.isClosed()) {
                     try {
                         value = new RefCounted<>(valueLoader.apply(key));
@@ -45,7 +44,6 @@ public class SafeCache<K, V extends AutoCloseable> implements AutoCloseable{
                 value.retain();
                 return value;
             });
-            maxElementCount = Math.max(maxElementCount, cache.size());
             return existing.value;
         }finally {
             lock.unlockRead(readStamp);

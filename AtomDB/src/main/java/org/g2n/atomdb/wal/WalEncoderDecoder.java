@@ -26,16 +26,16 @@ public final class WalEncoderDecoder {
     public LogBlock decoder(IOReader reader) throws IOException {
         var operation = Operations.getOperation(reader.get());
         int totalKvLength = reader.getInt();
-        int kLenght = reader.getInt();
-        var k = new byte[kLenght];
-        reader.get(k);
+        int keyLength = reader.getInt();
+        var key = new byte[keyLength];
+        reader.get(key);
         var isDeleted = KVUnit.DeletionStatus.of(reader.get());
         if (KVUnit.DeletionStatus.NOT_DELETED == isDeleted) {
-            int vLenght = reader.getInt();
-            var v = new byte[vLenght];
-            reader.get(v);
-            return new LogBlock(operation, new KVUnit(k, v));
+            int valueLength = reader.getInt();
+            var value = new byte[valueLength];
+            reader.get(value);
+            return new LogBlock(operation, new KVUnit(key, value));
         }
-        return new LogBlock(operation, new KVUnit(k));
+        return new LogBlock(operation, new KVUnit(key));
     }
 }

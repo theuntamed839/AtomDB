@@ -6,7 +6,6 @@ import com.google.common.hash.BloomFilter;
 import org.g2n.atomdb.sstIO.Range;
 import org.g2n.atomdb.sstIO.SSTHeader;
 
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -19,15 +18,15 @@ public class SSTInfo extends SSTHeader implements Comparable<SSTInfo> {
     private final int sstHashCode;
     private final Path sstNormalizedPath;
 
-    public SSTInfo(Path sstPath, SSTHeader header, PointerList pointers, BloomFilter<byte[]> filter, SSTFileNameMeta fileNameMeta) {
+    public SSTInfo(SSTHeader header, PointerList pointers, BloomFilter<byte[]> filter, SSTFileNameMeta fileNameMeta) {
         super(header);
+        this.sstPath = fileNameMeta.path();
         Preconditions.checkArgument(Files.exists(sstPath), "SST file does not exist: " + sstPath);
         Preconditions.checkNotNull(pointers, "Pointers cannot be null");
         Preconditions.checkNotNull(filter, "Filter cannot be null");
         Preconditions.checkNotNull(fileNameMeta, "File name meta cannot be null");
 
         this.number = fileNameMeta.seq();
-        this.sstPath = sstPath;
         this.sstHashCode = sstPath.toAbsolutePath().normalize().hashCode();
         this.sstNormalizedPath = sstPath.toAbsolutePath().normalize();
         this.pointers = pointers;
@@ -59,17 +58,13 @@ public class SSTInfo extends SSTHeader implements Comparable<SSTInfo> {
         return  Byte.compare(this.getLevel().value(), sstInfo.getLevel().value());
     }
 
-    public long getFileSize() throws IOException {
-        return Files.size(sstPath);
-    }
-
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-
-        SSTInfo sstInfo = (SSTInfo) o;
-        return sstNormalizedPath.equals(sstInfo.sstNormalizedPath); // todo store absolute path in SSTInfo and access that.
+        if (!(o instanceof SSTInfo sstInfo)){
+            return false;
+        }
+        return sstNormalizedPath.equals(sstInfo.sstNormalizedPath);
     }
 
     @Override

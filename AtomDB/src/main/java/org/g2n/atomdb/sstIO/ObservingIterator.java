@@ -15,10 +15,12 @@ public class ObservingIterator implements Iterator<KVUnit> {
         this.observer = observer;
     }
 
+    @Override
     public boolean hasNext() {
         return iterator.hasNext();
     }
 
+    @Override
     public KVUnit next() {
         if (iterator.hasNext()) {
             KVUnit unit = iterator.next();
