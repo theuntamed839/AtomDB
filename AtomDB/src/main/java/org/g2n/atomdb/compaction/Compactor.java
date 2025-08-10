@@ -82,9 +82,8 @@ public class Compactor implements AutoCloseable {
                     return;
                 }
                 performCompaction(level, overlapping);
-            } catch (Exception e) {
-                e.printStackTrace();
-            } finally {
+            }
+            finally {
                 if (lock1.isHeldByCurrentThread()) {
                     lock1.unlock();
                 }
@@ -208,7 +207,7 @@ public class Compactor implements AutoCloseable {
 
 
         candidate.getSstKeyRange().contains(range)
-        because further level ssts are highly compact, and decided whether to get compacted based on the range
+        because further level ssts are highly compact, and decides whether to get compacted based on the range
 
         candidate.getSstKeyRange().inRange(range.getSmallest()) || candidate.getSstKeyRange().inRange(range.getGreatest());
          */
@@ -256,7 +255,7 @@ public class Compactor implements AutoCloseable {
     @Override
     public void close() throws Exception {
         executors.shutdown();
-        executors.awaitTermination(1, TimeUnit.MINUTES); // todo this return value can be used to identify if compaction was unsuccessful, which can help in deleting delete files.
+        executors.awaitTermination(1, TimeUnit.MINUTES); // todo this return value can be used to identify if compaction was unsuccessful, which can help in deleting intermediate files.
         executors.close();
         System.out.println("Number of actually compactions: " + numberOfActuallyCompactions.get());
         // number of files in each levels

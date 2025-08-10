@@ -11,6 +11,7 @@ import java.nio.file.Path;
 
 public class SSTInfo extends SSTHeader implements Comparable<SSTInfo> {
     private final Path sstPath;
+    private final SSTFileNameMeta fileNameMeta;
     private final PointerList pointers;
     private final BloomFilter<byte[]> filter;
     private final long number;
@@ -21,6 +22,7 @@ public class SSTInfo extends SSTHeader implements Comparable<SSTInfo> {
     public SSTInfo(SSTHeader header, PointerList pointers, BloomFilter<byte[]> filter, SSTFileNameMeta fileNameMeta) {
         super(header);
         this.sstPath = fileNameMeta.path();
+        this.fileNameMeta = fileNameMeta;
         Preconditions.checkArgument(Files.exists(sstPath), "SST file does not exist: " + sstPath);
         Preconditions.checkNotNull(pointers, "Pointers cannot be null");
         Preconditions.checkNotNull(filter, "Filter cannot be null");
@@ -91,5 +93,9 @@ public class SSTInfo extends SSTHeader implements Comparable<SSTInfo> {
 
     public boolean isOlderThan(SSTInfo sst) {
         return compareTo(sst) > 0;
+    }
+
+    public SSTFileNameMeta getFileNameMeta() {
+        return fileNameMeta;
     }
 }

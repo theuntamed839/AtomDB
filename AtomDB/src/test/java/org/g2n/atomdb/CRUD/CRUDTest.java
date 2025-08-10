@@ -289,7 +289,8 @@ public abstract class CRUDTest {
         db.put("key1".getBytes(), "value1".getBytes());
         db.put("key1".getBytes(), "value2".getBytes());
         db.close();
-        db = new DBImpl(dbPath, opt); // Reopen the DB
+        Thread.sleep(100); // In JIMFS, it's too fast.
+        db = new DBImpl(dbPath, opt);
         byte[] value = db.get("key1".getBytes());
         assert new String(value).equals("value2");
     }
@@ -298,6 +299,7 @@ public abstract class CRUDTest {
     public void testPut_overwritesKeyAfterReopen_returnsLatestValue() throws Exception {
         db.put("key1".getBytes(), "value1".getBytes());
         db.close();
+        Thread.sleep(100); // In JIMFS, it's too fast.
         db = new DBImpl(dbPath, opt); // Reopen the DB
         db.put("key1".getBytes(), "value2".getBytes());
         byte[] value = db.get("key1".getBytes());
@@ -368,7 +370,7 @@ public abstract class CRUDTest {
             writeRandomKeyValuePairs(db, 1000);
         }
         db.close();
-        db = new DBImpl(dbPath, opt); // Reopen the DB
+        db = new DBImpl(dbPath, opt);
 
         byte[] value = db.get("key1".getBytes());
         assert new String(value).equals("value2");
@@ -388,7 +390,8 @@ public abstract class CRUDTest {
         db.put("key1".getBytes(), "value1".getBytes());
         db.delete("key1".getBytes());
         db.close();
-        db = new DBImpl(dbPath, opt); // Reopen the DB
+        Thread.sleep(100); // In JIMFS, it's too fast.
+        db = new DBImpl(dbPath, opt);
         byte[] value = db.get("key1".getBytes());
         assert value == null;
     }
@@ -397,7 +400,8 @@ public abstract class CRUDTest {
     public void testDelete_keyDeletedAfterReopen_returnsNull() throws Exception {
         db.put("key1".getBytes(), "value1".getBytes());
         db.close();
-        db = new DBImpl(dbPath, opt); // Reopen the DB
+        Thread.sleep(100); // In JIMFS, it's too fast.
+        db = new DBImpl(dbPath, opt);
         db.delete("key1".getBytes());
         byte[] value = db.get("key1".getBytes());
         assert value == null;
@@ -468,7 +472,7 @@ public abstract class CRUDTest {
             writeRandomKeyValuePairs(db, 1000);
         }
         db.close();
-        db = new DBImpl(dbPath, opt); // Reopen the DB
+        db = new DBImpl(dbPath, opt);
 
         byte[] value = db.get("key1".getBytes());
         assert value == null;

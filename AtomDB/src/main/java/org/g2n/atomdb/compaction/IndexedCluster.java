@@ -15,6 +15,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Queue;
 import java.util.zip.CRC32C;
+import java.util.zip.Checksum;
 
 import static org.g2n.atomdb.db.DBComparator.byteArrayComparator;
 
@@ -28,12 +29,12 @@ import static org.g2n.atomdb.db.DBComparator.byteArrayComparator;
 
 
 public class IndexedCluster {
+    private static final ThreadLocal<Checksum> crc32cThreadLocal = ThreadLocal.withInitial(CRC32C::new);
     private static final int NOT_CALCULATED_YET = -1;
     private final int MAX_NUM_OF_ENTRIES_IN_CLUSTER;
-    private final CRC32C checksum;
     private final DataCompressionStrategy compression;
     private final boolean shouldUseCommonPrefix; // TODO
-    private int totatKVSize = 0;
+    private int totalKVSize = 0;
     private int commonPrefix;
     private final List<KVUnit> entries;
     private static final long DUMMY_CHECKSUM = Long.MIN_VALUE;
@@ -43,7 +44,6 @@ public class IndexedCluster {
     public IndexedCluster(SSTHeader header) {
         this.shouldUseCommonPrefix = header.isShortestCommonPrefixUsed();
         this.commonPrefix = NOT_CALCULATED_YET;
-        this.checksum = new CRC32C(); // todo using naked crc32c
         this.compression = CompressionStrategyFactory.getCompressionStrategy(header.getCompressionStrategy());
         this.MAX_NUM_OF_ENTRIES_IN_CLUSTER = header.getSingleClusterSize();
         this.entries = new ArrayList<>(this.MAX_NUM_OF_ENTRIES_IN_CLUSTER);
@@ -59,7 +59,7 @@ public class IndexedCluster {
         }
 
         entries.add(kv);
-        totatKVSize += kv.getUnitSize();
+        totalKVSize += kv.getUnitSize();
         calculateCommonPrefix(kv.getKey());
     }
 
@@ -133,6 +133,7 @@ public class IndexedCluster {
         var buffer = bufferThreadLocal.get();//ByteBuffer.allocate(requiredSize);
         buffer.clear();
 
+        Checksum checksum = crc32cThreadLocal.get();
         checksum.reset();
         checksum.update(key, commonPrefix, key.length - commonPrefix);
         checksum.update(isDelete);
@@ -166,6 +167,7 @@ public class IndexedCluster {
     }
 
     private long getChecksum(byte[] key) {
+        Checksum checksum = crc32cThreadLocal.get();
         checksum.reset();
         checksum.update(key);
         return checksum.getValue();
@@ -181,7 +183,7 @@ public class IndexedCluster {
     }
 
     public int getTotalSize() {
-        return totatKVSize;
+        return totalKVSize;
     }
 
     public int getNumberOfEntries() {

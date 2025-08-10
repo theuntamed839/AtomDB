@@ -2,7 +2,6 @@ package org.g2n.atomdb.search;
 
 import com.google.common.jimfs.Configuration;
 import com.google.common.jimfs.Jimfs;
-import org.g2n.atomdb.checksum.Crc32cChecksum;
 import org.g2n.atomdb.db.DbComponentProvider;
 import org.g2n.atomdb.db.DbOptions;
 import org.g2n.atomdb.db.KVUnit;
@@ -20,10 +19,13 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
+import java.util.zip.CRC32C;
+import java.util.zip.Checksum;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class FinderTest {
+    private static final ThreadLocal<Checksum> crc32cThreadLocal = ThreadLocal.withInitial(CRC32C::new);
     private Table table;
     private DbComponentProvider dbComponentProvider;
     private SSTPersist sstPersist;
@@ -131,7 +133,9 @@ class FinderTest {
     }
 
     private static long getKeyChecksum(byte[] key) {
-        Crc32cChecksum crc32cChecksum = Crc32cChecksum.getInstance();//new Crc32cChecksum();
-        return crc32cChecksum.compute(key);
+        Checksum checksum = crc32cThreadLocal.get();
+        checksum.reset();
+        checksum.update(key);
+        return checksum.getValue();
     }
 }

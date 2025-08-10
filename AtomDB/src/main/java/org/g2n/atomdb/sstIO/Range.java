@@ -1,18 +1,14 @@
 package org.g2n.atomdb.sstIO;
 
 import com.google.common.base.Preconditions;
-import org.g2n.atomdb.checksum.AtomChecksum;
-import org.g2n.atomdb.checksum.Crc32cChecksum;
+import java.util.zip.Checksum;
+import java.util.zip.CRC32C;
 import org.g2n.atomdb.db.DBComparator;
 
 import java.util.Arrays;
 
-/**
- *
- * we can make a generic keyRange class, and sstKeyRange as the derived class.
- */
-
 public class Range {
+    private static final ThreadLocal<Checksum> crc32cThreadLocal = ThreadLocal.withInitial(CRC32C::new);
     private final byte[] smallest;
     private final byte[] greatest;
     private final long checksum;
@@ -23,8 +19,7 @@ public class Range {
         Preconditions.checkArgument(DBComparator.byteArrayComparator.compare(smallest, greatest) < 0, "Smallest and greatest keys cannot be empty");
         this.smallest = smallest;
         this.greatest = greatest;
-        AtomChecksum checksumProvide = new Crc32cChecksum();
-        this.checksum = checksumProvide.compute(smallest, greatest);
+        this.checksum = getChecksum(smallest, greatest);
         this.size = smallest.length + greatest.length + Integer.BYTES * 2 + Long.BYTES;
     }
 
@@ -50,6 +45,14 @@ public class Range {
     public boolean contains(Range range) {
         return DBComparator.byteArrayComparator.compare(this.smallest, range.smallest) <= 0 &&
                 DBComparator.byteArrayComparator.compare(this.greatest, range.greatest) >= 0;
+    }
+
+    public long getChecksum(byte[] key, byte[] value) {
+        var crc32c = crc32cThreadLocal.get();
+        crc32c.reset();
+        crc32c.update(key);
+        crc32c.update(value);
+        return crc32c.getValue();
     }
 
     @Override

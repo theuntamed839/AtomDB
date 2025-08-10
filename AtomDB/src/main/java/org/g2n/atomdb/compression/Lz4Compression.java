@@ -17,12 +17,12 @@ public class Lz4Compression implements DataCompressionStrategy {
     }
 
     @Override
-    public byte[] compress(byte[] arr) throws IOException {
+    public byte[] compress(byte[] arr) {
         return lz4CompressorWithLength.compress(arr);
     }
 
     @Override
-    public byte[] decompress(byte[] arr) throws IOException {
+    public byte[] decompress(byte[] arr) {
         return lz4DecompressorWithLength.decompress(arr);
     }
 }

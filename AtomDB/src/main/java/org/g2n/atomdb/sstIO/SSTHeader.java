@@ -153,7 +153,7 @@ public class SSTHeader{
         Preconditions.checkArgument(header.pointersPosition > 0, "Pointers position must be greater than 0");
     }
 
-    private void validateIfAllFieldTakenIntoConsideration(int fields) {
+    private void validateIfAllFieldTakenIntoConsideration(int fields) { // todo remove
         Field[] declaredFields = getClass().getDeclaredFields();
         int staticCount = 0;
         for (Field declaredField : declaredFields) {

@@ -1,6 +1,5 @@
 package org.g2n.atomdb.search;
 
-import org.g2n.atomdb.checksum.Crc32cChecksum;
 import org.g2n.atomdb.constants.DBConstant;
 import org.g2n.atomdb.level.Level;
 import org.g2n.atomdb.mem.ImmutableMem;
@@ -15,9 +14,11 @@ import org.g2n.atomdb.db.KVUnit;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.locks.StampedLock;
+import java.util.zip.CRC32C;
+import java.util.zip.Checksum;
 
 public class Search implements AutoCloseable{
-
+    private static final ThreadLocal<Checksum> crc32cThreadLocal = ThreadLocal.withInitial(CRC32C::new);
     private final LoadingCache<byte[], KVUnit> kvCache;
     private final SafeCache<SSTInfo, Finder> readerCache;
     private final HashMap<Integer, Integer> readerStats;
@@ -136,8 +137,10 @@ public class Search implements AutoCloseable{
     }
 
     private static long getKeyChecksum(byte[] key) {
-        Crc32cChecksum crc32cChecksum = Crc32cChecksum.getInstance();//new Crc32cChecksum();
-        return crc32cChecksum.compute(key);
+        Checksum checksum = crc32cThreadLocal.get();
+        checksum.reset();
+        checksum.update(key);
+        return checksum.getValue();
     }
 
     @Override

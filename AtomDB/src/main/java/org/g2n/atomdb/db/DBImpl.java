@@ -29,7 +29,7 @@ public class DBImpl implements DB, AutoCloseable{
     private final DbOptions options;
     private final DbComponentProvider dbComponentProvider;
     private SkipListMemtable memtable;
-    private Table table;
+    private final Table table;
     private FileLock dbProcessLocking;
     private FileChannel dbLockFileChannel;
     private boolean isClosed = false;

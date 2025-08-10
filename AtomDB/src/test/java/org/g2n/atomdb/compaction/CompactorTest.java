@@ -135,12 +135,12 @@ class CompactorTest {
     @Test
     void testTryCompaction_shouldIncludeOverlappingNextLevelSSTsInCompaction() throws Exception {
         sstPersist.writeSingleFile(Level.LEVEL_ONE, 2,
-                List.of(new KVUnit(new byte[]{-4}, "value1".getBytes()),
+                List.of(new KVUnit(new byte[]{-8}, "value1".getBytes()),
                         new KVUnit(new byte[]{-1}, "value2".getBytes())).iterator());
 
         sstPersist.writeSingleFile(Level.LEVEL_ZERO, 2,
-                List.of(new KVUnit(new byte[]{-6}, "value1".getBytes()),
-                        new KVUnit(new byte[]{-1}, "value2".getBytes())).iterator());
+                List.of(new KVUnit(new byte[]{-7}, "value1".getBytes()),
+                        new KVUnit(new byte[]{-5}, "value2".getBytes())).iterator());
         sstPersist.writeSingleFile(Level.LEVEL_ZERO, 2,
                 List.of(new KVUnit(new byte[]{-7}, "value1".getBytes()),
                         new KVUnit(new byte[]{-1}, "value2".getBytes())).iterator());
@@ -160,11 +160,11 @@ class CompactorTest {
     @Test
     void testTryCompaction_shouldPreferOldestSSTOverlappingSSTsWithNextLevel() throws Exception {
         sstPersist.writeSingleFile(Level.LEVEL_ONE, 2,
-                List.of(new KVUnit(new byte[]{-4}, "value1".getBytes()),
+                List.of(new KVUnit(new byte[]{-6}, "value1".getBytes()),
                         new KVUnit(new byte[]{-1}, "value2".getBytes())).iterator());
 
         sstPersist.writeSingleFile(Level.LEVEL_ZERO, 2,
-                List.of(new KVUnit(new byte[]{-6}, "value1".getBytes()),
+                List.of(new KVUnit(new byte[]{-4}, "value1".getBytes()),
                         new KVUnit(new byte[]{-1}, "value2".getBytes())).iterator());
 
         generateSSTToTriggerCompactionNew(sstPersist, Level.LEVEL_ZERO);
@@ -179,58 +179,28 @@ class CompactorTest {
     }
 
     @Test
-    void testTryCompaction_shouldCompactNextLevelOverlappingSSTsWithNoDependencies() throws Exception {
+    void testTryCompaction_onlyNewerOverlappingFilesIsTakenForCompactionFromNextLevel() throws Exception {
         sstPersist.writeSingleFile(Level.LEVEL_ONE, 2,
-                List.of(new KVUnit(new byte[]{-4}, "value1".getBytes()),
-                        new KVUnit(new byte[]{-1}, "value2".getBytes())).iterator());
+                List.of(new KVUnit(new byte[]{-7}, "value1".getBytes()),
+                        new KVUnit(new byte[]{-3}, "value2".getBytes())).iterator());
         sstPersist.writeSingleFile(Level.LEVEL_ONE, 2,
-                List.of(new KVUnit(new byte[]{-9}, "value1".getBytes()),
-                        new KVUnit(new byte[]{-6}, "value2".getBytes())).iterator());
+                List.of(new KVUnit(new byte[]{-8}, "value1".getBytes()),
+                        new KVUnit(new byte[]{-2}, "value2".getBytes())).iterator());
 
         sstPersist.writeSingleFile(Level.LEVEL_ZERO, 2,
                 List.of(new KVUnit(new byte[]{-6}, "value1".getBytes()),
-                        new KVUnit(new byte[]{-1}, "value2".getBytes())).iterator());
+                        new KVUnit(new byte[]{-4}, "value2".getBytes())).iterator());
         sstPersist.writeSingleFile(Level.LEVEL_ZERO, 2,
                 List.of(new KVUnit(new byte[]{-7}, "value1".getBytes()),
-                        new KVUnit(new byte[]{-1}, "value2".getBytes())).iterator());
-
-        generateSSTToTriggerCompactionNew(sstPersist, Level.LEVEL_ZERO);
-        var sstCount_LEVEL_ZERO = table.getSSTInfoSet(Level.LEVEL_ZERO).size();
-
-        compactor.tryCompaction(Level.LEVEL_ZERO);
-        compactor.close();
-
-        assertFalse(table.getSSTInfoSet(Level.LEVEL_ONE).stream().anyMatch(sstInfo -> sstInfo.getSstPath().getFileName().toString().equals("SST_1_1.sst")));
-        assertFalse(table.getSSTInfoSet(Level.LEVEL_ONE).stream().anyMatch(sstInfo -> sstInfo.getSstPath().getFileName().toString().equals("SST_1_2.sst")));
-        assertFalse(table.getSSTInfoSet(Level.LEVEL_ZERO).stream().anyMatch(sstInfo -> sstInfo.getSstPath().getFileName().toString().equals("SST_0_3.sst")));
-        assertFalse(table.getSSTInfoSet(Level.LEVEL_ZERO).stream().anyMatch(sstInfo -> sstInfo.getSstPath().getFileName().toString().equals("SST_0_4.sst")));
-
-        assertEquals(sstCount_LEVEL_ZERO - 2, table.getSSTInfoSet(Level.LEVEL_ZERO).size());
-    }
-
-    @Test
-    void testTryCompaction_shouldCompactAllNextLevelOverlappingSSTs() throws Exception {
-        sstPersist.writeSingleFile(Level.LEVEL_ONE, 2,
-                List.of(new KVUnit(new byte[]{-4}, "value1".getBytes()),
-                        new KVUnit(new byte[]{-1}, "value2".getBytes())).iterator());
-        sstPersist.writeSingleFile(Level.LEVEL_ONE, 2,
-                List.of(new KVUnit(new byte[]{-6}, "value1".getBytes()),
                         new KVUnit(new byte[]{-5}, "value2".getBytes())).iterator());
 
-        sstPersist.writeSingleFile(Level.LEVEL_ZERO, 2,
-                List.of(new KVUnit(new byte[]{-6}, "value1".getBytes()),
-                        new KVUnit(new byte[]{-1}, "value2".getBytes())).iterator());
-        sstPersist.writeSingleFile(Level.LEVEL_ZERO, 2,
-                List.of(new KVUnit(new byte[]{-7}, "value1".getBytes()),
-                        new KVUnit(new byte[]{-1}, "value2".getBytes())).iterator());
-
         generateSSTToTriggerCompactionNew(sstPersist, Level.LEVEL_ZERO);
         var sstCount_LEVEL_ZERO = table.getSSTInfoSet(Level.LEVEL_ZERO).size();
 
         compactor.tryCompaction(Level.LEVEL_ZERO);
         compactor.close();
 
-        assertFalse(table.getSSTInfoSet(Level.LEVEL_ONE).stream().anyMatch(sstInfo -> sstInfo.getSstPath().getFileName().toString().equals("SST_1_1.sst")));
+        assertTrue(table.getSSTInfoSet(Level.LEVEL_ONE).stream().anyMatch(sstInfo -> sstInfo.getSstPath().getFileName().toString().equals("SST_1_1.sst")));
         assertFalse(table.getSSTInfoSet(Level.LEVEL_ONE).stream().anyMatch(sstInfo -> sstInfo.getSstPath().getFileName().toString().equals("SST_1_2.sst")));
         assertFalse(table.getSSTInfoSet(Level.LEVEL_ZERO).stream().anyMatch(sstInfo -> sstInfo.getSstPath().getFileName().toString().equals("SST_0_3.sst")));
         assertFalse(table.getSSTInfoSet(Level.LEVEL_ZERO).stream().anyMatch(sstInfo -> sstInfo.getSstPath().getFileName().toString().equals("SST_0_4.sst")));
@@ -297,7 +267,7 @@ class CompactorTest {
     }
 
     private void generateSSTToTriggerCompactionNew(SSTPersist sstPersist, Level level) {
-        while(table.getCurrentLevelSize(level) < level.limitingSize()) {
+        while(table.getCurrentLevelSize(level) < level.limitingSize() + 1) {
             var units = getUniqueEntries(100);
             try {
                 sstPersist.writeSingleFile(level, units.size(), units.iterator());
