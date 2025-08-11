@@ -5,10 +5,10 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.Path;
 
-public final class SynchronizedFileChannelWriter implements Writer, SynchronizedWriter {
+public final class FileChannelWriter implements LogWriter {
     private final FileChannel channel;
 
-    public SynchronizedFileChannelWriter(Path filePath) throws IOException {
+    public FileChannelWriter(Path filePath) throws IOException {
         this.channel = FileChannel.open(filePath, java.nio.file.StandardOpenOption.WRITE, java.nio.file.StandardOpenOption.CREATE);
         channel.force(true);
     }
@@ -19,12 +19,12 @@ public final class SynchronizedFileChannelWriter implements Writer, Synchronized
     }
 
     @Override
-    public synchronized void write(byte[] buffer) throws IOException {
+    public void write(byte[] buffer) throws IOException {
         write(ByteBuffer.wrap(buffer));
     }
 
     @Override
-    public synchronized void write(ByteBuffer buffer) throws IOException {
+    public void write(ByteBuffer buffer) throws IOException {
         channel.write(buffer);
     }
 }

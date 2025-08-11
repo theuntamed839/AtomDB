@@ -37,7 +37,7 @@ public class Finder implements AutoCloseable{
         this.compressionStrategy = CompressionStrategyFactory.getCompressionStrategy(compressionStrategy);
     }
 
-    public KVUnit find(byte[] key, long keyChecksum) throws IOException {
+    public synchronized KVUnit find(byte[] key, long keyChecksum) throws IOException {
         var pointer = getPointerToCluster(key);
         if (pointer == null) {
             return null; // No pointer found for the key.

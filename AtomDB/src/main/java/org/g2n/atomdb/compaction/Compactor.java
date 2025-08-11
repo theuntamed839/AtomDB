@@ -63,11 +63,11 @@ public class Compactor implements AutoCloseable {
     }
 
     public void tryCompaction(Level level) {
+        waitUntilLevelZeroCompactionFree(level); // otherwise main thread is just going to submit to executors, and let the files increase in level 0
         if (table.getCurrentLevelSize(level) <= level.limitingSize()) {
             return;
         }
 
-        waitUntilLevelZeroCompactionFree(level); // otherwise main thread is just going to submit to executors, and let the files increase in level 0
         if (executors.isShutdown()) {
             return;
         }

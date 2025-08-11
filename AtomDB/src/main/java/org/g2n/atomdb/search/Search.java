@@ -57,6 +57,7 @@ public class Search implements AutoCloseable{
     }
 
     private KVUnit findKeyInternal(byte[] key) throws Exception {
+        // Note: is locked by the kvCache.
         KVUnit kvUnit = secondaryMem.get(key);
         if (kvUnit != null) {
             return kvUnit;
@@ -149,8 +150,13 @@ public class Search implements AutoCloseable{
         for (Map.Entry<Integer, Integer> entry : readerStats.entrySet()) {
             System.out.println("numberOfFilesRequiredToSearch="+entry.getKey()+" numberOfTimesThisHappened= "+(entry.getValue() * 100.0/totalReads) + "%");
         }
-        kvCache.invalidateAll();
-        kvCache.cleanUp();
-        readerCache.close();
+        long writeStamp = lock.writeLock();
+        try {
+            kvCache.invalidateAll();
+            kvCache.cleanUp();
+            readerCache.close();
+        } finally {
+            lock.unlockWrite(writeStamp);
+        }
     }
 }

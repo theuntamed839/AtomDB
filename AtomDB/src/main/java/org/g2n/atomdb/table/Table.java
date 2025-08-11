@@ -75,6 +75,14 @@ public class Table {
         removeSST(toRemove);
     }
 
+    public SortedSet<SSTInfo> getSSTInfoSet(Level level) {
+        return Collections.unmodifiableSortedSet(levelToFilesMap.get(level));
+    }
+
+    public Long getCurrentLevelSize(Level level) {
+        return tableSize.get(level);
+    }
+
     private SortedSet<SSTInfo> addToTheTable(List<Intermediate> intermediates) throws IOException {
         Level level = intermediates.getFirst().sstHeader().getLevel();
         SortedSet<SSTInfo> ssts = new TreeSet<>();
@@ -94,7 +102,7 @@ public class Table {
         return ssts;
     }
 
-    public void removeSST(Collection<SSTInfo> ssts) {
+    private void removeSST(Collection<SSTInfo> ssts) {
         for (SSTInfo info : ssts) {
             Level level = info.getLevel();
             levelToFilesMap.get(level).remove(info);
@@ -105,13 +113,5 @@ public class Table {
                 logger.error("Failed to delete SST file: {}", info.getSstPath().toAbsolutePath(), e);
             }
         }
-    }
-
-    public SortedSet<SSTInfo> getSSTInfoSet(Level level) {
-        return Collections.unmodifiableSortedSet(levelToFilesMap.get(level));
-    }
-
-    public Long getCurrentLevelSize(Level level) {
-        return tableSize.get(level);
     }
 }

@@ -19,6 +19,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class DBImpl implements DB, AutoCloseable{
     private final Logger logger = LoggerFactory.getLogger(getClass());
@@ -32,7 +33,7 @@ public class DBImpl implements DB, AutoCloseable{
     private final Table table;
     private FileLock dbProcessLocking;
     private FileChannel dbLockFileChannel;
-    private boolean isClosed = false;
+    private final AtomicBoolean isClosed = new AtomicBoolean(false);
 
     public DBImpl(Path pathForDB, DbOptions dbOptions) throws Exception {
         this.dbComponentProvider = new DbComponentProvider(dbOptions);
@@ -49,18 +50,19 @@ public class DBImpl implements DB, AutoCloseable{
     }
 
     @Override
-    public synchronized void put(byte[] key, byte[] value) throws Exception {
-        // todo we can get rid of synchronized if whole other code is handled for thread safety.
-        ensureOpen();
+    public void put(byte[] key, byte[] value) throws Exception {
         var kvUnit = new KVUnit(key, value);
-
-        walManager.log(Operations.WRITE, kvUnit);
-        memtable.put(kvUnit);
-        handleIfFull();
+        writeUnit(kvUnit, Operations.WRITE);
     }
 
     @Override
-    public synchronized byte[] get(byte[] key) throws Exception { // todo do we need synchronized here?
+    public void delete(byte[] key) throws Exception {
+        KVUnit kvUnit = new KVUnit(key);
+        writeUnit(kvUnit, Operations.DELETE);
+    }
+
+    @Override
+    public byte[] get(byte[] key) throws Exception {
         ensureOpen();
         Objects.requireNonNull(key);
         var kvUnit = memtable.get(key);
@@ -70,16 +72,11 @@ public class DBImpl implements DB, AutoCloseable{
         return kvUnit == null || kvUnit.isDeleted() ?  null : kvUnit.getValue();
     }
 
-    @Override
-    public synchronized void delete(byte[] key) throws Exception {
+    private synchronized void writeUnit(KVUnit kvUnit, Operations operations) throws Exception {
         ensureOpen();
-        KVUnit kvUnit = new KVUnit(key);
-        walManager.log(Operations.DELETE, kvUnit);
-        memtable.delete(kvUnit);
-        handleIfFull();
-    }
+        walManager.log(operations, kvUnit);
+        memtable.put(kvUnit);
 
-    private void handleIfFull() throws Exception {
         if (!memtable.isFull()){
             return;
         }
@@ -90,9 +87,27 @@ public class DBImpl implements DB, AutoCloseable{
         search.addSecondaryMemtable(immutableMem);
 
         walManager.rotateLog();
-        memtable = new SkipListMemtable(options.memtableSize, options.getComparator()); // todo we can have more memtable
+        memtable = new SkipListMemtable(options.memtableSize, options.getComparator());
 
         compactor.tryCompaction(Level.LEVEL_ZERO);
+    }
+
+    @Override
+    public void destroy() throws IOException {
+        if (!isClosed.get()) {
+            throw new IllegalStateException("Database must be closed before destroying.");
+        }
+        logger.info("Destroying database at: {}", dbPath);
+        try (var stream = Files.walk(this.dbPath)) {
+            stream.sorted(java.util.Comparator.reverseOrder()) // Important: delete children before parents
+                    .forEach(path -> {
+                        try {
+                            Files.delete(path);
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
+                        }
+                    });
+        }
     }
 
     private void acquireDBLock() throws IOException {
@@ -110,37 +125,22 @@ public class DBImpl implements DB, AutoCloseable{
     }
 
     private void ensureOpen() {
-        if (isClosed) {
+        if (isClosed.get()) {
             throw new IllegalStateException("Database is closed.");
         }
     }
 
     @Override
     public void close() throws Exception {
-        if (isClosed) {
+        if (isClosed.get()) {
             logger.warn("Database at {} is already closed.", dbPath);
             return;
         }
-        isClosed = true;
+        isClosed.set(true);
         walManager.close();
         search.close();
         compactor.close();
         dbProcessLocking.release();
         dbLockFileChannel.close();
-    }
-
-    @Override
-    public void destroy() throws IOException {
-        logger.info("Destroying database at: {}", dbPath);
-        try (var stream = Files.walk(this.dbPath)) {
-            stream.sorted(java.util.Comparator.reverseOrder()) // Important: delete children before parents
-                    .forEach(path -> {
-                        try {
-                            Files.delete(path);
-                        } catch (IOException e) {
-                            throw new RuntimeException(e);
-                        }
-                    });
-        }
     }
 }

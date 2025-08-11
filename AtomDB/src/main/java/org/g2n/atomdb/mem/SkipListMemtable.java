@@ -8,18 +8,17 @@ import java.util.Comparator;
 import java.util.Objects;
 import java.util.SortedMap;
 import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class SkipListMemtable implements MutableMem<byte[], KVUnit>{
     private final ConcurrentSkipListMap<byte[], KVUnit> map;
-    private final int maxSize;
-    private int currentSize;
+    private final long maxSize;
+    private final AtomicLong currentSize = new AtomicLong(0);
 
-    public SkipListMemtable(int maxSize, Comparator<byte[]> comparator) {
+    public SkipListMemtable(long maxSize, Comparator<byte[]> comparator) {
         Preconditions.checkArgument(maxSize > 0, "Max size must be greater than 0");
-
         this.maxSize = maxSize;
         map = new ConcurrentSkipListMap<>(comparator);
-        currentSize = 0;
     }
 
     @Override
@@ -27,18 +26,9 @@ public class SkipListMemtable implements MutableMem<byte[], KVUnit>{
         Objects.requireNonNull(kvUnit, "KVUnit cannot be null");
         KVUnit alreadyExisting = map.put(kvUnit.getKey(), kvUnit);
         if (alreadyExisting != null) {
-            currentSize -= alreadyExisting.getUnitSize();
+            currentSize.addAndGet(-alreadyExisting.getUnitSize());
         }
-        currentSize += kvUnit.getUnitSize();
-    }
-
-    @Override
-    public void delete(KVUnit kvUnit) {
-        Objects.requireNonNull(kvUnit, "KVUnit cannot be null");
-        if (!kvUnit.isDeleted()) {
-            throw new IllegalArgumentException("Cannot delete a non-deleted KVUnit");
-        }
-        put(kvUnit);
+        currentSize.addAndGet(kvUnit.getUnitSize());
     }
 
     @Override
@@ -47,8 +37,9 @@ public class SkipListMemtable implements MutableMem<byte[], KVUnit>{
         return map.get(key);
     }
 
+    @Override
     public long getMemTableSize() {
-        return currentSize;
+        return currentSize.longValue();
     }
 
     @Override
@@ -58,7 +49,7 @@ public class SkipListMemtable implements MutableMem<byte[], KVUnit>{
 
     @Override
     public boolean isFull() {
-        return currentSize >= maxSize;
+        return currentSize.longValue() >= maxSize;
     }
 
     @Override

@@ -50,6 +50,7 @@ public class WalTest {
         }
 
         db.close();
+        Thread.sleep(100);
         db = new DBImpl(dbDirectoryPath, opt);
 
         for (Map.Entry<byte[], byte[]> entry : map.entrySet()) {
@@ -101,6 +102,7 @@ public class WalTest {
         }
 
         db.close();
+        Thread.sleep(100);
         db = new DBImpl(dbDirectoryPath, opt);
 
         for (byte[] bytes : keyList) {
@@ -123,6 +125,7 @@ public class WalTest {
         }
 
         db.close();
+        Thread.sleep(100);
         db = new DBImpl(dbDirectoryPath, opt);
 
         for (int i = 0; i < 40; i++) {
@@ -131,6 +134,7 @@ public class WalTest {
         }
 
         db.close();
+        Thread.sleep(100);
         db = new DBImpl(dbDirectoryPath, opt);
 
         for (Map.Entry<byte[], byte[]> entry : map.entrySet()) {
@@ -151,6 +155,7 @@ public class WalTest {
         }
 
         db.close();
+        Thread.sleep(100);
         db = new DBImpl(dbDirectoryPath, opt);
         for (Map.Entry<byte[], byte[]> entry : map.entrySet()) {
             Assertions.assertArrayEquals(db.get(entry.getKey()), entry.getValue());
@@ -177,6 +182,7 @@ public class WalTest {
         map.put(bytes(1 + ""), null);
 
         db.close();
+        Thread.sleep(100);
         db = new DBImpl(dbDirectoryPath, opt);
         for (Map.Entry<byte[], byte[]> entry : map.entrySet()) {
             Assertions.assertArrayEquals(db.get(entry.getKey()), entry.getValue());
@@ -185,6 +191,6 @@ public class WalTest {
 
     @Test
     public void crashRecoveryTest() throws Exception {
-        // placeholder for crash recovery test
+        // FIXME: placeholder for crash recovery test
     }
 }

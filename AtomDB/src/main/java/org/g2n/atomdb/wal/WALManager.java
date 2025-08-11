@@ -10,16 +10,18 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.util.concurrent.locks.StampedLock;
 
 public class WALManager implements AutoCloseable {
     private static final Logger logger = LoggerFactory.getLogger(WALManager.class);
     private static final String LOG_PREFIX = "LOG_PREFIX";
     private final WalEncoderDecoder walEncoderDecoder;
-    private Writer writer;
+    private LogWriter writer;
     private final Path logDirPath;
     private final DbComponentProvider componentProvider;
     private Path currLogPath;
     private final ThreadLocal<ExpandingByteBuffer> bufferThreadLocal = ThreadLocal.withInitial(ExpandingByteBuffer::new);
+    private final StampedLock lock = new StampedLock();
 
     public WALManager(Path dbPath, DbComponentProvider componentProvider) throws IOException {
         this.logDirPath = dbPath.resolve("Logs");
@@ -48,6 +50,26 @@ public class WALManager implements AutoCloseable {
             Files.delete(oldLog);
         } else {
             logger.info("No previous logs found. Starting fresh database.");
+        }
+    }
+
+    public void log(Operations operations, KVUnit kvUnit) throws IOException {
+        long stamp = lock.writeLock(); // todo we can actually make this read lock, otherwise remove the bufferThreadLocal.
+        var buffer = bufferThreadLocal.get();
+        buffer.clear();
+        walEncoderDecoder.encode(buffer, operations, kvUnit);
+        buffer.flip();
+        writer.write(buffer.getBuffer());
+        lock.unlockWrite(stamp);
+    }
+
+    public void rotateLog() throws Exception {
+        long stamp = lock.writeLock();
+        try {
+            closeCurrentLog();
+            startNewLog();
+        } finally {
+            lock.unlockWrite(stamp);
         }
     }
 
@@ -81,26 +103,13 @@ public class WALManager implements AutoCloseable {
             throw new IllegalStateException("A log file is already open");
         }
         currLogPath = generateNewLogFile();
-        writer = new SynchronizedFileChannelWriter(currLogPath);
+        writer = new FileChannelWriter(currLogPath);
     }
 
     private Path generateNewLogFile() throws IOException {
         Path path = this.logDirPath.resolve(LOG_PREFIX + "-" + Instant.now().toEpochMilli());
         Files.createFile(path);
         return path;
-    }
-
-    public synchronized void log(Operations operations, KVUnit kvUnit) throws IOException {
-        var buffer = bufferThreadLocal.get();
-        buffer.clear();
-        walEncoderDecoder.encode(buffer, operations, kvUnit);
-        buffer.flip();
-        writer.write(buffer.getBuffer());
-    }
-
-    public synchronized void rotateLog() throws Exception {
-        closeCurrentLog();
-        startNewLog();
     }
 
     private void closeCurrentLog() throws Exception {
@@ -112,7 +121,13 @@ public class WALManager implements AutoCloseable {
     @Override
     public void close() throws Exception {
         if (writer != null) {
-            writer.close();
+            long stamp = lock.writeLock();
+            try {
+                writer.close();
+            } finally {
+                lock.unlockWrite(stamp);
+            }
+            writer = null;
         }
     }
 }

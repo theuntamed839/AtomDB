@@ -9,7 +9,7 @@ import java.util.Comparator;
 public final class DbOptions {
 
     public int pageSize;
-    public int memtableSize = DBConstant.MEMTABLE_SIZE;
+    public long memtableSize = DBConstant.MEMTABLE_SIZE;
     private Comparator<byte[]> comparator = DBComparator.byteArrayComparator;
     private byte clusterSize = DBConstant.CLUSTER_SIZE;
     private DBConstant.COMPRESSION_TYPE compressionType = DBConstant.COMPRESSION_TYPE.LZ4;
@@ -24,7 +24,6 @@ public final class DbOptions {
             Unsafe unsafe;
             unsafe = (Unsafe)f.get(null);
             pageSize = unsafe.pageSize();
-            System.out.println("From System Page size: " + pageSize);
         } catch (IllegalAccessException | NoSuchFieldException ignored) {
             pageSize = 4096;
         }
@@ -46,7 +45,6 @@ public final class DbOptions {
     }
 
     public byte getClusterSize() {
-        System.out.println("Cluster size: " + clusterSize);
         return clusterSize;
     }
 

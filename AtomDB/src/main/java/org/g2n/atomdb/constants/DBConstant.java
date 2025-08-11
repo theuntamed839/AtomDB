@@ -2,7 +2,7 @@ package org.g2n.atomdb.constants;
 
 public class DBConstant {
     public static final int MB = 1024 * 1024;
-    public static final int MEMTABLE_SIZE = 8 * MB;
+    public static final long MEMTABLE_SIZE = 8 * MB;
     public static final int COMPACTED_SST_FILE_SIZE = 2 * MB;
     public static final int MIN_SST_FILE_SIZE = 2 * MB;
     public static final byte SST_VERSION = 11;
