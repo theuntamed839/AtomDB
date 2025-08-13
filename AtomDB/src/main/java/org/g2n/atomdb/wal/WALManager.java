@@ -54,7 +54,7 @@ public class WALManager implements AutoCloseable {
     }
 
     public void log(Operations operations, KVUnit kvUnit) throws IOException {
-        long stamp = lock.writeLock(); // todo we can actually make this read lock, otherwise remove the bufferThreadLocal.
+        long stamp = lock.writeLock();
         try {
             buffer.clear();
             walEncoderDecoder.encode(buffer, operations, kvUnit);

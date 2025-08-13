@@ -103,7 +103,7 @@ public class SSTPersist {
         filter.writeTo(writer);
         sstHeader.setPointersPosition(writer.position());
         pointers.storeAsBytes(writer);
-        writer.putLong(DBConstant.MARK_FILE_END); // todo need confirm this while reading fileToWrite.
+        writer.putLong(DBConstant.MARK_FILE_END);
         var lastLeftPosition = writer.position();
 
         // header

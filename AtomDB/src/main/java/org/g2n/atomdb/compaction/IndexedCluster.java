@@ -21,9 +21,8 @@ import static org.g2n.atomdb.db.DBComparator.byteArrayComparator;
 
 /**
  TODO:
-    1) What if same checksum occurs for 2 different keys?
-    2) We should be storing the common prefix in the cluster itself for easier key construction if key is not known beforehand.
-    3) We could also use common prefix for value as well, since these are expected to be bigger in size.
+    1) We should be storing the common prefix in the cluster itself for easier key construction if key is not known beforehand.
+    2) We could also use common prefix for value as well, since these are expected to be bigger in size.
   */
 
 

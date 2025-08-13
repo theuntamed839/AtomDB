@@ -49,12 +49,10 @@ public class ExpandingByteBuffer extends OutputStream {
     }
 
     public ByteBuffer getBuffer() {
-        // Returns the buffer in its current state
         return buffer;
     }
 
     public void clear() {
-        // Reset the buffer
         buffer.clear();
     }
 
@@ -73,7 +71,7 @@ public class ExpandingByteBuffer extends OutputStream {
         return this.buffer.position();
     }
 
-    public ExpandingByteBuffer position(int position) { // todo make the position long
+    public ExpandingByteBuffer position(int position) {
         this.buffer.position(position);
         return this;
     }
@@ -96,7 +94,7 @@ public class ExpandingByteBuffer extends OutputStream {
 
     @Override
     public void write(byte[] b, int off, int len) throws IOException {
-        makeSpaceIfNeeded(len - off);
+        makeSpaceIfNeeded(len);
         buffer.put(b, off, len);
     }
 
@@ -105,7 +103,6 @@ public class ExpandingByteBuffer extends OutputStream {
     }
 
     public void limit(int size) {
-        makeSpaceIfNeeded(size);
         buffer.limit(size);
     }
 
