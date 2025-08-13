@@ -39,7 +39,6 @@ abstract class AbstractIOReaderTest {
         }
 
         Files.write(testFilePath, TEST_DATA_BYTES);
-        System.out.println("Test file created at: " + testFilePath.toUri());
         reader = createReader(testFilePath);
     }
 

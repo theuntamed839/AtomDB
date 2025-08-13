@@ -20,6 +20,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.StampedLock;
 
 public class DBImpl implements DB, AutoCloseable{
     private final Logger logger = LoggerFactory.getLogger(getClass());
@@ -34,6 +35,7 @@ public class DBImpl implements DB, AutoCloseable{
     private FileLock dbProcessLocking;
     private FileChannel dbLockFileChannel;
     private final AtomicBoolean isClosed = new AtomicBoolean(false);
+    private final StampedLock stampedLock = new StampedLock();
 
     public DBImpl(Path pathForDB, DbOptions dbOptions) throws Exception {
         this.dbComponentProvider = new DbComponentProvider(dbOptions);
@@ -63,50 +65,65 @@ public class DBImpl implements DB, AutoCloseable{
 
     @Override
     public byte[] get(byte[] key) throws Exception {
-        ensureOpen();
-        Objects.requireNonNull(key);
-        var kvUnit = memtable.get(key);
-        if (kvUnit == null) {
-            kvUnit = search.findKey(key);
+        long stamp = stampedLock.readLock();
+        try {
+            ensureOpen();
+            Objects.requireNonNull(key);
+            var kvUnit = memtable.get(key);
+            if (kvUnit == null) {
+                kvUnit = search.findKey(key);
+            }
+            return kvUnit == null || kvUnit.isDeleted() ? null : kvUnit.getValue();
+        }finally {
+            stampedLock.unlockRead(stamp);
         }
-        return kvUnit == null || kvUnit.isDeleted() ?  null : kvUnit.getValue();
     }
 
-    private synchronized void writeUnit(KVUnit kvUnit, Operations operations) throws Exception {
-        ensureOpen();
-        walManager.log(operations, kvUnit);
-        memtable.put(kvUnit);
+    private void writeUnit(KVUnit kvUnit, Operations operations) throws Exception {
+        long stamp = stampedLock.writeLock();
+        try {
+            ensureOpen();
+            walManager.log(operations, kvUnit);
+            memtable.put(kvUnit);
 
-        if (!memtable.isFull()){
-            return;
+            if (!memtable.isFull()) {
+                return;
+            }
+
+            var immutableMem = ImmutableMem.of(memtable);
+
+            compactor.persistLevel0(immutableMem);
+            search.addSecondaryMemtable(immutableMem);
+
+            walManager.rotateLog();
+            memtable = new SkipListMemtable(options.memtableSize, options.getComparator());
+
+            compactor.tryCompaction(Level.LEVEL_ZERO);
+        } finally {
+            stampedLock.unlockWrite(stamp);
         }
-
-        var immutableMem = ImmutableMem.of(memtable);
-
-        compactor.persistLevel0(immutableMem);
-        search.addSecondaryMemtable(immutableMem);
-
-        walManager.rotateLog();
-        memtable = new SkipListMemtable(options.memtableSize, options.getComparator());
-
-        compactor.tryCompaction(Level.LEVEL_ZERO);
     }
 
     @Override
     public void destroy() throws IOException {
-        if (!isClosed.get()) {
-            throw new IllegalStateException("Database must be closed before destroying.");
-        }
-        logger.info("Destroying database at: {}", dbPath);
-        try (var stream = Files.walk(this.dbPath)) {
-            stream.sorted(java.util.Comparator.reverseOrder()) // Important: delete children before parents
-                    .forEach(path -> {
-                        try {
-                            Files.delete(path);
-                        } catch (IOException e) {
-                            throw new RuntimeException(e);
-                        }
-                    });
+        long stamp = stampedLock.writeLock();
+        try {
+            if (!isClosed.get()) {
+                throw new IllegalStateException("Database must be closed before destroying.");
+            }
+            logger.info("Destroying database at: {}", dbPath);
+            try (var stream = Files.walk(this.dbPath)) {
+                stream.sorted(java.util.Comparator.reverseOrder()) // Important: delete children before parents
+                        .forEach(path -> {
+                            try {
+                                Files.delete(path);
+                            } catch (IOException e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+            }
+        }finally {
+            stampedLock.unlockWrite(stamp);
         }
     }
 
@@ -126,21 +143,27 @@ public class DBImpl implements DB, AutoCloseable{
 
     private void ensureOpen() {
         if (isClosed.get()) {
-            throw new IllegalStateException("Database is closed.");
+            throw new IllegalStateException("DB is already closed.");
         }
     }
 
     @Override
     public void close() throws Exception {
-        if (isClosed.get()) {
-            logger.warn("Database at {} is already closed.", dbPath);
-            return;
+        long stamp = stampedLock.writeLock();
+        try {
+            ensureOpen();
+            if (isClosed.get()) {
+                logger.warn("Database at {} is already closed.", dbPath);
+                return;
+            }
+            isClosed.set(true);
+            walManager.close();
+            search.close();
+            compactor.close();
+            dbProcessLocking.release();
+            dbLockFileChannel.close();
+        } finally {
+            stampedLock.unlockWrite(stamp);
         }
-        isClosed.set(true);
-        walManager.close();
-        search.close();
-        compactor.close();
-        dbProcessLocking.release();
-        dbLockFileChannel.close();
     }
 }

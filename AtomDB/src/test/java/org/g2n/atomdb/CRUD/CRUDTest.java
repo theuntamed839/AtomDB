@@ -44,6 +44,7 @@ public abstract class CRUDTest {
         if (db != null) {
             db.close();
             db.destroy();
+            db = null;
         }
         close();
     }
@@ -140,15 +141,15 @@ public abstract class CRUDTest {
     public void testConcurrentReadWriteDeleteSimultaneously() throws Exception {
         var safeEntries = new ConcurrentSkipListMap<byte[], byte[]>(Arrays::compare);
         var writing = new AtomicBoolean(true);
-        int writerCount = 4;
-        int readerCount = 4;
-        int deleteCount = 2;
+        int writerCount = (int) (Runtime.getRuntime().availableProcessors() * .4);
+        int readerCount = (int) (Runtime.getRuntime().availableProcessors() * .4);
+        int deleteCount = (int) (Runtime.getRuntime().availableProcessors() * .2);
         var deleted = new byte[0];
 
         ExecutorService executor = Executors.newFixedThreadPool(writerCount + readerCount + deleteCount);
         Runnable writer = () -> {
             try {
-                var rand = new Random(123);
+                var rand = new Random();
                 for (int i = 0; i < 25000; i++) {
                     var key = new byte[50];
                     var value = new byte[500];
@@ -162,13 +163,27 @@ public abstract class CRUDTest {
             }
         };
 
+        Runnable delete = () -> {
+            try {
+                var rand = new Random();
+                while (writing.get()) {
+                    var keyArray = safeEntries.keySet().toArray();
+                    byte[] key = (byte[]) keyArray[rand.nextInt(keyArray.length)];
+                    db.delete(key);
+                    safeEntries.put(key, deleted);
+                }
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        };
+
         Runnable reader = () -> {
             try {
                 while (writing.get()) {
                     var list = new ArrayList<>(safeEntries.keySet());
                     Collections.shuffle(list);
                     for (byte[] key : list) {
-                        if (safeEntries.get(key) == deleted) {
+                        if (Arrays.compare(safeEntries.get(key), deleted) == 0) {
                             Assertions.assertNull(db.get(key), "Expected null for deleted key: " + Arrays.toString(key));
                         }else {
                             Assertions.assertArrayEquals(db.get(key), safeEntries.get(key));
@@ -180,27 +195,18 @@ public abstract class CRUDTest {
             }
         };
 
-        Runnable delete = () -> {
-            try {
-                var rand = new Random(1234);
-                while (writing.get()) {
-                    var list = new ArrayList<>(safeEntries.keySet());
-                    byte[] key = list.get(rand.nextInt(list.size()));
-                    db.delete(key);
-                    safeEntries.put(key, deleted);
-                }
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-        };
-
         List<Future<?>> writers = new ArrayList<>();
         for (int i = 0; i < writerCount; i++) {
             writers.add(executor.submit(writer));
-            executor.submit(reader);
-            executor.submit(delete);
         }
 
+        for (int i = 0; i < readerCount; i++) {
+            executor.submit(reader);
+        }
+
+        for (int i = 0; i < deleteCount; i++) {
+            executor.submit(delete);
+        }
 
         // Wait for writers to finish
         for (Future<?> f : writers) {
@@ -213,7 +219,7 @@ public abstract class CRUDTest {
         executor.close();
 
         for (Map.Entry<byte[], byte[]> entry : safeEntries.entrySet()) {
-            if (entry.getValue() == deleted) {
+            if (Arrays.compare(entry.getValue(), deleted) == 0) {
                 Assertions.assertNull(db.get(entry.getKey()), "Expected null for deleted key: " + Arrays.toString(entry.getKey()));
             }else {
                 Assertions.assertArrayEquals(db.get(entry.getKey()), entry.getValue(),

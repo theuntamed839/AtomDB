@@ -20,7 +20,7 @@ public class WALManager implements AutoCloseable {
     private final Path logDirPath;
     private final DbComponentProvider componentProvider;
     private Path currLogPath;
-    private final ThreadLocal<ExpandingByteBuffer> bufferThreadLocal = ThreadLocal.withInitial(ExpandingByteBuffer::new);
+    private final ExpandingByteBuffer buffer = new ExpandingByteBuffer();
     private final StampedLock lock = new StampedLock();
 
     public WALManager(Path dbPath, DbComponentProvider componentProvider) throws IOException {
@@ -55,12 +55,14 @@ public class WALManager implements AutoCloseable {
 
     public void log(Operations operations, KVUnit kvUnit) throws IOException {
         long stamp = lock.writeLock(); // todo we can actually make this read lock, otherwise remove the bufferThreadLocal.
-        var buffer = bufferThreadLocal.get();
-        buffer.clear();
-        walEncoderDecoder.encode(buffer, operations, kvUnit);
-        buffer.flip();
-        writer.write(buffer.getBuffer());
-        lock.unlockWrite(stamp);
+        try {
+            buffer.clear();
+            walEncoderDecoder.encode(buffer, operations, kvUnit);
+            buffer.flip();
+            writer.write(buffer.getBuffer());
+        }finally {
+            lock.unlockWrite(stamp);
+        }
     }
 
     public void rotateLog() throws Exception {

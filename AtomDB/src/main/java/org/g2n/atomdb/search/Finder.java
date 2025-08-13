@@ -12,6 +12,7 @@ import org.g2n.atomdb.sstIO.IOReader;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.concurrent.locks.ReentrantLock;
 
 import static org.g2n.atomdb.db.DBComparator.byteArrayComparator;
 
@@ -26,6 +27,7 @@ public class Finder implements AutoCloseable{
     private final Cache<Pointer, Checksums> checksumsCache;
     private final byte singleClusterSize;
     private final DataCompressionStrategy compressionStrategy;
+    private final ReentrantLock lock = new ReentrantLock();
 
     public Finder(PointerList pointerList, IOReader reader, byte singleClusterSize, DBConstant.COMPRESSION_TYPE compressionStrategy) {
         this.reader = reader;
@@ -37,34 +39,39 @@ public class Finder implements AutoCloseable{
         this.compressionStrategy = CompressionStrategyFactory.getCompressionStrategy(compressionStrategy);
     }
 
-    public synchronized KVUnit find(byte[] key, long keyChecksum) throws IOException {
-        var pointer = getPointerToCluster(key);
-        if (pointer == null) {
-            return null; // No pointer found for the key.
-        }
-        reader.position(pointer.position());
+    public KVUnit find(byte[] key, long keyChecksum) throws IOException {
+        lock.lock();
+        try {
+            var pointer = getPointerToCluster(key);
+            if (pointer == null) {
+                return null; // No pointer found for the key.
+            }
+            reader.position(pointer.position());
 
-        var checksums = checksumsCache.get(pointer, _pointer -> {
-            var arr = new long[this.singleClusterSize];
-            for (int i = 0; i < this.singleClusterSize; i++) {
-                try {
-                    arr[i] = reader.getLong();
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
+            var checksums = checksumsCache.get(pointer, _pointer -> {
+                var arr = new long[this.singleClusterSize];
+                for (int i = 0; i < this.singleClusterSize; i++) {
+                    try {
+                        arr[i] = reader.getLong();
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                }
+                return new Checksums(arr);
+            }).checksums();
+
+            for (int i = 0; i < checksums.length; i++) {
+                if (keyChecksum == checksums[i]) {
+                    var kv = getLocation(pointer, i);
+                    if (byteArrayComparator.compare(key, kv.getKey()) == 0) {
+                        return kv;
+                    }
                 }
             }
-            return new Checksums(arr);
-        }).checksums();
-
-        for (int i = 0; i < checksums.length; i++) {
-            if (keyChecksum == checksums[i]) {
-                var kv = getLocation(pointer, i);
-                if (byteArrayComparator.compare(key, kv.getKey()) == 0) {
-                    return kv;
-                }
-            }
+            return null;
+        }finally {
+            lock.unlock();
         }
-        return null;
     }
 
     private KVUnit getLocation(Pointer point, int index) throws IOException {
@@ -143,6 +150,12 @@ public class Finder implements AutoCloseable{
 
     @Override
     public void close() throws Exception {
-        reader.close();
+        lock.lock();
+        try {
+            reader.close();
+            checksumsCache.invalidateAll();
+        } finally {
+            lock.unlock();
+        }
     }
 }
