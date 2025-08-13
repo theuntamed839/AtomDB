@@ -20,6 +20,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.LongAdder;
 import java.util.concurrent.locks.StampedLock;
 
 public class DBImpl implements DB, AutoCloseable{
@@ -36,6 +37,8 @@ public class DBImpl implements DB, AutoCloseable{
     private FileChannel dbLockFileChannel;
     private final AtomicBoolean isClosed = new AtomicBoolean(false);
     private final StampedLock stampedLock = new StampedLock();
+    private final LongAdder successfulSearchCount = new LongAdder();
+    private final LongAdder unsuccessfulSearchCount = new LongAdder();
 
     public DBImpl(Path pathForDB, DbOptions dbOptions) throws Exception {
         this.dbComponentProvider = new DbComponentProvider(dbOptions);
@@ -73,10 +76,28 @@ public class DBImpl implements DB, AutoCloseable{
             if (kvUnit == null) {
                 kvUnit = search.findKey(key);
             }
-            return kvUnit == null || kvUnit.isDeleted() ? null : kvUnit.getValue();
+
+            if(kvUnit == null) {
+                unsuccessfulSearchCount.increment();
+                return null;
+            }
+
+            successfulSearchCount.increment();
+
+            if (kvUnit.isDeleted()) {
+                return null;
+            } else {
+                return kvUnit.getValue();
+            }
         }finally {
             stampedLock.unlockRead(stamp);
         }
+    }
+
+    @Override
+    public SearchStats getSearchStats() {
+        ensureOpen();
+        return new SearchStats(search.getReaderStats(), successfulSearchCount.longValue(), unsuccessfulSearchCount.longValue());
     }
 
     private void writeUnit(KVUnit kvUnit, Operations operations) throws Exception {
@@ -151,7 +172,6 @@ public class DBImpl implements DB, AutoCloseable{
     public void close() throws Exception {
         long stamp = stampedLock.writeLock();
         try {
-            ensureOpen();
             if (isClosed.get()) {
                 logger.warn("Database at {} is already closed.", dbPath);
                 return;

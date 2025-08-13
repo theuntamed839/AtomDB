@@ -13,6 +13,7 @@ import org.g2n.atomdb.db.KVUnit;
 
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.StampedLock;
 import java.util.zip.CRC32C;
 import java.util.zip.Checksum;
@@ -21,7 +22,7 @@ public class Search implements AutoCloseable{
     private static final ThreadLocal<Checksum> crc32cThreadLocal = ThreadLocal.withInitial(CRC32C::new);
     private final LoadingCache<byte[], KVUnit> kvCache;
     private final SafeCache<SSTInfo, Finder> readerCache;
-    private final HashMap<Integer, Integer> readerStats;
+    private final Map<Integer, Long> readerStats;
     private final DbComponentProvider dbComponentProvider;
     private final SortedSet<SSTInfo> tableView = new TreeSet<>();
     private ImmutableMem<byte[], KVUnit> secondaryMem;
@@ -35,7 +36,7 @@ public class Search implements AutoCloseable{
                 .build(this::findKeyInternal);
         this.readerCache = new SafeCache<>(900, this::getFinder);
         this.secondaryMem = new ImmutableMemTable(new TreeMap<>(DBComparator.byteArrayComparator), 0);
-        this.readerStats = new HashMap<>();
+        this.readerStats = new ConcurrentHashMap<>();
     }
 
     private Finder getFinder(SSTInfo sst) {
@@ -65,16 +66,16 @@ public class Search implements AutoCloseable{
 
         long keyChecksum = getKeyChecksum(key);
 
-        int fileRequiredToSearch = 0;
+        int nFileSeekRequired = 0;
 
         for (SSTInfo sstInfo : tableView) {
             if (sstInfo.getSstKeyRange().inRange(key) && sstInfo.mightContainElement(key)) {
-                fileRequiredToSearch++;
+                nFileSeekRequired++;
                 Finder finder = readerCache.get(sstInfo);
                 try {
                     var unit = finder.find(key, keyChecksum);
                     if (unit != null) {
-                        readerStats.put(fileRequiredToSearch, readerStats.getOrDefault(fileRequiredToSearch, 0) + 1);
+                        readerStats.merge(nFileSeekRequired, 1L, Long::sum);
                         return unit;
                     }
                 } finally {
@@ -82,7 +83,6 @@ public class Search implements AutoCloseable{
                 }
             }
         }
-        readerStats.put(fileRequiredToSearch, readerStats.getOrDefault(fileRequiredToSearch, 0) + 1);
         return null;
     }
 
@@ -95,7 +95,7 @@ public class Search implements AutoCloseable{
                 if (sstInfo.getLevel().compareTo(fromLevel) < 0) {
                     continue;
                 }
-                if (sstInfo.getSstKeyRange().inRange(key) && sstInfo.mightContainElement(key)) { // todo can settle for only mightContainElement check ?
+                if (sstInfo.getSstKeyRange().inRange(key) && sstInfo.mightContainElement(key)) {
                     Finder finder = readerCache.get(sstInfo);
                     var unit = finder.find(key, keyChecksum);
                     if (unit != null) {
@@ -137,6 +137,10 @@ public class Search implements AutoCloseable{
         }
     }
 
+    public Map<Integer, Long> getReaderStats() {
+        return Map.copyOf(readerStats);
+    }
+
     private static long getKeyChecksum(byte[] key) {
         Checksum checksum = crc32cThreadLocal.get();
         checksum.reset();
@@ -146,10 +150,6 @@ public class Search implements AutoCloseable{
 
     @Override
     public void close() throws Exception {
-        long totalReads = readerStats.values().stream().mapToInt(Integer::intValue).sum();
-        for (Map.Entry<Integer, Integer> entry : readerStats.entrySet()) {
-            System.out.println("numberOfFilesRequiredToSearch="+entry.getKey()+" numberOfTimesThisHappened= "+(entry.getValue() * 100.0/totalReads) + "%");
-        }
         long writeStamp = lock.writeLock();
         try {
             kvCache.invalidateAll();

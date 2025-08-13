@@ -12,5 +12,7 @@ public interface DB{
 
     void close() throws Exception;
 
+    SearchStats getSearchStats();
+
     void destroy() throws IOException;
 }
