@@ -61,7 +61,7 @@ public class SSTPersist {
         var intermediates = new ArrayList<Intermediate>();
         while (iterator.hasNext()) {
             int finalAvgNumberOfEntriesInSST = avgNumberOfEntriesInSST;
-            BooleanSupplier piggyBackingPredicate = () -> finalAvgNumberOfEntriesInSST * 0.10 >= iterator.approximateRemainingEntries();
+            BooleanSupplier piggyBackingPredicate = () -> iterator.approximateRemainingEntries() <= finalAvgNumberOfEntriesInSST * 0.10;
             var intermediate = writeOptimized1(
                     createNewIntermediateSST(level), level, avgNumberOfEntriesInSST, iterator, piggyBackingPredicate, level.levelSSTSize());
             avgNumberOfEntriesInSST = (intermediate.sstHeader().getNumberOfEntries() + avgNumberOfEntriesInSST) / 2;
@@ -85,7 +85,7 @@ public class SSTPersist {
         // middle block
         var pointers = new PointerList(avgNumberOfEntriesInSST);
         IndexedCluster indexedCluster = null;
-        int totalKVSize = 0;
+        long totalKVSize = 0;
         int numberOfEntries = 0;
         while (iterator.hasNext() && (totalKVSize < compactedSstFileSize || shouldWePiggyBack.getAsBoolean())) {
             indexedCluster = IndexedCluster.getNextCluster(iterator, sstHeader);
