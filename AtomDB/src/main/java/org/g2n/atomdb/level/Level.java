@@ -2,6 +2,8 @@ package org.g2n.atomdb.level;
 
 import org.g2n.atomdb.constants.DBConstant;
 
+import java.util.concurrent.atomic.AtomicBoolean;
+
 public enum Level {
     LEVEL_ZERO,
     LEVEL_ONE,
@@ -49,6 +51,8 @@ public enum Level {
         return level.value();
     }
 
+    final AtomicBoolean value = new AtomicBoolean(true);
+
     public long limitingSize() {
         return switch (this) {
             case LEVEL_ZERO -> (10L * DBConstant.MB) / levelSSTSize();
@@ -73,5 +77,11 @@ public enum Level {
             case LEVEL_SIX -> (DBConstant.COMPACTED_SST_FILE_SIZE * 7);
             case LEVEL_SEVEN -> (DBConstant.COMPACTED_SST_FILE_SIZE * 8);
         };
+    }
+
+    public boolean shouldPerformMajorCompaction() {
+        boolean b = value.get();
+        value.set(!b);
+        return b;
     }
 }

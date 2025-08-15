@@ -77,8 +77,13 @@ public class Compactor implements AutoCloseable {
             try {
                 lock1.lock();
                 lock2.lock();
-                Collection<SSTInfo> overlapping = getCurrentAndNextLevelOverlappingFiles(level);
+
+                Collection<SSTInfo> overlapping = getCurrentAndNextLevelOverlappingFiles(level, level.shouldPerformMajorCompaction());
                 if (overlapping.size() <= 1) {
+                    overlapping = getCurrentAndNextLevelOverlappingFiles(level, false);
+                }
+                if (overlapping.size() <= 1) {
+                    logger.debug("No overlapping files found for compaction at level {}. Skipping compaction.", level);
                     return;
                 }
                 performCompaction(level, overlapping);
@@ -129,7 +134,7 @@ public class Compactor implements AutoCloseable {
         return new Range(smallestKey, greatestKey);
     }
 
-    private Collection<SSTInfo> getCurrentAndNextLevelOverlappingFiles(Level level) {
+    private Collection<SSTInfo> getCurrentAndNextLevelOverlappingFiles(Level level, boolean performMajorCompaction) {
         SortedSet<SSTInfo> currentLevelSSTSet = table.getSSTInfoSet(level);
         if (currentLevelSSTSet.isEmpty()) {
             return Collections.emptyList();
@@ -137,7 +142,7 @@ public class Compactor implements AutoCloseable {
 
         SortedSet<SSTInfo> nextLevelSSTSet = table.getSSTInfoSet(level.nextLevel());
         for (SSTInfo sstInfo : currentLevelSSTSet.reversed()) {
-            var set = getAllOverlappingFilesToCompactWithGivenRange(sstInfo.getSstKeyRange(), currentLevelSSTSet, nextLevelSSTSet);
+            var set = getAllOverlappingFilesToCompactWithGivenRange(sstInfo.getSstKeyRange(), currentLevelSSTSet, nextLevelSSTSet, performMajorCompaction);
             if (set.size() > 1) {
                 return set;
             }
@@ -146,7 +151,7 @@ public class Compactor implements AutoCloseable {
     }
 
     private SortedSet<SSTInfo> getAllOverlappingFilesToCompactWithGivenRange(Range range, SortedSet<SSTInfo> currentLevelSSTSet,
-                                                                             SortedSet<SSTInfo> nextLevelSSTSet) {
+                                                                             SortedSet<SSTInfo> nextLevelSSTSet, boolean performMajorCompaction) {
         /*
             IMPORTANT:
             Ideally, we want to select:
@@ -174,7 +179,7 @@ public class Compactor implements AutoCloseable {
 
         SortedSet<SSTInfo> expandedOverlappingSet = expandOverlappingFiles(currentLevelSSTSet, initiallyOverlapping);
 //        var wideRange = computeCombinedRange(expandedOverlappingSet);
-        expandedOverlappingSet.addAll(findNextLevelNonOverlappingSSTs(nextLevelSSTSet, range));
+        expandedOverlappingSet.addAll(findNextLevelNonOverlappingSSTs(nextLevelSSTSet, range, performMajorCompaction));
         return expandedOverlappingSet;
     }
 
@@ -200,7 +205,7 @@ public class Compactor implements AutoCloseable {
         return result;
     }
 
-    private Collection<? extends SSTInfo> findNextLevelNonOverlappingSSTs(SortedSet<SSTInfo> ssts, Range range) {
+    private Collection<? extends SSTInfo> findNextLevelNonOverlappingSSTs(SortedSet<SSTInfo> ssts, Range range, boolean performMajorCompaction) {
         /*
         range.overlapsWith(candidate.getSstKeyRange());
         this can go in the below if condition, it generates highly optimized ssts, but is very expensive, as it gets a lot of ssts to compact
@@ -213,7 +218,8 @@ public class Compactor implements AutoCloseable {
          */
         SortedSet<SSTInfo> result = new TreeSet<>();
         for (SSTInfo candidate : ssts) {
-            if (candidate.getSstKeyRange().contains(range)) {
+            boolean condition = performMajorCompaction ? range.overlapsWith(candidate.getSstKeyRange()) : candidate.getSstKeyRange().contains(range);
+            if (condition) {
                 boolean toInclude = true;
                 for (SSTInfo other : ssts) {
                     if (other.equals(candidate)) {
