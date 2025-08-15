@@ -63,7 +63,7 @@ public class SSTPersist {
             int finalAvgNumberOfEntriesInSST = avgNumberOfEntriesInSST;
             BooleanSupplier piggyBackingPredicate = () -> finalAvgNumberOfEntriesInSST * 0.10 >= iterator.approximateRemainingEntries();
             var intermediate = writeOptimized1(
-                    createNewIntermediateSST(level), level, avgNumberOfEntriesInSST, iterator, piggyBackingPredicate, dbComponentProvider.getSSTSize());
+                    createNewIntermediateSST(level), level, avgNumberOfEntriesInSST, iterator, piggyBackingPredicate, level.levelSSTSize());
             avgNumberOfEntriesInSST = (intermediate.sstHeader().getNumberOfEntries() + avgNumberOfEntriesInSST) / 2;
             intermediates.add(intermediate);
         }
@@ -75,7 +75,7 @@ public class SSTPersist {
                                          int avgNumberOfEntriesInSST,
                                          Iterator<KVUnit> iterator,
                                          BooleanSupplier shouldWePiggyBack,
-                                         int compactedSstFileSize) throws Exception {
+                                         long compactedSstFileSize) throws Exception {
         var sstHeader = SSTHeader.getDefault(level, dbComponentProvider);
         var writer = bufferThreadLocal.get();
         writer.clear();
