@@ -33,7 +33,7 @@ public class SSTFileNamer {
         }
     }
 
-    public synchronized SSTFileNameMeta nextSst(Level level) {
+    public SSTFileNameMeta nextSst(Level level) {
         long seq = counter.incrementAndGet();
         return new SSTFileNameMeta(directory.resolve("SST_%d_%d.sst".formatted(level.ordinal(), seq)), level, seq);
     }
