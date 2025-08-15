@@ -96,6 +96,8 @@ public class Compactor implements AutoCloseable {
                     lock2.unlock();
                 }
             }
+
+            // todo: We need not stop here.
             if (Level.LEVEL_SEVEN != level.nextLevel()) {
                 tryCompaction(level.nextLevel());
             }

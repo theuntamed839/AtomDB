@@ -3,7 +3,7 @@ package org.g2n.atomdb.level;
 import org.g2n.atomdb.constants.DBConstant;
 
 import java.util.concurrent.atomic.AtomicBoolean;
-
+// TODO: Convert this into a class, so that we are not restricted to only 8 levels.
 public enum Level {
     LEVEL_ZERO,
     LEVEL_ONE,
