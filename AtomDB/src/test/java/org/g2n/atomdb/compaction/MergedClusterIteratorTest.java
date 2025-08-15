@@ -247,7 +247,7 @@ class MergedClusterIteratorTest {
         while (mergedClusterIterator.hasNext()) {
             KVUnit next = mergedClusterIterator.next();
             if (Arrays.equals("key".getBytes(), next.getKey())) {
-                assertTrue(next.isDeleted(), "Expected key 'key' to be a tombstone in the merged iterator");
+                assertTrue(next.isTombStone(), "Expected key 'key' to be a tombstone in the merged iterator");
                 count++;
                 break;
             }

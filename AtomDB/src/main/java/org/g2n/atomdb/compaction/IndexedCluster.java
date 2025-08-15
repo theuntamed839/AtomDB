@@ -126,7 +126,7 @@ public class IndexedCluster {
     private byte[] createBlock(KVUnit entry) {
         byte[] key = entry.getKey();
         byte[] value = entry.getValue();
-        byte isDelete = entry.getDeletedStatus().value();
+        byte marker = entry.getTombStoneValue();
 
         int requiredSize = getRequiredSize(entry);
         var buffer = bufferThreadLocal.get();//ByteBuffer.allocate(requiredSize);
@@ -135,12 +135,12 @@ public class IndexedCluster {
         Checksum checksum = crc32cThreadLocal.get();
         checksum.reset();
         checksum.update(key, commonPrefix, key.length - commonPrefix);
-        checksum.update(isDelete);
+        checksum.update(marker);
         buffer.putInt(key.length - commonPrefix)
                 .put(key, commonPrefix, key.length - commonPrefix)
-                .put(isDelete);
+                .put(marker);
 
-        if (!entry.isDeleted()) {
+        if (!entry.isTombStone()) {
             buffer.putInt(value.length)
                     .put(value);
             checksum.update(value);
@@ -176,7 +176,7 @@ public class IndexedCluster {
         byte[] key = unit.getKey();
         byte[] value = unit.getValue();
         return Integer.BYTES + key.length + Byte.BYTES
-                + (!unit.isDeleted() ? Integer.BYTES + value.length : 0)
+                + (!unit.isTombStone() ? Integer.BYTES + value.length : 0)
                 + Long.BYTES // checksum
                 - commonPrefix;
     }
@@ -240,9 +240,9 @@ public class IndexedCluster {
         System.arraycopy(pointer.key(), 0, key, 0, commonPrefix);
         block.get(key, commonPrefix, keyLength);
 
-        byte isDeleted = block.get();
+        byte marker = block.get();
 
-        if (KVUnit.DeletionStatus.DELETED == KVUnit.DeletionStatus.of(isDeleted)) {
+        if (KVUnit.isTombStone(marker)) {
             return new KVUnit(key);
         } else {
             int valueLength = block.getInt();

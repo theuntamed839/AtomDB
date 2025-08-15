@@ -73,7 +73,7 @@ public class MergedClusterIterator implements Iterator<KVUnit>, AutoCloseable {
     private void generateNextKV() throws Exception {
         for(; !clusterIterators.isEmpty() ;) {
             KVUnit kvUnit = fetchNextKVUnit();
-            if (kvUnit == null || (kvUnit.isDeleted() && isKeyNotFoundInFurtherLevels(kvUnit.getKey()))) {
+            if (kvUnit == null || (kvUnit.isTombStone() && isKeyNotFoundInFurtherLevels(kvUnit.getKey()))) {
                 continue;
             }
             this.next = kvUnit;

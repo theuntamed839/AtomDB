@@ -4,49 +4,23 @@ import java.util.Arrays;
 import java.util.Objects;
 
 public class KVUnit implements Comparable<KVUnit> {
+    public static final int TOMBSTONE_BYTES = 1;
     private final byte[] key;
     private final byte[] value;
-    private final DeletionStatus isDeleted;
+    private final boolean isDeleted; // isDeleted = 1, is not deleted = 0;
     private final int unitSize;
 
-    public enum DeletionStatus {
-        DELETED, NOT_DELETED;
-
-        public static final int BYTES = Byte.BYTES;
-
-        public static boolean isDeleted(byte isDeleted) {
-            return switch (isDeleted) {
-                case 1 -> true;
-                case 0 -> false;
-                default -> throw new IllegalStateException("Unexpected value: " + isDeleted);
-            };
-        }
-
-        public byte value() {
-            return switch (this) {
-                case DELETED -> 1;
-                case NOT_DELETED -> 0;
-            };
-        }
-
-        public static DeletionStatus of(byte given) {
-            if (given == DELETED.value()) return DELETED;
-            if (given == NOT_DELETED.value()) return NOT_DELETED;
-            throw new RuntimeException("not of DeletionStatus type");
-        }
-    }
-
     public KVUnit(byte[] key) {
-        this(key, DeletionStatus.DELETED, null);
+        this(key, true, null);
     }
 
     public KVUnit(byte[] key, byte[] value) {
-        this(key, DeletionStatus.NOT_DELETED, value);
+        this(key, false, value);
     }
 
-    private KVUnit(byte[] key, DeletionStatus isDeleted, byte[] value) {
+    private KVUnit(byte[] key, boolean isDeleted, byte[] value) {
         this.key = Objects.requireNonNull(key, "Key cannot be null");
-        if (isDeleted == DeletionStatus.NOT_DELETED) {
+        if (!isDeleted) {
             Objects.requireNonNull(value, "Value cannot be null when not deleted");
         }
         this.isDeleted = isDeleted;
@@ -63,26 +37,30 @@ public class KVUnit implements Comparable<KVUnit> {
     }
 
     private int calculateUnitSize() {
-        return key.length + (value != null ? value.length : 1 /*isDeleted marker*/);
+        return key.length + (value != null ? value.length : 1 /*isTombStone marker*/);
     }
 
     public int getUnitSize() {
         return unitSize;
     }
 
-    public boolean isDeleted() {
-        return isDeleted == DeletionStatus.DELETED;
+    public boolean isTombStone() {
+        return isDeleted;
     }
 
-    public DeletionStatus getDeletedStatus() {
-        return this.isDeleted;
+    public byte getTombStoneValue() {
+        return isDeleted ? (byte) 1 : (byte) 0;
+    }
+
+    public static boolean isTombStone(byte b) {
+        return b == 1;
     }
 
     @Override
     public String toString() {
         String keyString = key.length > 10 ? Arrays.toString(Arrays.copyOf(key, 10)) + "..." : Arrays.toString(key);
         String valueString = value != null ? (value.length > 10 ? Arrays.toString(Arrays.copyOf(value, 10)) + "..." : Arrays.toString(value)) : "null";
-        return String.format("KVUnit{key=%s, value=%s, isDeleted=%s}", keyString, valueString, isDeleted);
+        return String.format("KVUnit{key=%s, value=%s, isTombStone=%s}", keyString, valueString, isDeleted);
     }
 
     @Override

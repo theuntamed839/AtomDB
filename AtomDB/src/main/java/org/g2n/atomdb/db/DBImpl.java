@@ -84,7 +84,7 @@ public class DBImpl implements DB, AutoCloseable{
 
             successfulSearchCount.increment();
 
-            if (kvUnit.isDeleted()) {
+            if (kvUnit.isTombStone()) {
                 return null;
             } else {
                 return kvUnit.getValue();

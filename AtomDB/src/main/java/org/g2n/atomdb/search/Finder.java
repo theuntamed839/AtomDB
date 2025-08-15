@@ -108,8 +108,10 @@ public class Finder implements AutoCloseable{
         System.arraycopy(pointerKey, 0, foundKey, 0, commonPrefix);
         wrapper.get(foundKey, commonPrefix, keyLength);
 
-        byte isDeleted = wrapper.get();
-        if (KVUnit.DeletionStatus.isDeleted(isDeleted)) return new KVUnit(foundKey);
+        byte marker = wrapper.get();
+        if (KVUnit.isTombStone(marker)) {
+            return new KVUnit(foundKey);
+        }
         int valueLength = wrapper.getInt();
         byte[] foundValue = new byte[valueLength];
         wrapper.get(foundValue);

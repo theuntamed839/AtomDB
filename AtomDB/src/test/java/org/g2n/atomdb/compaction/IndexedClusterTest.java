@@ -161,7 +161,7 @@ class IndexedClusterTest{
                 KVUnit dequeuedUnit = queue.poll();
                 assertNotNull(dequeuedUnit);
                 assertArrayEquals(unit.getKey(), dequeuedUnit.getKey());
-                if (!unit.isDeleted()) {
+                if (!unit.isTombStone()) {
                     assertArrayEquals(unit.getValue(), dequeuedUnit.getValue());
                 }
             }
@@ -221,10 +221,10 @@ class IndexedClusterTest{
         wrap.get(key, commonPrefix, keySize);
         assertArrayEquals(kvUnit.getKey(), key);
 
-        byte isDeleted = wrap.get();
-        assertEquals(kvUnit.getDeletedStatus().value(), isDeleted);
+        byte marker = wrap.get();
+        assertEquals(kvUnit.getTombStoneValue(), marker);
 
-        if (KVUnit.DeletionStatus.DELETED == kvUnit.getDeletedStatus()) {
+        if (kvUnit.isTombStone()) {
             return; // No value for deleted keys
         }
 

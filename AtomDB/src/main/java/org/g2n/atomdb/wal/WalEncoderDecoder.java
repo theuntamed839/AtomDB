@@ -12,13 +12,12 @@ public final class WalEncoderDecoder {
     public void encode(ExpandingByteBuffer buffer, Operations operations, KVUnit kvUnit) {
         buffer.put(operations.value());
         byte[] key = kvUnit.getKey();
-        var isDeleted = kvUnit.getDeletedStatus();
         byte[] value = kvUnit.getValue();
-        buffer.putInt(Integer.BYTES + key.length + KVUnit.DeletionStatus.BYTES + (value != null ? Integer.BYTES + value.length : 0)) // setting total length to read
+        buffer.putInt(Integer.BYTES + key.length + KVUnit.TOMBSTONE_BYTES + (value != null ? Integer.BYTES + value.length : 0)) // setting total length to read
                 .putInt(key.length)
                 .put(key)
-                .put(isDeleted.value());
-        if (!kvUnit.isDeleted()) {
+                .put(kvUnit.getTombStoneValue());
+        if (!kvUnit.isTombStone()) {
             buffer.putInt(value.length).put(value);
         }
     }
@@ -29,8 +28,8 @@ public final class WalEncoderDecoder {
         int keyLength = reader.getInt();
         var key = new byte[keyLength];
         reader.get(key);
-        var isDeleted = KVUnit.DeletionStatus.of(reader.get());
-        if (KVUnit.DeletionStatus.NOT_DELETED == isDeleted) {
+        var marker = reader.get();
+        if (!KVUnit.isTombStone(marker)) {
             int valueLength = reader.getInt();
             var value = new byte[valueLength];
             reader.get(value);
