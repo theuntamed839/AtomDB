@@ -12,6 +12,7 @@ import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Stream;
 
 public abstract class CRUDTest {
     public static final int TOTAL = 100000;
@@ -22,10 +23,11 @@ public abstract class CRUDTest {
     protected abstract Path getDBPath() throws IOException;
     protected abstract boolean shouldDisableMMap();
     protected void close() throws IOException {
-        Files.walk(dbPath)
-                .sorted(Comparator.reverseOrder())
-                .map(Path::toFile)
-                .forEach(File::delete);
+        try (Stream<Path> stream = Files.walk(dbPath)) {
+            stream.sorted(Comparator.reverseOrder())
+                    .map(Path::toFile)
+                    .forEach(File::delete);
+        }
     }
 
     @BeforeEach
@@ -324,8 +326,10 @@ public abstract class CRUDTest {
             rand.nextBytes(value);
 
             db.put(key, value);
-            if (Files.list(dbPath.resolve("ATOM_DB")).anyMatch(path -> path.getFileName().toString().contains("sst"))) {
-                break;
+            try (Stream<Path> stream = Files.list(dbPath.resolve("ATOM_DB"))) {
+                if (stream.anyMatch(path -> path.getFileName().toString().contains("sst"))) {
+                    break;
+                }
             }
         }
 
@@ -339,7 +343,7 @@ public abstract class CRUDTest {
         fillDBUntilSSTFileAppears(db, "SST_0_1.sst");
         db.put("key1".getBytes(), "value2".getBytes());
         fillDBUntilSSTFileAppears(db, "SST_0_2.sst");
-        db.put("asdasda".getBytes(), "asdasd".getBytes());
+        db.put("foo".getBytes(), "bar".getBytes());
 
         byte[] value = db.get("key1".getBytes());
         assert new String(value).equals("value2");
@@ -352,9 +356,9 @@ public abstract class CRUDTest {
         db.put("key1".getBytes(), "value2".getBytes());
         fillDBUntilSSTFileAppears(db, "SST_0_2.sst");
 
-        // meaning compaction has happened and the old SST files are removed.
-        while (Files.list(dbPath.resolve("ATOM_DB")).anyMatch(path -> path.getFileName().toString().contains("SST_0_1.sst")) ||
-                Files.list(dbPath.resolve("ATOM_DB")).anyMatch(path -> path.getFileName().toString().contains("SST_0_2.sst"))) {
+        //this loop end, means that compaction has happened and the old SST files are removed.
+        while (Files.exists(dbPath.resolve("ATOM_DB/SST_0_1.sst")) ||
+                Files.exists(dbPath.resolve("ATOM_DB/SST_0_2.sst"))) {
             writeRandomKeyValuePairs(db, 1000);
         }
 
@@ -369,9 +373,9 @@ public abstract class CRUDTest {
         db.put("key1".getBytes(), "value2".getBytes());
         fillDBUntilSSTFileAppears(db, "SST_0_2.sst");
 
-        // meaning compaction has happened and the old SST files are removed.
-        while (Files.list(dbPath.resolve("ATOM_DB")).anyMatch(path -> path.getFileName().toString().contains("SST_0_1.sst")) ||
-                Files.list(dbPath.resolve("ATOM_DB")).anyMatch(path -> path.getFileName().toString().contains("SST_0_2.sst"))) {
+        //this loop end, means that compaction has happened and the old SST files are removed.
+        while (Files.exists(dbPath.resolve("ATOM_DB/SST_0_1.sst")) ||
+                Files.exists(dbPath.resolve("ATOM_DB/SST_0_2.sst"))) {
             writeRandomKeyValuePairs(db, 1000);
         }
         db.close();
@@ -425,8 +429,10 @@ public abstract class CRUDTest {
             rand.nextBytes(value);
 
             db.put(key, value);
-            if (Files.list(dbPath.resolve("ATOM_DB")).anyMatch(path -> path.getFileName().toString().contains("sst"))) {
-                break;
+            try (Stream<Path> stream = Files.list(dbPath.resolve("ATOM_DB"))) {
+                if (stream.anyMatch(path -> path.getFileName().toString().contains("sst"))) {
+                    break;
+                }
             }
         }
 
@@ -441,7 +447,7 @@ public abstract class CRUDTest {
         fillDBUntilSSTFileAppears(db, "SST_0_1.sst");
         db.delete("key1".getBytes());
         fillDBUntilSSTFileAppears(db, "SST_0_2.sst");
-        db.put("asdasda".getBytes(), "asdasd".getBytes());
+        db.put("foo".getBytes(), "bar".getBytes());
 
         byte[] value = db.get("key1".getBytes());
         assert value == null;
@@ -454,9 +460,9 @@ public abstract class CRUDTest {
         db.delete("key1".getBytes());
         fillDBUntilSSTFileAppears(db, "SST_0_2.sst");
 
-        // meaning compaction has happened and the old SST files are removed.
-        while (Files.list(dbPath.resolve("ATOM_DB")).anyMatch(path -> path.getFileName().toString().contains("SST_0_1.sst")) ||
-                Files.list(dbPath.resolve("ATOM_DB")).anyMatch(path -> path.getFileName().toString().contains("SST_0_2.sst"))) {
+        //this loop end, means that compaction has happened and the old SST files are removed.
+        while (Files.exists(dbPath.resolve("ATOM_DB/SST_0_1.sst")) ||
+                Files.exists(dbPath.resolve("ATOM_DB/SST_0_2.sst"))) {
             writeRandomKeyValuePairs(db, 1000);
         }
 
@@ -471,9 +477,9 @@ public abstract class CRUDTest {
         db.delete("key1".getBytes());
         fillDBUntilSSTFileAppears(db, "SST_0_2.sst");
 
-        // meaning compaction has happened and the old SST files are removed.
-        while (Files.list(dbPath.resolve("ATOM_DB")).anyMatch(path -> path.getFileName().toString().contains("SST_0_1.sst")) ||
-                Files.list(dbPath.resolve("ATOM_DB")).anyMatch(path -> path.getFileName().toString().contains("SST_0_2.sst"))) {
+        //this loop end, means that compaction has happened and the old SST files are removed.
+        while (Files.exists(dbPath.resolve("ATOM_DB/SST_0_1.sst")) ||
+                Files.exists(dbPath.resolve("ATOM_DB/SST_0_2.sst"))) {
             writeRandomKeyValuePairs(db, 1000);
         }
         db.close();
@@ -493,8 +499,10 @@ public abstract class CRUDTest {
             rand.nextBytes(value);
 
             db.put(key, value);
-            if (Files.list(dbPath.resolve("ATOM_DB")).anyMatch(path -> path.getFileName().toString().contains(substring))) {
-                break;
+            try (Stream<Path> stream = Files.list(dbPath.resolve("ATOM_DB"))) {
+                if (stream.anyMatch(path -> path.getFileName().toString().contains(substring))) {
+                    break;
+                }
             }
         }
     }
