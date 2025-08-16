@@ -131,7 +131,7 @@ public abstract class CRUDTest {
 
         executor.shutdown();
         executor.awaitTermination(10, TimeUnit.SECONDS);
-
+        executor.close();
         for (Map.Entry<byte[], byte[]> entry : safeEntries.entrySet()) {
             Assertions.assertArrayEquals(db.get(entry.getKey()), entry.getValue());
         }
@@ -251,7 +251,6 @@ public abstract class CRUDTest {
             executor.shutdown();
             executor.awaitTermination(5, TimeUnit.SECONDS);
         }
-
         for (Map.Entry<byte[], byte[]> entry : allEntries.entrySet()) {
             Assertions.assertArrayEquals(db.get(entry.getKey()), entry.getValue());
         }

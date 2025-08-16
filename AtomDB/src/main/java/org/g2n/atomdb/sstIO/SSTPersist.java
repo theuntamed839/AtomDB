@@ -43,7 +43,7 @@ public class SSTPersist {
         table.addToTheTableAndDelete(Collections.singletonList(inter), Collections.emptyList());
     }
 
-    public void save(Path path, ExpandingByteBuffer buffer) throws Exception {
+    private void save(Path path, ExpandingByteBuffer buffer) throws Exception {
         try (IOWriter ioWriter = dbComponentProvider.getIOWriter(path, buffer.remaining())) {
             ioWriter.put(buffer.getBuffer());
         } finally {
@@ -63,7 +63,7 @@ public class SSTPersist {
             int finalAvgNumberOfEntriesInSST = avgNumberOfEntriesInSST;
             BooleanSupplier piggyBackingPredicate = () -> iterator.approximateRemainingEntries() <= finalAvgNumberOfEntriesInSST * 0.10;
             var intermediate = writeOptimized1(
-                    createNewIntermediateSST(level), level, avgNumberOfEntriesInSST, iterator, piggyBackingPredicate, level.levelSSTSize());
+                    createNewIntermediateSST(level), level, avgNumberOfEntriesInSST, iterator, piggyBackingPredicate, level.getLevelSSTFileSize());
             avgNumberOfEntriesInSST = (intermediate.sstHeader().getNumberOfEntries() + avgNumberOfEntriesInSST) / 2;
             intermediates.add(intermediate);
         }

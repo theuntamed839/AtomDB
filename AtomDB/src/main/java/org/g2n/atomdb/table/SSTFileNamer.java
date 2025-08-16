@@ -35,13 +35,13 @@ public class SSTFileNamer {
 
     public SSTFileNameMeta nextSst(Level level) {
         long seq = counter.incrementAndGet();
-        return new SSTFileNameMeta(directory.resolve("SST_%d_%d.sst".formatted(level.ordinal(), seq)), level, seq);
+        return new SSTFileNameMeta(directory.resolve("SST_%d_%d.sst".formatted(level.value(), seq)), level, seq);
     }
 
     public SSTFileNameMeta parse(Path filePath) {
         String name = filePath.getFileName().toString();
         String[] parts = name.split("[_.]");
-        var level = Level.fromID(Integer.parseInt(parts[1]));
+        var level = Level.of(Integer.parseInt(parts[1]));
         long seq = Long.parseLong(parts[2]);
         return new SSTFileNameMeta(filePath, level, seq);
     }

@@ -46,7 +46,7 @@ public class SSTHeader{
                      int filterPosition,
                      int pointersPosition) {
         this.sstVersion = sstVersion;
-        this.level = Level.fromID(level);
+        this.level = Level.of(level);
         this.checksumType = checksumType;
         this.compressionType = compressionType;
         this.singleClusterSize = singleClusterSize;
@@ -170,7 +170,7 @@ public class SSTHeader{
     @Override
     public String toString() {
         return "SSTHeader{" +
-                "level=" + level +
+                "level=" + level.toString() +
                 ", checksumType=" + checksumType +
                 ", compressionType=" + compressionType +
                 ", singleClusterSize=" + singleClusterSize +

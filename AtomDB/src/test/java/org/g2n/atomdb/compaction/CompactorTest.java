@@ -267,7 +267,7 @@ class CompactorTest {
     }
 
     private void generateSSTToTriggerCompactionNew(SSTPersist sstPersist, Level level) {
-        while(table.getCurrentLevelSize(level) < level.limitingSize() + 1) {
+        while(table.getNumberOfFilesInLevel(level) < level.getMaxNumberOfFilesSupported() + 1) {
             var units = getUniqueEntries(100);
             try {
                 sstPersist.writeSingleFile(level, units.size(), units.iterator());

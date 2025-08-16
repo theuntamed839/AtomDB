@@ -32,7 +32,7 @@ public class MergedClusterIterator implements Iterator<KVUnit>, AutoCloseable {
         this.totalEntryCount = sstInfoCollection.stream().mapToInt(SSTInfo::getNumberOfEntries).sum();
         this.clusterIterators = initializeIterators(sstInfoCollection);
         this.originalCollection = sstInfoCollection;
-        this.lowestLevel = Level.fromID(sstInfoCollection.stream()
+        this.lowestLevel = Level.of(sstInfoCollection.stream()
                 .map(SSTInfo::getLevel)
                 .map(Level::value)
                 .min(Comparator.naturalOrder())

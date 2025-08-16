@@ -24,7 +24,6 @@ TODO: we should find a strategy which avoids creating too many SST files in the 
 
 public class Table {
     private static final Logger logger = LoggerFactory.getLogger(Table.class);
-    private final Map<Level, Long> tableSize = new HashMap<>();
     private final Map<Level, SortedSet<SSTInfo>> levelToFilesMap = new HashMap<>();
     private final SSTFileNamer sstFileNamer;
     private final Search search;
@@ -34,12 +33,6 @@ public class Table {
         this.sstFileNamer = new SSTFileNamer(dbPath);
         this.search = search;
         this.dbComponentProvider = dbComponentProvider;
-        for (Level value : Level.values()) {
-            levelToFilesMap.put(value, new ConcurrentSkipListSet<>());
-        }
-        for (Level value : Level.values()) {
-            tableSize.put(value, 0L);
-        }
         fillLevels();
     }
 
@@ -48,10 +41,7 @@ public class Table {
         for (SSTFileNameMeta sstMeta : validSSTFiles) {
             var sstInfo = SSTFileHelper.getSSTInfo(sstMeta, dbComponentProvider);
             Level level = sstInfo.getLevel();
-            levelToFilesMap.get(level).add(sstInfo);
-        }
-        for (Map.Entry<Level, SortedSet<SSTInfo>> entry : levelToFilesMap.entrySet()) {
-            tableSize.put(entry.getKey(), (long) entry.getValue().size());
+            levelToFilesMap.computeIfAbsent(level, k -> new ConcurrentSkipListSet<>()).add(sstInfo);
         }
         search.addAndRemoveSST(
                 levelToFilesMap.values().stream().flatMap(Set::stream).collect(Collectors.toSet()),
@@ -63,7 +53,7 @@ public class Table {
         Preconditions.checkArgument(intermediatesToAdd.stream().map(Intermediate::sstHeader).map(SSTHeader::getLevel).distinct().count() == 1,
                 "All intermediates must be of the same level");
         toRemove.stream()
-                .filter(info -> !levelToFilesMap.get(info.getLevel()).contains(info))
+                .filter(info -> !levelToFilesMap.getOrDefault(info.getLevel(), Collections.emptySortedSet()).contains(info))
                 .findFirst()
                 .ifPresent(info -> {
                     throw new IllegalArgumentException("Trying to remove SST that is not in the table: " +
@@ -76,11 +66,11 @@ public class Table {
     }
 
     public SortedSet<SSTInfo> getSSTInfoSet(Level level) {
-        return Collections.unmodifiableSortedSet(levelToFilesMap.get(level));
+        return Collections.unmodifiableSortedSet(levelToFilesMap.getOrDefault(level, Collections.emptySortedSet()));
     }
 
-    public Long getCurrentLevelSize(Level level) {
-        return tableSize.get(level);
+    public int getNumberOfFilesInLevel(Level level) {
+        return levelToFilesMap.getOrDefault(level, Collections.emptySortedSet()).size();
     }
 
     private SortedSet<SSTInfo> addToTheTable(List<Intermediate> intermediates) throws IOException {
@@ -97,8 +87,7 @@ public class Table {
             );
             ssts.add(info);
         }
-        levelToFilesMap.get(level).addAll(ssts);
-        tableSize.put(level, tableSize.get(level) + intermediates.size());
+        levelToFilesMap.computeIfAbsent(level, k -> new ConcurrentSkipListSet<>()).addAll(ssts);
         return ssts;
     }
 
@@ -106,7 +95,6 @@ public class Table {
         for (SSTInfo info : ssts) {
             Level level = info.getLevel();
             levelToFilesMap.get(level).remove(info);
-            tableSize.put(level,tableSize.get(level) - 1);
             try {
                 Files.deleteIfExists(info.getSstPath());
             } catch (Exception e) {

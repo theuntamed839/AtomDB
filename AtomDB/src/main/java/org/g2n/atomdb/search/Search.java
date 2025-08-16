@@ -90,7 +90,7 @@ public class Search implements AutoCloseable{
             var keyChecksum = getKeyChecksum(key);
             var ssts = new ArrayList<SSTInfo>();
             for (SSTInfo sstInfo : tableView) {
-                if (sstInfo.getLevel().compareTo(fromLevel) < 0) {
+                if (sstInfo.getLevel().isLowerLevelComparedTo(fromLevel)) {
                     continue;
                 }
                 if (sstInfo.getSstKeyRange().inRange(key) && sstInfo.mightContainElement(key)) {

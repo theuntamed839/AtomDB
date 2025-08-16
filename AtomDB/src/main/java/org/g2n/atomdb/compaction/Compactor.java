@@ -46,16 +46,13 @@ public class Compactor implements AutoCloseable {
     private final AtomicInteger numberOfActuallyCompactions = new AtomicInteger(0);
     private final ExecutorService executors = Executors.newCachedThreadPool();
     private static final Logger logger = LoggerFactory.getLogger(Compactor.class.getName());
-    private final Map<Level, ReentrantLock> locks = new HashMap<>();
+    private final Map<Level, ReentrantLock> locks = new ConcurrentHashMap<>();
 
     public Compactor(Table table, Search search, Path dbPath, DbComponentProvider dbComponentProvider) {
         this.table = table;
         this.search = search;
         this.dbComponentProvider = dbComponentProvider;
         this.sstPersist = new SSTPersist(table, dbPath, dbComponentProvider);
-        for (Level level : Level.values()) {
-            locks.put(level, new ReentrantLock());
-        }
     }
 
     public void persistLevel0(ImmutableMem<byte[], KVUnit> memtable) throws Exception {
@@ -64,7 +61,7 @@ public class Compactor implements AutoCloseable {
 
     public void tryCompaction(Level level) {
         waitUntilLevelZeroCompactionFree(level); // otherwise main thread is just going to submit to executors, and let the files increase in level 0
-        if (table.getCurrentLevelSize(level) <= level.limitingSize()) {
+        if (table.getNumberOfFilesInLevel(level) <= level.getMaxNumberOfFilesSupported()) {
             return;
         }
 
@@ -72,8 +69,8 @@ public class Compactor implements AutoCloseable {
             return;
         }
         executors.execute(() -> {
-            ReentrantLock lock1 = locks.get(level);
-            ReentrantLock lock2 = locks.get(level.nextLevel());
+            ReentrantLock lock1 = locks.computeIfAbsent(level, k -> new ReentrantLock());
+            ReentrantLock lock2 = locks.computeIfAbsent(level.nextLevel(), k -> new ReentrantLock());
             try {
                 lock1.lock();
                 lock2.lock();
@@ -96,11 +93,7 @@ public class Compactor implements AutoCloseable {
                     lock2.unlock();
                 }
             }
-
-            // todo: We need not stop here.
-            if (Level.LEVEL_SEVEN != level.nextLevel()) {
-                tryCompaction(level.nextLevel());
-            }
+            tryCompaction(level.nextLevel());
         });
     }
 
@@ -108,8 +101,8 @@ public class Compactor implements AutoCloseable {
         if (level != Level.LEVEL_ZERO) {
             return;
         }
-        ReentrantLock lock1 = locks.get(level);
-        ReentrantLock lock2 = locks.get(level.nextLevel());
+        ReentrantLock lock1 = locks.computeIfAbsent(level, k -> new ReentrantLock());
+        ReentrantLock lock2 = locks.computeIfAbsent(level.nextLevel(), k -> new ReentrantLock());
         lock1.lock();
         try {
             lock2.lock();
@@ -265,11 +258,5 @@ public class Compactor implements AutoCloseable {
         executors.shutdown();
         executors.awaitTermination(1, TimeUnit.MINUTES); // todo this return value can be used to identify if compaction was unsuccessful, which can help in deleting intermediate files.
         executors.close();
-        System.out.println("Number of actually compactions: " + numberOfActuallyCompactions.get());
-        // number of files in each levels
-        for (Level level : Level.values()) {
-            System.out.println(level + " has " + table.getCurrentLevelSize(level) + " size in bytes");
-            System.out.println(level + " has " + table.getSSTInfoSet(level).size() + " files");
-        }
     }
 }

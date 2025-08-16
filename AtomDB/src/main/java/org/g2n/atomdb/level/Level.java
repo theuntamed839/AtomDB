@@ -2,86 +2,83 @@ package org.g2n.atomdb.level;
 
 import org.g2n.atomdb.constants.DBConstant;
 
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
-// TODO: Convert this into a class, so that we are not restricted to only 8 levels.
-public enum Level {
-    LEVEL_ZERO,
-    LEVEL_ONE,
-    LEVEL_TWO,
-    LEVEL_THREE,
-    LEVEL_FOUR,
-    LEVEL_FIVE,
-    LEVEL_SIX,
-    LEVEL_SEVEN;
 
-    private static final Level[] levels = {LEVEL_ZERO,
-            LEVEL_ONE,
-            LEVEL_TWO,
-            LEVEL_THREE,
-            LEVEL_FOUR,
-            LEVEL_FIVE,
-            LEVEL_SIX,
-            LEVEL_SEVEN};
+public final class Level implements Comparable<Level> {
+    private static final Map<Integer, Level> map = new ConcurrentHashMap<>();
+    public static final Level LEVEL_ZERO = of(0);
+    public static final Level LEVEL_ONE = of(1);
+
+    public static Level of(int id) {
+        if (id < 0) {
+            throw new IllegalArgumentException("Level ID must be >= 0");
+        }
+        return map.computeIfAbsent(id, Level::new);
+    }
+
+    private final long maxNumberOfFilesSupported;
+    private final long levelSSTSize;
+    private final AtomicBoolean toggle = new AtomicBoolean(true);
+    private final int id;
+
+    private Level(int id) {
+        this.id = id;
+        this.levelSSTSize = DBConstant.COMPACTED_SST_FILE_SIZE * (id + 1);
+        this.maxNumberOfFilesSupported = (long) ((Math.pow(10, id + 1) * DBConstant.MB) / levelSSTSize);
+    }
+
+    public static Collection<Level> values() {
+        return Collections.unmodifiableCollection(map.values());
+    }
 
     public Level nextLevel() {
-        return switch (this) {
-            case LEVEL_ZERO -> LEVEL_ONE;
-            case LEVEL_ONE -> LEVEL_TWO;
-            case LEVEL_TWO -> LEVEL_THREE;
-            case LEVEL_THREE -> LEVEL_FOUR;
-            case LEVEL_FOUR -> LEVEL_FIVE;
-            case LEVEL_FIVE -> LEVEL_SIX;
-            case LEVEL_SIX, LEVEL_SEVEN -> LEVEL_SEVEN;
-        };
+        return of(this.id + 1);
     }
 
     public Byte value() {
-        return (byte) this.ordinal();
+        return (byte) this.id;
     }
 
-    public static Level fromID(byte id) {
-        return levels[id];
+    public long getMaxNumberOfFilesSupported() {
+        return maxNumberOfFilesSupported;
     }
 
-    public static Level fromID(int id) {
-        return levels[id];
-    }
-
-    public static byte toID(Level level) {
-        return level.value();
-    }
-
-    final AtomicBoolean value = new AtomicBoolean(true);
-
-    public long limitingSize() {
-        return switch (this) {
-            case LEVEL_ZERO -> (10L * DBConstant.MB) / levelSSTSize();
-            case LEVEL_ONE -> (100L * DBConstant.MB) / levelSSTSize();
-            case LEVEL_TWO -> (1000L * DBConstant.MB) / levelSSTSize();
-            case LEVEL_THREE -> (10000L * DBConstant.MB) / levelSSTSize();
-            case LEVEL_FOUR -> (100000L * DBConstant.MB) / levelSSTSize();
-            case LEVEL_FIVE -> (1000000L * DBConstant.MB) / levelSSTSize();
-            case LEVEL_SIX -> (10000000L * DBConstant.MB) / levelSSTSize();
-            case LEVEL_SEVEN -> (100000000L * DBConstant.MB) / levelSSTSize();
-        };
-    }
-
-    public long levelSSTSize() {
-        return switch (this) {
-            case LEVEL_ZERO -> (DBConstant.COMPACTED_SST_FILE_SIZE);
-            case LEVEL_ONE -> (DBConstant.COMPACTED_SST_FILE_SIZE * 2);
-            case LEVEL_TWO -> (DBConstant.COMPACTED_SST_FILE_SIZE * 3);
-            case LEVEL_THREE -> (DBConstant.COMPACTED_SST_FILE_SIZE * 4);
-            case LEVEL_FOUR -> (DBConstant.COMPACTED_SST_FILE_SIZE * 5);
-            case LEVEL_FIVE -> (DBConstant.COMPACTED_SST_FILE_SIZE * 6);
-            case LEVEL_SIX -> (DBConstant.COMPACTED_SST_FILE_SIZE * 7);
-            case LEVEL_SEVEN -> (DBConstant.COMPACTED_SST_FILE_SIZE * 8);
-        };
+    public long getLevelSSTFileSize() {
+        return levelSSTSize;
     }
 
     public boolean shouldPerformMajorCompaction() {
-        boolean b = value.get();
-        value.set(!b);
-        return b;
+        boolean current = toggle.get();
+        toggle.set(!current);
+        return current;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof Level level)) return false;
+
+        return id == level.id;
+    }
+
+    @Override
+    public int hashCode() {
+        return id;
+    }
+
+    public boolean isLowerLevelComparedTo(Level fromLevel) {
+        return this.id < fromLevel.id;
+    }
+
+    @Override
+    public int compareTo(Level level) {
+        if (level == null) {
+            return 1; // should never occur this state
+        }
+        return Integer.compare(this.id, level.id);
     }
 }
