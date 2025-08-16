@@ -1,13 +1,11 @@
 package org.g2n.atomdb.search;
 
-import org.g2n.atomdb.constants.DBConstant;
 import org.g2n.atomdb.level.Level;
 import org.g2n.atomdb.mem.ImmutableMem;
 import org.g2n.atomdb.mem.ImmutableMemTable;
 import org.g2n.atomdb.table.SSTInfo;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
-import org.g2n.atomdb.db.DBComparator;
 import org.g2n.atomdb.db.DbComponentProvider;
 import org.g2n.atomdb.db.KVUnit;
 
@@ -31,18 +29,18 @@ public class Search implements AutoCloseable{
     public Search(DbComponentProvider dbComponentProvider) {
         this.dbComponentProvider = dbComponentProvider;
         this.kvCache = Caffeine.newBuilder()
-                .maximumWeight(DBConstant.KEY_VALUE_CACHE_SIZE)
+                .maximumWeight(dbComponentProvider.getKeyValueCacheSize())
                 .weigher((byte[] k, KVUnit v) -> k.length + v.getUnitSize())
                 .build(this::findKeyInternal);
         this.readerCache = new SafeCache<>(900, this::getFinder);
-        this.secondaryMem = new ImmutableMemTable(new TreeMap<>(DBComparator.byteArrayComparator), 0);
+        this.secondaryMem = new ImmutableMemTable(new TreeMap<>(dbComponentProvider.getComparator()), 0);
         this.readerStats = new ConcurrentHashMap<>();
     }
 
     private Finder getFinder(SSTInfo sst) {
         try {
             return new Finder(sst.getPointers(), dbComponentProvider.getIOReader(sst.getSstPath()),
-                    sst.getSingleClusterSize(), sst.getCompressionStrategy());
+                    sst.getSingleClusterSize(), sst.getCompressionStrategy(), dbComponentProvider.getComparator());
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

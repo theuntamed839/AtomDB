@@ -25,7 +25,7 @@ public class ExpandingByteBuffer extends OutputStream {
     }
 
     public ExpandingByteBuffer putInt(int data) {
-        makeSpaceIfNeeded(4);
+        makeSpaceIfNeeded(Integer.BYTES);
         buffer.putInt(data);
         return this;
     }

@@ -4,7 +4,7 @@ import java.util.Arrays;
 import java.util.Comparator;
 
 public class DBComparator {
-    public static final Comparator<byte[]> byteArrayComparator = DBComparator::compare;
+    public static final Comparator<byte[]> byteArrayComparator = Arrays::compare;
 
     private static int compare(byte[] left, byte[] right) {
         return Arrays.compare(left, right);

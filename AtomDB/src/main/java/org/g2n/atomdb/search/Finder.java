@@ -12,9 +12,8 @@ import org.g2n.atomdb.sstIO.IOReader;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Comparator;
 import java.util.concurrent.locks.ReentrantLock;
-
-import static org.g2n.atomdb.db.DBComparator.byteArrayComparator;
 
 /**
  *TODO:
@@ -23,15 +22,17 @@ import static org.g2n.atomdb.db.DBComparator.byteArrayComparator;
  */
 public class Finder implements AutoCloseable{
     private final PointerList pointerList;
+    private final Comparator<byte[]> byteArrayComparator;
     private final IOReader reader;
     private final Cache<Pointer, Checksums> checksumsCache;
     private final byte singleClusterSize;
     private final DataCompressionStrategy compressionStrategy;
     private final ReentrantLock lock = new ReentrantLock();
 
-    public Finder(PointerList pointerList, IOReader reader, byte singleClusterSize, DBConstant.COMPRESSION_TYPE compressionStrategy) {
+    public Finder(PointerList pointerList, IOReader reader, byte singleClusterSize, DBConstant.COMPRESSION_TYPE compressionStrategy, Comparator<byte[]> byteArrayComparator) {
         this.reader = reader;
         this.pointerList = pointerList;
+        this.byteArrayComparator = byteArrayComparator;
         this.checksumsCache = Caffeine.newBuilder()
                 .softValues() //todo should we have hard limit instead ?
                 .build();

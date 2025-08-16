@@ -2,7 +2,6 @@ package org.g2n.atomdb.compaction;
 
 import org.g2n.atomdb.level.Level;
 import org.g2n.atomdb.table.SSTInfo;
-import org.g2n.atomdb.db.DBComparator;
 import org.g2n.atomdb.db.DbComponentProvider;
 import org.g2n.atomdb.db.KVUnit;
 import org.g2n.atomdb.search.Search;
@@ -106,7 +105,7 @@ public class MergedClusterIterator implements Iterator<KVUnit>, AutoCloseable {
                 continue;
             }
 
-            int compare = DBComparator.byteArrayComparator.compare(potentialUnit.getKey(), currUnit.getKey());
+            int compare = dbComponentProvider.getComparator().compare(potentialUnit.getKey(), currUnit.getKey());
 
             if (compare <= -1) {
                 currUnit = potentialUnit;

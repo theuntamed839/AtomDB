@@ -12,7 +12,7 @@ I wanted the cache to be aware of the reference to the value which was acquired 
 Otherwise in a multithreaded environment, it could happen that one thread acquires a value, and cache maybe try to evict the same value,
  which would lead to closing the value while it is still in use.
 
-https://www.reddit.com/r/javahelp/comments/1mh4znd/i_am_having_trouble_in_finding_the_cause_and/
+https://stackoverflow.com/questions/79733518/how-do-i-properly-invalidate-and-clear-a-caffeine-cache
  */
 
 public class SafeCache<K, V extends AutoCloseable> implements AutoCloseable{

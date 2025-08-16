@@ -38,7 +38,7 @@ class IndexedClusterTest{
                 0,
                 0
         );
-        cluster = new IndexedCluster(header);
+        cluster = new IndexedCluster(header, Arrays::compare);
     }
 
     private IndexedCluster getClusterOfSize(int size) {
@@ -53,7 +53,7 @@ class IndexedClusterTest{
                 0,
                 0
         );
-        return new IndexedCluster(header);
+        return new IndexedCluster(header, Arrays::compare);
     }
 
     @Test
@@ -145,7 +145,7 @@ class IndexedClusterTest{
     void validateFillQueue(int numberOfKeys) throws IOException {
         IndexedCluster cluster = getClusterOfSize(numberOfKeys);
         List<KVUnit> units = loadAndGet(numberOfKeys, cluster);
-        Pointer pointer = new Pointer(cluster.getFirstKey(), 0);
+        Pointer pointer = new Pointer(cluster.getFirstKey(), 0, Arrays::compare);
         var queue = new ArrayDeque<KVUnit>();
         var writer = new ExpandingByteBuffer();
         cluster.storeAsBytes(writer);
@@ -250,16 +250,23 @@ class IndexedClusterTest{
 
     private List<KVUnit> loadAndGet(int numberOfKeys, IndexedCluster cluster) {
         var rand = new Random();
-        var set = new HashSet<KVUnit>();
-        while (set.size() < numberOfKeys) {
+        var kvs = new ArrayList<KVUnit>();
+        var keySet = new TreeSet<byte[]>(Arrays::compare);
+        while (kvs.size() < numberOfKeys) {
             byte[] key = new byte[rand.nextInt(1, 100)];
             rand.nextBytes(key);
+
+            if (keySet.contains(key)) {
+                continue; // Skip if key already exists
+            }else{
+                keySet.add(key); // Add to set to ensure uniqueness
+            }
+
             byte[] value = new byte[rand.nextInt(1, 100)];
             rand.nextBytes(value);
             KVUnit kvUnit = new KVUnit(key, value);
-            set.add(kvUnit);
+            kvs.add(kvUnit);
         }
-        var kvs = new ArrayList<>(set);
         kvs.sort((a, b) -> Arrays.compare(a.getKey(), b.getKey()));
         kvs.forEach(cluster::add);
         return kvs;

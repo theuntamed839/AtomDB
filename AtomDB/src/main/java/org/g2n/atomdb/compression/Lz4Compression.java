@@ -2,8 +2,6 @@ package org.g2n.atomdb.compression;
 
 import net.jpountz.lz4.*;
 
-import java.io.IOException;
-
 public class Lz4Compression implements DataCompressionStrategy {
     private final LZ4CompressorWithLength lz4CompressorWithLength;
     private final LZ4DecompressorWithLength lz4DecompressorWithLength;

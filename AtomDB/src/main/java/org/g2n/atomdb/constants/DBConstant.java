@@ -3,8 +3,8 @@ package org.g2n.atomdb.constants;
 public class DBConstant {
     public static final int MB = 1024 * 1024;
     public static final long MEMTABLE_SIZE = 8 * MB;
-    public static final int COMPACTED_SST_FILE_SIZE = 3 * MB;
-    public static final int MIN_SST_FILE_SIZE = 2 * MB;
+    public static final long COMPACTED_SST_FILE_SIZE = 3 * MB;
+    public static final long MIN_SST_FILE_SIZE = MB;
     public static final byte SST_VERSION = 11;
     public static final String OBSOLETE = "OBSOLETE";
     public static final long MARK_FILE_END = 1234567890L;
@@ -58,6 +58,6 @@ public class DBConstant {
 
     public static final byte CLUSTER_SIZE = 10; // 10% of keys in memory.
     public static final boolean SHORTEST_COMMON_PREFIX_USED = true;
-    public static final long KEY_VALUE_CACHE_SIZE = 100 * 1024 * 1024;
+    public static final long KEY_VALUE_CACHE_SIZE = 100 * MB;
     public static final String DB_LOCK_FILE = "db.lock";
 }

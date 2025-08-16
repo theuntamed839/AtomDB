@@ -88,14 +88,14 @@ public class SSTPersist {
         long totalKVSize = 0;
         int numberOfEntries = 0;
         while (iterator.hasNext() && (totalKVSize < compactedSstFileSize || shouldWePiggyBack.getAsBoolean())) {
-            indexedCluster = IndexedCluster.getNextCluster(iterator, sstHeader);
+            indexedCluster = IndexedCluster.getNextCluster(iterator, sstHeader, dbComponentProvider.getComparator());
             totalKVSize += indexedCluster.getTotalSize();
             numberOfEntries += indexedCluster.getNumberOfEntries();
-            pointers.add(new Pointer(indexedCluster.getFirstKey(), writer.position()));
+            pointers.add(new Pointer(indexedCluster.getFirstKey(), writer.position(), dbComponentProvider.getComparator()));
             indexedCluster.storeAsBytes(writer);
         }
 
-        pointers.add(new Pointer(indexedCluster.getLastKey(), Math.negateExact(writer.position())));
+        pointers.add(new Pointer(indexedCluster.getLastKey(), Math.negateExact(writer.position()), dbComponentProvider.getComparator()));
         sstHeader.setEntries(numberOfEntries);
         sstHeader.setFilterPosition(writer.position());
 

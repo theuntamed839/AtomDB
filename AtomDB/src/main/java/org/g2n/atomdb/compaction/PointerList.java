@@ -35,10 +35,10 @@ public class PointerList {
         pointers.forEach(each -> each.storeAsBytes(writer));
     }
 
-    public static PointerList getPointerList(IOReader reader, int entries) throws IOException {
+    public static PointerList getPointerList(IOReader reader, Comparator<byte[]> comparator, int entries) throws IOException {
         var pointers = new PointerList(entries);
         for (int i = 0; i < entries; i++) {
-            pointers.add(Pointer.getPointer(reader));
+            pointers.add(Pointer.getPointer(reader, comparator));
         }
         return pointers;
     }

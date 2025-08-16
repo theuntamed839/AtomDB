@@ -29,7 +29,6 @@ public class DBImpl implements DB, AutoCloseable{
     private final WALManager walManager;
     private final Compactor compactor;
     private final Search search;
-    private final DbOptions options;
     private final DbComponentProvider dbComponentProvider;
     private SkipListMemtable memtable;
     private final Table table;
@@ -42,15 +41,15 @@ public class DBImpl implements DB, AutoCloseable{
 
     public DBImpl(Path pathForDB, DbOptions dbOptions) throws Exception {
         this.dbComponentProvider = new DbComponentProvider(dbOptions);
+
         this.dbPath = pathForDB.resolve("ATOM_DB");
         Files.createDirectories(dbPath);
         acquireDBLock();
         this.walManager = new WALManager(dbPath, dbComponentProvider);
-        this.memtable = new SkipListMemtable(dbOptions.memtableSize, dbOptions.getComparator());
+        this.memtable = new SkipListMemtable(dbComponentProvider.getMemtableSize(), dbComponentProvider.getComparator());
         this.search = new Search(dbComponentProvider);
         this.table = new Table(dbPath, search, dbComponentProvider);
         this.compactor = new Compactor(table, search, dbPath, dbComponentProvider);
-        this.options = dbOptions;
         walManager.restore(this);
     }
 
@@ -117,7 +116,7 @@ public class DBImpl implements DB, AutoCloseable{
             search.addSecondaryMemtable(immutableMem);
 
             walManager.rotateLog();
-            memtable = new SkipListMemtable(options.memtableSize, options.getComparator());
+            memtable = new SkipListMemtable(dbComponentProvider.getMemtableSize(), dbComponentProvider.getComparator());
 
             compactor.tryCompaction(Level.LEVEL_ZERO);
         } finally {
@@ -134,7 +133,7 @@ public class DBImpl implements DB, AutoCloseable{
             }
             logger.info("Destroying database at: {}", dbPath);
             try (var stream = Files.walk(this.dbPath)) {
-                stream.sorted(java.util.Comparator.reverseOrder()) // Important: delete children before parents
+                stream.sorted(java.util.Comparator.reverseOrder())
                         .forEach(path -> {
                             try {
                                 Files.delete(path);

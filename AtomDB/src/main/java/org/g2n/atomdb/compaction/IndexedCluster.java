@@ -10,14 +10,9 @@ import org.g2n.atomdb.sstIO.IOReader;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Queue;
+import java.util.*;
 import java.util.zip.CRC32C;
 import java.util.zip.Checksum;
-
-import static org.g2n.atomdb.db.DBComparator.byteArrayComparator;
 
 /**
  TODO:
@@ -25,14 +20,13 @@ import static org.g2n.atomdb.db.DBComparator.byteArrayComparator;
     2) We could also use common prefix for value as well, since these are expected to be bigger in size.
   */
 
-
-
 public class IndexedCluster {
     private static final ThreadLocal<Checksum> crc32cThreadLocal = ThreadLocal.withInitial(CRC32C::new);
     private static final int NOT_CALCULATED_YET = -1;
     private final int MAX_NUM_OF_ENTRIES_IN_CLUSTER;
     private final DataCompressionStrategy compression;
     private final boolean shouldUseCommonPrefix; // TODO
+    private final Comparator<byte[]> byteArrayComparator;
     private int totalKVSize = 0;
     private int commonPrefix;
     private final List<KVUnit> entries;
@@ -40,8 +34,9 @@ public class IndexedCluster {
     public static final int DUMMY_LOCATION = Integer.MIN_VALUE;
     private final ThreadLocal<ExpandingByteBuffer> bufferThreadLocal = ThreadLocal.withInitial(ExpandingByteBuffer::new);
 
-    public IndexedCluster(SSTHeader header) {
+    public IndexedCluster(SSTHeader header, Comparator<byte[]> byteArrayComparator) {
         this.shouldUseCommonPrefix = header.isShortestCommonPrefixUsed();
+        this.byteArrayComparator = byteArrayComparator;
         this.commonPrefix = NOT_CALCULATED_YET;
         this.compression = CompressionStrategyFactory.getCompressionStrategy(header.getCompressionStrategy());
         this.MAX_NUM_OF_ENTRIES_IN_CLUSTER = header.getSingleClusterSize();
@@ -190,8 +185,8 @@ public class IndexedCluster {
     }
 
 
-    public static IndexedCluster getNextCluster(Iterator<KVUnit> iterator, SSTHeader sstHeader) {
-        var cluster = new IndexedCluster(sstHeader);
+    public static IndexedCluster getNextCluster(Iterator<KVUnit> iterator, SSTHeader sstHeader, Comparator<byte[]> comparator) {
+        var cluster = new IndexedCluster(sstHeader, comparator);
         while (iterator.hasNext() && !cluster.isFull()) {
             cluster.add(iterator.next());
         }

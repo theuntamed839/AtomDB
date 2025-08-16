@@ -13,8 +13,10 @@ public final class DbComponentProvider {
     private final IOWriterFactory writerFactory;
     private final DBConstant.CHECKSUM_TYPE checksumType;
     private final DBConstant.COMPRESSION_TYPE compressionType;
-    private final int sstFileSize;
+    private final long SSTFileSize;
     private final Comparator<byte[]> comparator;
+    private final long keyValueCacheSize;
+    private final long memtableSize;
 
     public DbComponentProvider(DbOptions dbOptions) {
         if (dbOptions.isMMapAllowed()) {
@@ -28,8 +30,10 @@ public final class DbComponentProvider {
         this.clusterSize = dbOptions.getClusterSize();
         this.checksumType = dbOptions.getChecksumType();
         this.compressionType = dbOptions.getCompressionType();
-        this.sstFileSize = dbOptions.getSSTSize();
+        this.SSTFileSize = dbOptions.getSSTFileSize();
         this.comparator = dbOptions.getComparator();
+        this.keyValueCacheSize = dbOptions.getKeyValueCacheSize();
+        this.memtableSize = dbOptions.getMemtableSize();
     }
 
     public IOReader getIOReader(Path file) throws IOException {
@@ -52,11 +56,19 @@ public final class DbComponentProvider {
         return this.compressionType;
     }
 
-    public int getSSTSize() {
-        return sstFileSize;
+    public long getSSTFileSize() {
+        return SSTFileSize;
     }
 
     public Comparator<byte[]> getComparator() {
         return comparator;
+    }
+
+    public long getKeyValueCacheSize() {
+        return keyValueCacheSize;
+    }
+
+    public long getMemtableSize() {
+        return memtableSize;
     }
 }

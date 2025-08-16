@@ -126,10 +126,10 @@ public class Compactor implements AutoCloseable {
         byte[] greatestKey = sortedSet.getLast().getSstKeyRange().getGreatest();
         byte[] smallestKey = sortedSet.getLast().getSstKeyRange().getSmallest();
         for(SSTInfo sstInfo : sortedSet) {
-            if (Arrays.compare(greatestKey, sstInfo.getSstKeyRange().getGreatest()) < 0) {
+            if (dbComponentProvider.getComparator().compare(greatestKey, sstInfo.getSstKeyRange().getGreatest()) < 0) {
                 greatestKey = sstInfo.getSstKeyRange().getGreatest();
             }
-            if (Arrays.compare(smallestKey, sstInfo.getSstKeyRange().getSmallest()) > 0) {
+            if (dbComponentProvider.getComparator().compare(smallestKey, sstInfo.getSstKeyRange().getSmallest()) > 0) {
                 smallestKey = sstInfo.getSstKeyRange().getSmallest();
             }
         }
@@ -243,10 +243,10 @@ public class Compactor implements AutoCloseable {
 
     private void performCompaction(Level level, Collection<SSTInfo> overlappingFiles) {
         numberOfActuallyCompactions.addAndGet(1);
-        try {
-            var iterator = new MergedClusterIterator(Collections.unmodifiableCollection(overlappingFiles), search, dbComponentProvider);
+        try (var iterator = new MergedClusterIterator(Collections.unmodifiableCollection(overlappingFiles), search, dbComponentProvider)){
             sstPersist.writeManyFiles(level.nextLevel(), iterator, getAverageNumOfEntriesInSST(overlappingFiles), overlappingFiles);
         } catch (Exception e) {
+            e.printStackTrace();
             logger.error("Error during compaction for level {}: {}", level, e.getMessage());
         }
     }

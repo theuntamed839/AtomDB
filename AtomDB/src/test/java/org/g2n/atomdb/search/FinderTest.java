@@ -18,6 +18,7 @@ import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.List;
 import java.util.zip.CRC32C;
 import java.util.zip.Checksum;
@@ -51,7 +52,7 @@ class FinderTest {
 
         SSTInfo first = table.getSSTInfoSet(Level.LEVEL_ZERO).getFirst();
         Finder finder = new Finder(first.getPointers(), dbComponentProvider.getIOReader(first.getSstPath()),
-                first.getSingleClusterSize(), first.getCompressionStrategy());
+                first.getSingleClusterSize(), first.getCompressionStrategy(), Arrays::compare);
 
 
         KVUnit kvUnit = finder.find(new byte[]{-2}, getKeyChecksum(new byte[]{-2}));
@@ -72,7 +73,7 @@ class FinderTest {
 
         SSTInfo first = table.getSSTInfoSet(Level.LEVEL_ZERO).getFirst();
         Finder finder = new Finder(first.getPointers(), dbComponentProvider.getIOReader(first.getSstPath()),
-                first.getSingleClusterSize(), first.getCompressionStrategy());
+                first.getSingleClusterSize(), first.getCompressionStrategy(), Arrays::compare);
 
 
         KVUnit kvUnit = finder.find(new byte[]{-3}, getKeyChecksum(new byte[]{-3}));
@@ -97,7 +98,7 @@ class FinderTest {
         Files.write(first.getSstPath(), wrap.array());
 
         Finder finder = new Finder(first.getPointers(), dbComponentProvider.getIOReader(first.getSstPath()),
-                first.getSingleClusterSize(), first.getCompressionStrategy());
+                first.getSingleClusterSize(), first.getCompressionStrategy(), Arrays::compare);
 
         long checksum = getKeyChecksum(new byte[]{-2});
 
@@ -125,7 +126,7 @@ class FinderTest {
 
         SSTInfo first = table.getSSTInfoSet(Level.LEVEL_ZERO).getFirst();
         Finder finder = new Finder(first.getPointers(), dbComponentProvider.getIOReader(first.getSstPath()),
-                first.getSingleClusterSize(), first.getCompressionStrategy());
+                first.getSingleClusterSize(), first.getCompressionStrategy(), Arrays::compare);
 
         // Key with same checksum but not present
         KVUnit kvUnit = finder.find(new byte[]{-3}, getKeyChecksum(new byte[]{-2}));
