@@ -16,7 +16,7 @@ public class Range {
 
     public Range(byte[] smallest, byte[] greatest) {
         Preconditions.checkArgument(smallest != null && greatest != null, "Smallest and greatest keys cannot be null");
-        Preconditions.checkArgument(DBComparator.byteArrayComparator.compare(smallest, greatest) < 0, "Smallest and greatest keys cannot be empty");
+        Preconditions.checkArgument(DBComparator.byteArrayComparator.compare(smallest, greatest) <= 0, "Smallest and greatest keys cannot be empty");
         this.smallest = smallest;
         this.greatest = greatest;
         this.checksum = getChecksum(smallest, greatest);

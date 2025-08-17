@@ -50,7 +50,7 @@ public class Table {
     }
 
     public synchronized void addToTheTableAndDelete(List<Intermediate> intermediatesToAdd, Collection<SSTInfo> toRemove) throws IOException {
-        Preconditions.checkArgument(intermediatesToAdd.stream().map(Intermediate::sstHeader).map(SSTHeader::getLevel).distinct().count() == 1,
+        Preconditions.checkArgument(intermediatesToAdd.stream().map(Intermediate::sstHeader).map(SSTHeader::getLevel).distinct().count() <= 1,
                 "All intermediates must be of the same level");
         toRemove.stream()
                 .filter(info -> !levelToFilesMap.getOrDefault(info.getLevel(), Collections.emptySortedSet()).contains(info))
@@ -60,7 +60,12 @@ public class Table {
                             info.getSstPath().toAbsolutePath());
                 });
 
-        SortedSet<SSTInfo> added = addToTheTable(intermediatesToAdd);
+        SortedSet<SSTInfo> added = Collections.emptySortedSet();
+        if (!intermediatesToAdd.isEmpty()) {
+            // when all the files had only deleted entries, which also didn't appear in the further levels.
+            // that's why result is empty. but we still need to remove the old ssts.
+            added = addToTheTable(intermediatesToAdd);
+        }
         search.addAndRemoveSST(added, toRemove);
         removeSST(toRemove);
     }

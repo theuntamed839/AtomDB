@@ -12,6 +12,9 @@ import java.io.IOException;
 import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
 
+import static org.g2n.atomdb.constants.DBConstant.IS_NOT_USED;
+import static org.g2n.atomdb.constants.DBConstant.IS_USED;
+
 public class SSTHeader{
     private final Level level;
     private final CHECKSUM_TYPE checksumType;
@@ -85,7 +88,7 @@ public class SSTHeader{
     }
 
     private static boolean isShortestCommonPrefixUsed(ByteBuffer buffer) {
-        return buffer.get() > 1;
+        return buffer.get() == IS_USED;
     }
 
     public void setEntries(int count) {
@@ -108,7 +111,7 @@ public class SSTHeader{
                 .put(checksumType.getValue())
                 .put(compressionType.getValue())
                 .put(singleClusterSize)
-                .put((byte) (shortestCommonPrefixUsed ? 1 : 0)) //todo
+                .put((byte) (shortestCommonPrefixUsed ? IS_USED : IS_NOT_USED)) //todo
                 .putInt(numberOfEntries)
                 .putInt(filterPosition)
                 .putInt(pointersPosition);
@@ -179,5 +182,9 @@ public class SSTHeader{
                 ", pointersPosition=" + pointersPosition +
                 ", filterPosition=" + filterPosition +
                 '}';
+    }
+
+    public byte sstVersion() {
+        return sstVersion;
     }
 }

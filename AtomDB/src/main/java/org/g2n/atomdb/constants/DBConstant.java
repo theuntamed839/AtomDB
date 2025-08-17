@@ -9,7 +9,7 @@ public class DBConstant {
     public static final String OBSOLETE = "OBSOLETE";
     public static final long MARK_FILE_END = 1234567890L;
     public enum CHECKSUM_TYPE {
-        NONE((byte) 0),
+//        NONE((byte) 0),
         CRC32C((byte) 32);
 
         private final byte value;
@@ -24,7 +24,7 @@ public class DBConstant {
 
         public static CHECKSUM_TYPE fromValue(byte value) {
             return switch (value) {
-                case 0 -> NONE;
+//                case 0 -> NONE;
                 case 32 -> CRC32C;
                 default -> throw new IllegalArgumentException("Unknown checksum type value: " + value);
             };
@@ -60,4 +60,6 @@ public class DBConstant {
     public static final boolean SHORTEST_COMMON_PREFIX_USED = true;
     public static final long KEY_VALUE_CACHE_SIZE = 100 * MB;
     public static final String DB_LOCK_FILE = "db.lock";
+    public static final int IS_USED = 1;
+    public static final int IS_NOT_USED = 0;
 }

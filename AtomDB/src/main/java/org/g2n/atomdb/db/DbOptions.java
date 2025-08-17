@@ -43,9 +43,9 @@ public final class DbOptions {
         this.clusterSize = clusterSize;
     }
 
-    public void setChecksumType(DBConstant.CHECKSUM_TYPE checksumType) {
-        this.checksumType = checksumType;
-    }
+//    public void setChecksumType(DBConstant.CHECKSUM_TYPE checksumType) {
+//        this.checksumType = checksumType;
+//    }
 
     public void setCompressionType(DBConstant.COMPRESSION_TYPE compressionType) {
         this.compressionType = compressionType;
