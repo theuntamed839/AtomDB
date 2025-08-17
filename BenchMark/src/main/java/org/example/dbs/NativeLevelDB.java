@@ -14,14 +14,14 @@ import java.time.ZoneOffset;
 import java.util.Comparator;
 
 public class NativeLevelDB implements BenchmarkDBAdapter {
-    private final String dbName;
+    private final Path dbPath;
     private final DB db;
 
     public NativeLevelDB() throws IOException {
-        dbName = "LEVELDB_" + LocalDateTime.now().toEpochSecond(ZoneOffset.UTC);
+        dbPath = Files.createTempDirectory("LEVELDB_" + LocalDateTime.now().toEpochSecond(ZoneOffset.UTC));
         Options options = new Options();
         options.createIfMissing(true);
-        db = factory.open(new File(dbName), options);
+        db = factory.open(dbPath.toFile(), options);
         JniDBFactory.pushMemoryPool(1024 * 1024 * 1024);
     }
 
@@ -39,7 +39,7 @@ public class NativeLevelDB implements BenchmarkDBAdapter {
     public void closeAndDestroy() throws IOException {
         db.close();
         JniDBFactory.popMemoryPool();
-        Files.walk(Path.of(dbName))
+        Files.walk(dbPath)
                 .sorted(Comparator.reverseOrder())
                 .map(Path::toFile)
                 .forEach(File::delete);

@@ -1,38 +1,39 @@
 package org.example.dbs;
 
-import org.iq80.leveldb.DB;
-import org.iq80.leveldb.Options;
+
+import org.rocksdb.Options;
+import org.rocksdb.RocksDB;
+import org.rocksdb.RocksDBException;
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.Comparator;
 
-import static org.iq80.leveldb.impl.Iq80DBFactory.factory;
-
-public class PureJavaLevelDB implements BenchmarkDBAdapter {
-
-    private final DB db;
+public class RocksDBAdaptor implements BenchmarkDBAdapter {
+    static {
+        RocksDB.loadLibrary();
+    }
+    private final RocksDB db;
     private final Path dbPath;
 
-    public PureJavaLevelDB() throws IOException {
+    public RocksDBAdaptor() throws IOException, RocksDBException {
         dbPath = Files.createTempDirectory("LEVELDB_NATIVE_" + LocalDateTime.now().toEpochSecond(ZoneOffset.UTC));
         Options options = new Options();
-        options.createIfMissing(true);
-        db = factory.open(dbPath.toFile(), options);
+        options.createIfMissing();
+        db = RocksDB.open(options, dbPath.toString());
     }
 
     @Override
-    public void put(byte[] key, byte[] value) {
+    public void put(byte[] key, byte[] value) throws RocksDBException {
         db.put(key, value);
     }
 
     @Override
-    public byte[] get(byte[] key) throws IOException {
+    public byte[] get(byte[] key) throws IOException, RocksDBException {
         return db.get(key);
     }
 
