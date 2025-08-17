@@ -17,7 +17,7 @@ import java.util.concurrent.locks.ReentrantLock;
 
 /**
  *TODO:
- * 1. we need not map the whole file, as we only reading the cluster region only, this would save the overhead of mapping and other stuff.
+ * 1. we need not map the whole file, as we only reading the Mid section only, this would save the overhead of mapping and other stuff.
  *
  */
 public class Finder implements AutoCloseable{

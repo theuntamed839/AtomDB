@@ -31,7 +31,6 @@ public class Range {
         return greatest;
     }
 
-    // TODO unit test these methods
     public boolean inRange(byte[] key) {
         return DBComparator.byteArrayComparator.compare(smallest, key) <= 0 &&
                 DBComparator.byteArrayComparator.compare(greatest, key) >= 0;

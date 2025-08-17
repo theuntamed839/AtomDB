@@ -9,8 +9,7 @@ import java.nio.file.StandardOpenOption;
 
 /**
  * TODO:
- * 1. Can try, reading the whole file into Bytebuffer as our ssts are small enough
- * 2. or Page Size reading in buffer.
+ * 1. Page Size reading in buffer.
  */
 public class IOFileChannelReader extends IOReader {
     private java.nio.channels.FileChannel channel;

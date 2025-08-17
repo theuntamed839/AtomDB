@@ -20,12 +20,6 @@ import java.nio.file.Path;
 import java.util.*;
 import java.util.function.BooleanSupplier;
 
-/*
-*
-* TODO:
-*  1) we can actually keep record the numberOfEntries in sst for that level, which can improve the bloom filter.
-*
-* */
 public class SSTPersist {
     private final Table table;
     private final ThreadLocal<ExpandingByteBuffer> bufferThreadLocal = ThreadLocal.withInitial(ExpandingByteBuffer::new);
