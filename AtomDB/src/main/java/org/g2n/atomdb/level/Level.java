@@ -27,7 +27,7 @@ public final class Level implements Comparable<Level> {
 
     private Level(int id) {
         this.id = id;
-        this.levelSSTSize = DBConstant.COMPACTED_SST_FILE_SIZE * (id + 1);
+        this.levelSSTSize = DBConstant.COMPACTED_SST_FILE_SIZE * (id + 1); // level zero doesn't support this, the size is depended upon the memtable size
         this.maxNumberOfFilesSupported = (long) ((Math.pow(10, id + 1) * DBConstant.MB) / levelSSTSize);
     }
 

@@ -1,7 +1,7 @@
 package org.g2n.atomdb.CRUD;
 
 import org.g2n.atomdb.db.DB;
-import org.g2n.atomdb.db.DBImpl;
+import org.g2n.atomdb.db.AtomDB;
 import org.g2n.atomdb.db.DbOptions;
 import org.junit.jupiter.api.*;
 
@@ -37,7 +37,7 @@ public abstract class CRUDTest {
             opt.disallowUseOfMMap();
         }
         dbPath = getDBPath();
-        db = new DBImpl(dbPath, opt);
+        db = new AtomDB(dbPath, opt);
     }
 
     @AfterEach
@@ -297,7 +297,7 @@ public abstract class CRUDTest {
         db.put("key1".getBytes(), "value2".getBytes());
         db.close();
         Thread.sleep(100); // In JIMFS, it's too fast.
-        db = new DBImpl(dbPath, opt);
+        db = new AtomDB(dbPath, opt);
         byte[] value = db.get("key1".getBytes());
         assert new String(value).equals("value2");
     }
@@ -307,7 +307,7 @@ public abstract class CRUDTest {
         db.put("key1".getBytes(), "value1".getBytes());
         db.close();
         Thread.sleep(100); // In JIMFS, it's too fast.
-        db = new DBImpl(dbPath, opt); // Reopen the DB
+        db = new AtomDB(dbPath, opt); // Reopen the DB
         db.put("key1".getBytes(), "value2".getBytes());
         byte[] value = db.get("key1".getBytes());
         assert new String(value).equals("value2");
@@ -379,7 +379,7 @@ public abstract class CRUDTest {
             writeRandomKeyValuePairs(db, 1000);
         }
         db.close();
-        db = new DBImpl(dbPath, opt);
+        db = new AtomDB(dbPath, opt);
 
         byte[] value = db.get("key1".getBytes());
         assert new String(value).equals("value2");
@@ -400,7 +400,7 @@ public abstract class CRUDTest {
         db.delete("key1".getBytes());
         db.close();
         Thread.sleep(100); // In JIMFS, it's too fast.
-        db = new DBImpl(dbPath, opt);
+        db = new AtomDB(dbPath, opt);
         byte[] value = db.get("key1".getBytes());
         assert value == null;
     }
@@ -410,7 +410,7 @@ public abstract class CRUDTest {
         db.put("key1".getBytes(), "value1".getBytes());
         db.close();
         Thread.sleep(100); // In JIMFS, it's too fast.
-        db = new DBImpl(dbPath, opt);
+        db = new AtomDB(dbPath, opt);
         db.delete("key1".getBytes());
         byte[] value = db.get("key1".getBytes());
         assert value == null;
@@ -483,7 +483,7 @@ public abstract class CRUDTest {
             writeRandomKeyValuePairs(db, 1000);
         }
         db.close();
-        db = new DBImpl(dbPath, opt);
+        db = new AtomDB(dbPath, opt);
 
         byte[] value = db.get("key1".getBytes());
         assert value == null;

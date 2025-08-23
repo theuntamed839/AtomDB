@@ -2,7 +2,7 @@ package org.g2n.atomdb.wal;
 
 import com.google.common.jimfs.Configuration;
 import com.google.common.jimfs.Jimfs;
-import org.g2n.atomdb.db.DBImpl;
+import org.g2n.atomdb.db.AtomDB;
 import org.g2n.atomdb.db.DbOptions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -19,7 +19,7 @@ import static org.g2n.atomdb.util.BytesConverter.bytes;
 public class WalTest {
     public static final String VALUE = "value".repeat(50);
     DbOptions opt = new DbOptions();
-    DBImpl db;
+    AtomDB db;
     private Path dbDirectoryPath;
     private FileSystem jimfs;
 
@@ -28,7 +28,7 @@ public class WalTest {
         jimfs = Jimfs.newFileSystem(Configuration.windows());
         dbDirectoryPath = jimfs.getPath("JIMFS_DIR");
         opt.disallowUseOfMMap(); // so that we can use the jimfs file system
-        db = new DBImpl(dbDirectoryPath, opt);
+        db = new AtomDB(dbDirectoryPath, opt);
     }
 
     @AfterEach
@@ -51,7 +51,7 @@ public class WalTest {
 
         db.close();
         Thread.sleep(100);
-        db = new DBImpl(dbDirectoryPath, opt);
+        db = new AtomDB(dbDirectoryPath, opt);
 
         for (Map.Entry<byte[], byte[]> entry : map.entrySet()) {
             Assertions.assertArrayEquals(db.get(entry.getKey()), entry.getValue());
@@ -75,7 +75,7 @@ public class WalTest {
         }
 
         db.close();
-        db = new DBImpl(dbDirectoryPath, opt);
+        db = new AtomDB(dbDirectoryPath, opt);
         for (Map.Entry<byte[], byte[]> entry : map.entrySet()) {
             byte[] value = db.get(entry.getKey());
             Assertions.assertArrayEquals(value, entry.getValue());
@@ -103,7 +103,7 @@ public class WalTest {
 
         db.close();
         Thread.sleep(100);
-        db = new DBImpl(dbDirectoryPath, opt);
+        db = new AtomDB(dbDirectoryPath, opt);
 
         for (byte[] bytes : keyList) {
             Assertions.assertArrayEquals(db.get(bytes), map.get(bytes));
@@ -126,7 +126,7 @@ public class WalTest {
 
         db.close();
         Thread.sleep(100);
-        db = new DBImpl(dbDirectoryPath, opt);
+        db = new AtomDB(dbDirectoryPath, opt);
 
         for (int i = 0; i < 40; i++) {
             map.put(bytes(i + ""), bytes(i + "_" + VALUE));
@@ -135,7 +135,7 @@ public class WalTest {
 
         db.close();
         Thread.sleep(100);
-        db = new DBImpl(dbDirectoryPath, opt);
+        db = new AtomDB(dbDirectoryPath, opt);
 
         for (Map.Entry<byte[], byte[]> entry : map.entrySet()) {
             Assertions.assertArrayEquals(db.get(entry.getKey()), entry.getValue());
@@ -156,7 +156,7 @@ public class WalTest {
 
         db.close();
         Thread.sleep(100);
-        db = new DBImpl(dbDirectoryPath, opt);
+        db = new AtomDB(dbDirectoryPath, opt);
         for (Map.Entry<byte[], byte[]> entry : map.entrySet()) {
             Assertions.assertArrayEquals(db.get(entry.getKey()), entry.getValue());
         }
@@ -183,7 +183,7 @@ public class WalTest {
 
         db.close();
         Thread.sleep(100);
-        db = new DBImpl(dbDirectoryPath, opt);
+        db = new AtomDB(dbDirectoryPath, opt);
         for (Map.Entry<byte[], byte[]> entry : map.entrySet()) {
             Assertions.assertArrayEquals(db.get(entry.getKey()), entry.getValue());
         }

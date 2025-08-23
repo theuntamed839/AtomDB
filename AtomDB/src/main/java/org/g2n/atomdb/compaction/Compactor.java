@@ -15,7 +15,6 @@ import org.slf4j.LoggerFactory;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
@@ -43,7 +42,6 @@ public class Compactor implements AutoCloseable {
     private final Search search;
     private final DbComponentProvider dbComponentProvider;
     private final SSTPersist sstPersist;
-    private final AtomicInteger numberOfActuallyCompactions = new AtomicInteger(0);
     private final ExecutorService executors = Executors.newCachedThreadPool();
     private static final Logger logger = LoggerFactory.getLogger(Compactor.class.getName());
     private final Map<Level, ReentrantLock> locks = new ConcurrentHashMap<>();
@@ -235,7 +233,6 @@ public class Compactor implements AutoCloseable {
     }
 
     private void performCompaction(Level level, Collection<SSTInfo> overlappingFiles) {
-        numberOfActuallyCompactions.addAndGet(1);
         try (var iterator = new MergedClusterIterator(Collections.unmodifiableCollection(overlappingFiles), search, dbComponentProvider)){
             sstPersist.writeManyFiles(level.nextLevel(), iterator, getAverageNumOfEntriesInSST(overlappingFiles), overlappingFiles);
         } catch (Exception e) {

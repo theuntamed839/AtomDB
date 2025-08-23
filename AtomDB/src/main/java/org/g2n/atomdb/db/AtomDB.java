@@ -23,7 +23,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.concurrent.locks.StampedLock;
 
-public class DBImpl implements DB, AutoCloseable{
+public class AtomDB implements DB, AutoCloseable{
     private final Logger logger = LoggerFactory.getLogger(getClass());
     private final Path dbPath;
     private final WALManager walManager;
@@ -39,7 +39,7 @@ public class DBImpl implements DB, AutoCloseable{
     private final LongAdder successfulSearchCount = new LongAdder();
     private final LongAdder unsuccessfulSearchCount = new LongAdder();
 
-    public DBImpl(Path pathForDB, DbOptions dbOptions) throws Exception {
+    public AtomDB(Path pathForDB, DbOptions dbOptions) throws Exception {
         this.dbComponentProvider = new DbComponentProvider(dbOptions);
 
         this.dbPath = pathForDB.resolve("ATOM_DB");
