@@ -96,7 +96,7 @@ public class Compactor implements AutoCloseable {
     }
 
     private void waitUntilLevelZeroCompactionFree(Level level) {
-        if (level.equals(Level.LEVEL_ZERO)) {
+        if (!level.equals(Level.LEVEL_ZERO)) {
             return;
         }
         ReentrantLock lock1 = locks.computeIfAbsent(level, k -> new ReentrantLock());
