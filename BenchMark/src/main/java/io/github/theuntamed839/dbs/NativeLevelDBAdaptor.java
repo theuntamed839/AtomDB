@@ -1,4 +1,4 @@
-package org.example.dbs;
+package io.github.theuntamed839.dbs;
 
 import org.fusesource.leveldbjni.JniDBFactory;
 import org.iq80.leveldb.DB;
@@ -9,20 +9,20 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 import java.util.Comparator;
+import java.util.UUID;
+import java.util.stream.Stream;
 
-public class NativeLevelDB implements BenchmarkDBAdapter {
+public class NativeLevelDBAdaptor implements BenchmarkDBAdapter {
     private final Path dbPath;
     private final DB db;
 
-    public NativeLevelDB() throws IOException {
-        dbPath = Files.createTempDirectory("LEVELDB_" + LocalDateTime.now().toEpochSecond(ZoneOffset.UTC));
+    public NativeLevelDBAdaptor() throws IOException {
+        dbPath = Files.createDirectory(Path.of("LEVELDB_" + UUID.randomUUID()));
         Options options = new Options();
         options.createIfMissing(true);
         db = factory.open(dbPath.toFile(), options);
-        JniDBFactory.pushMemoryPool(1024 * 1024 * 1024);
+//        JniDBFactory.pushMemoryPool(1024 * 1024 * 1024);
     }
 
     @Override
@@ -38,10 +38,11 @@ public class NativeLevelDB implements BenchmarkDBAdapter {
     @Override
     public void closeAndDestroy() throws IOException {
         db.close();
-        JniDBFactory.popMemoryPool();
-        Files.walk(dbPath)
-                .sorted(Comparator.reverseOrder())
-                .map(Path::toFile)
-                .forEach(File::delete);
+//        JniDBFactory.popMemoryPool();
+        try (Stream<Path> stream = Files.walk(dbPath)) {
+            stream.sorted(Comparator.reverseOrder())
+                    .map(Path::toFile)
+                    .forEach(File::delete);
+        }
     }
 }

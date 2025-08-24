@@ -1,4 +1,4 @@
-package org.example.dbs;
+package io.github.theuntamed839.dbs;
 
 public interface BenchmarkDBAdapter {
     void put(byte[] key, byte[] value) throws Exception;

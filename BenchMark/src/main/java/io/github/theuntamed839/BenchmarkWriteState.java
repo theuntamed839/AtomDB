@@ -1,9 +1,9 @@
-package org.example;
+package io.github.theuntamed839;
 
-import org.example.dbs.AtomDB;
-import org.example.dbs.BenchmarkDBAdapter;
-import org.example.dbs.NativeLevelDB;
-import org.example.dbs.PureJavaLevelDB;
+import io.github.theuntamed839.dbs.AtomDB;
+import io.github.theuntamed839.dbs.BenchmarkDBAdapter;
+import io.github.theuntamed839.dbs.NativeLevelDBAdaptor;
+import io.github.theuntamed839.dbs.PureJavaLevelDBAdaptor;
 import org.openjdk.jmh.annotations.*;
 
 import java.util.*;
@@ -33,8 +33,8 @@ public class BenchmarkWriteState {
     public void setup() throws Exception {
         switch (dbType) {
             case "atomDB" -> db = new AtomDB();
-            case "levelDB_native" -> db = new NativeLevelDB();
-            case "levelDB_pure_java" -> db = new PureJavaLevelDB();
+            case "levelDB_native" -> db = new NativeLevelDBAdaptor();
+            case "levelDB_pure_java" -> db = new PureJavaLevelDBAdaptor();
             default -> throw new IllegalArgumentException("Unknown db: " + dbType);
         }
 

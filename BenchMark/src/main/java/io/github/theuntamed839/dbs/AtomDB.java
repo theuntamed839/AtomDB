@@ -1,4 +1,4 @@
-package org.example.dbs;
+package io.github.theuntamed839.dbs;
 import org.g2n.atomdb.db.DB;
 import org.g2n.atomdb.db.DBImpl;
 import org.g2n.atomdb.db.DbOptions;
@@ -6,16 +6,15 @@ import org.g2n.atomdb.db.DbOptions;
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 import java.util.Comparator;
+import java.util.UUID;
 
 public class AtomDB implements BenchmarkDBAdapter {
     private final String dbName;
     private final DB db;
 
     public AtomDB() throws Exception {
-        dbName = "ATOMDB_" + LocalDateTime.now().toEpochSecond(ZoneOffset.UTC);
+        dbName = "ATOMDB_" + UUID.randomUUID();
         var opt = new DbOptions();
         db = new DBImpl(Path.of(dbName), opt);
     }

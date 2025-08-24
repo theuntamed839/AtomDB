@@ -1,6 +1,6 @@
-package org.example;
+package io.github.theuntamed839;
 
-import org.example.dbs.BenchmarkDBAdapter;
+import io.github.theuntamed839.dbs.BenchmarkDBAdapter;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -15,7 +15,7 @@ public class Benchmark {
     public static void main(String[] args) throws Exception {
 //        benchmarkWithRandomKVBytes(DBProvider.get(DB.LEVELDB),60_000_00, 500, 50);
         benchmarkWithRandomKVBytesWithNoInMemoryHold(
-                DBProvider.get(DB.LMDB), 20_000_00, 500, 50);
+                DBProvider.get(DB.LEVELDB), 20_000_00, 500, 50);
     }
 
 

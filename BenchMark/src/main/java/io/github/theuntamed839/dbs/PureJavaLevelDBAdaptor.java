@@ -1,4 +1,4 @@
-package org.example.dbs;
+package io.github.theuntamed839.dbs;
 
 import org.iq80.leveldb.DB;
 import org.iq80.leveldb.Options;
@@ -7,19 +7,19 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.Comparator;
+import java.util.stream.Stream;
 
 import static org.iq80.leveldb.impl.Iq80DBFactory.factory;
 
-public class PureJavaLevelDB implements BenchmarkDBAdapter {
+public class PureJavaLevelDBAdaptor implements BenchmarkDBAdapter {
 
     private final DB db;
     private final Path dbPath;
 
-    public PureJavaLevelDB() throws IOException {
+    public PureJavaLevelDBAdaptor() throws IOException {
         dbPath = Files.createTempDirectory("LEVELDB_NATIVE_" + LocalDateTime.now().toEpochSecond(ZoneOffset.UTC));
         Options options = new Options();
         options.createIfMissing(true);
@@ -39,9 +39,10 @@ public class PureJavaLevelDB implements BenchmarkDBAdapter {
     @Override
     public void closeAndDestroy() throws IOException {
         db.close();
-        Files.walk(dbPath)
-                .sorted(Comparator.reverseOrder())
-                .map(Path::toFile)
-                .forEach(File::delete);
+        try (Stream<Path> stream = Files.walk(dbPath)) {
+            stream.sorted(Comparator.reverseOrder())
+                    .map(Path::toFile)
+                    .forEach(File::delete);
+        }
     }
 }
