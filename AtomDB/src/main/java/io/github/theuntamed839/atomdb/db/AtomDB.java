@@ -152,14 +152,18 @@ public class AtomDB implements DB, AutoCloseable{
         if (!Files.exists(lockFilePath)) {
             Files.createFile(lockFilePath);
         }
-
-        dbLockFileChannel = FileChannel.open(lockFilePath, StandardOpenOption.WRITE);
-        FileLock lock = dbLockFileChannel.tryLock();
-        if (lock != null) {
-            dbProcessLocking = lock;
-            logger.info("Acquired lock on database at: {}", dbPath);
-        } else {
-            throw new IOException("Database is already opened by another process: " + dbPath);
+        try {
+            dbLockFileChannel = FileChannel.open(lockFilePath, StandardOpenOption.WRITE);
+            FileLock lock = dbLockFileChannel.tryLock();
+            if (lock != null) {
+                dbProcessLocking = lock;
+                logger.info("Acquired lock on database at: {}", dbPath);
+            } else {
+                throw new IOException("Database is already opened by another process: " + dbPath);
+            }
+        } catch (Exception e) {
+            logger.error("Failed to acquire database lock at {}: {}", dbPath, e.getMessage(), e);
+            throw e;
         }
     }
 
