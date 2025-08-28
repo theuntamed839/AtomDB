@@ -170,6 +170,9 @@ public abstract class CRUDTest {
                 var rand = new Random();
                 while (writing.get()) {
                     var keyArray = safeEntries.keySet().toArray();
+
+                    if (keyArray.length == 0) continue; // avoid crash
+
                     byte[] key = (byte[]) keyArray[rand.nextInt(keyArray.length)];
                     db.delete(key);
                     safeEntries.put(key, deleted);
@@ -233,7 +236,7 @@ public abstract class CRUDTest {
     @Test
     public void testConcurrentWrite() throws Exception {
         int threadCount = 5;
-        int entriesPerThread = 10000;
+        int entriesPerThread = 50000;
         Map<byte[], byte[]> allEntries;
         try (ExecutorService executor = Executors.newFixedThreadPool(threadCount)) {
             List<Future<Map<byte[], byte[]>>> futures = new ArrayList<>();
@@ -245,7 +248,7 @@ public abstract class CRUDTest {
             }
 
             // Merge all data into a single list
-            allEntries = new HashMap<>();
+            allEntries = new TreeMap<>(Arrays::compare);
             for (Future<Map<byte[], byte[]>> future : futures) {
                 allEntries.putAll(future.get());
             }
@@ -260,31 +263,168 @@ public abstract class CRUDTest {
 
     @Test
     public void testConcurrentRead() throws Exception {
-        int threadCount = 5;
-        int entriesPerThread = 50000;
-        var entries = fillDB(entriesPerThread, db, 1234567890L);
+        int threadCount = Runtime.getRuntime().availableProcessors();
+        int totalEntries = 5_000_00;
+        var entries = fillDB(totalEntries, db, 1234567890L);
+        List<Future<?>> readers = new ArrayList<>();
 
         try (ExecutorService executor = Executors.newFixedThreadPool(threadCount)) {
             for (long i = 0; i < threadCount; i++) {
-                executor.submit(() -> {
-                    var kvs = new ArrayList<>(((Map<byte[], byte[]>) entries).entrySet());
+                readers.add(executor.submit(() -> {
+                    var kvs = new ArrayList<>((entries).entrySet());
                     Collections.shuffle(kvs);
                     for (Map.Entry<byte[], byte[]> entry : kvs) {
                         try {
                             Assertions.assertArrayEquals(db.get(entry.getKey()), entry.getValue());
                         } catch (Exception e) {
+                            Assertions.fail("Exception during read: " + e.getMessage());
                             throw new RuntimeException(e);
                         }
                     }
-                });
+                }));
+            }
+
+            for (Future<?> f : readers) {
+                f.get();
             }
             executor.shutdown();
-            executor.awaitTermination(5, TimeUnit.SECONDS);
         }
     }
 
     @Test
-    public void testPut_overwritesExistingKey_returnsLatestValue() throws Exception {
+    public void testCanWriteAndRetrieveSingleKV() throws Exception {
+        db.put("key1".getBytes(), "value1".getBytes());
+        byte[] value = db.get("key1".getBytes());
+
+        Assertions.assertEquals("value1", new String(value));
+    }
+
+    @Test
+    public void testCanWriteAndRetrieveMultipleKV() throws Exception {
+        db.put("key1".getBytes(), "value1".getBytes());
+        db.put("key2".getBytes(), "value2".getBytes());
+
+        byte[] value = db.get("key1".getBytes());
+        assert new String(value).equals("value1");
+        value = db.get("key2".getBytes());
+
+        Assertions.assertEquals("value2", new String(value));
+    }
+
+    @Test
+    public void testCanRetrieveExistingKV() throws Exception {
+        db.put("key1".getBytes(), "value1".getBytes());
+
+        byte[] value = db.get("key1".getBytes());
+
+        Assertions.assertEquals("value1", new String(value));
+    }
+
+    @Test
+    public void testCanRetrieveExistingKVAfterClosing() throws Exception {
+        db.put("key1".getBytes(), "value1".getBytes());
+
+        db.close();
+        Thread.sleep(100); // In JIMFS, it's too fast. log file created with same timestamp
+        db = new AtomDB(dbPath, opt);
+
+        byte[] value = db.get("key1".getBytes());
+        Assertions.assertEquals("value1", new String(value));
+    }
+
+    @Test
+    public void testReturnsNullForNonExistingKey() throws Exception {
+        db.put("key1".getBytes(), "value1".getBytes());
+
+        byte[] value = db.get("key2".getBytes());
+
+        Assertions.assertNull(value, "Expected null for non-existing key");
+    }
+
+    @Test
+    public void testReturnsNullForNonExistingKeyAfterClosing() throws Exception {
+        db.put("key1".getBytes(), "value1".getBytes());
+
+        db.close();
+        Thread.sleep(100); // In JIMFS, it's too fast. log file created with same timestamp
+        db = new AtomDB(dbPath, opt);
+
+        byte[] value = db.get("key2".getBytes());
+        Assertions.assertNull(value, "Expected null for non-existing key");
+    }
+
+    @Test
+    public void testCanReadKeysAfterMultipleWritesAfterClosing() throws Exception {
+        for (int i = 0; i < 10; i++) {
+            db.put(("key" + i).getBytes(), ("value" + i).getBytes());
+        }
+
+        db.close();
+        Thread.sleep(100); // In JIMFS, it's too fast. log file created with same timestamp
+        db = new AtomDB(dbPath, opt);
+
+        byte[] value = db.get("key11".getBytes());
+        Assertions.assertNull(value, "Expected null for non-existing key");
+
+        value = db.get("key1".getBytes());
+        Assertions.assertEquals("value1", new String(value), "Expected value for key1");
+    }
+
+    @Test
+    public void testCanReadKeysAfterMultipleWrites() throws Exception {
+        for (int i = 0; i < 10; i++) {
+            db.put(("key" + i).getBytes(), ("value" + i).getBytes());
+        }
+
+        byte[] value = db.get("key11".getBytes());
+        Assertions.assertNull(value, "Expected null for non-existing key");
+
+        value = db.get("key1".getBytes());
+        Assertions.assertEquals("value1", new String(value), "Expected value for key1");
+    }
+
+    @Test
+    public void testCanDeleteAnExistingKey() throws Exception {
+        db.put("key1".getBytes(), "value1".getBytes());
+        db.put("key2".getBytes(), "value2".getBytes());
+
+        db.delete("key1".getBytes());
+
+        byte[] value = db.get("key1".getBytes());
+        Assertions.assertNull(value, "Expected null for non-existing key");
+
+        value = db.get("key3".getBytes());
+        Assertions.assertNull(value, "Expected null for non-existing key");
+
+        value = db.get("key2".getBytes());
+        Assertions.assertEquals("value2", new String(value), "Expected value for key2");
+    }
+
+    @Test
+    public void testCanDeleteAnNonExistingKey() throws Exception {
+        db.put("key1".getBytes(), "value1".getBytes());
+
+        db.delete("key".getBytes());
+
+        byte[] value = db.get("key".getBytes());
+        Assertions.assertNull(value, "Expected null for non-existing key");
+    }
+
+    @Test
+    public void testCanReinsertTheDeletedValue() throws Exception {
+        db.put("key1".getBytes(), "value1".getBytes());
+
+        db.delete("key1".getBytes());
+
+        db.put("key1".getBytes(), "newValue1".getBytes());
+
+        byte[] value = db.get("key1".getBytes());
+        Assertions.assertEquals("newValue1", new String(value), "Expected value for reinserted key1");
+    }
+
+
+    @Test
+    public void testOverwritesExistingKey() throws Exception {
         db.put("key1".getBytes(), "value1".getBytes());
         db.put("key1".getBytes(), "value2".getBytes());
         byte[] value = db.get("key1".getBytes());
@@ -292,21 +432,21 @@ public abstract class CRUDTest {
     }
 
     @Test
-    public void testPut_overwritesKey_persistsAcrossDBReopen() throws Exception {
+    public void testOverwritesKeyAndReadAfterReopen() throws Exception {
         db.put("key1".getBytes(), "value1".getBytes());
         db.put("key1".getBytes(), "value2".getBytes());
         db.close();
-        Thread.sleep(100); // In JIMFS, it's too fast.
+        Thread.sleep(100); // In JIMFS, it's too fast. log file created with same timestamp
         db = new AtomDB(dbPath, opt);
         byte[] value = db.get("key1".getBytes());
         assert new String(value).equals("value2");
     }
 
     @Test
-    public void testPut_overwritesKeyAfterReopen_returnsLatestValue() throws Exception {
+    public void testOverwritesKeyAfterReopen() throws Exception {
         db.put("key1".getBytes(), "value1".getBytes());
         db.close();
-        Thread.sleep(100); // In JIMFS, it's too fast.
+        Thread.sleep(100); // In JIMFS, it's too fast. log file created with same timestamp
         db = new AtomDB(dbPath, opt); // Reopen the DB
         db.put("key1".getBytes(), "value2".getBytes());
         byte[] value = db.get("key1".getBytes());
@@ -314,7 +454,7 @@ public abstract class CRUDTest {
     }
 
     @Test
-    public void testPut_overwritesKey_valuePersistedAfterFlushToSST() throws Exception {
+    public void testOverwritesKeyPersistedAfterFlushAsSST() throws Exception {
         db.put("key1".getBytes(), "value1".getBytes());
         db.put("key1".getBytes(), "value2".getBytes());
 
@@ -338,7 +478,7 @@ public abstract class CRUDTest {
     }
 
     @Test
-    public void testPut_overwritesKey_multipleSSTs_returnsLatestValue() throws Exception {
+    public void testOverwritesKeyOnMultipleSSTs() throws Exception {
         db.put("key1".getBytes(), "value1".getBytes());
         fillDBUntilSSTFileAppears(db, "SST_0_1.sst");
         db.put("key1".getBytes(), "value2".getBytes());
@@ -350,7 +490,7 @@ public abstract class CRUDTest {
     }
 
     @Test
-    public void testPut_overwritesKey_returnsLatestValueAfterCompaction() throws Exception {
+    public void testOverwritesKeyReturnsLatestValueAfterCompaction() throws Exception {
         db.put("key1".getBytes(), "value1".getBytes());
         fillDBUntilSSTFileAppears(db, "SST_0_1.sst");
         db.put("key1".getBytes(), "value2".getBytes());
@@ -367,7 +507,7 @@ public abstract class CRUDTest {
     }
 
     @Test
-    public void testPut_overwritesKey_returnsLatestValueAfterCompactionAndReopen() throws Exception {
+    public void testOverwritesKeyReturnsLatestValueAfterCompactionAndReopen() throws Exception {
         db.put("key1".getBytes(), "value1".getBytes());
         fillDBUntilSSTFileAppears(db, "SST_0_1.sst");
         db.put("key1".getBytes(), "value2".getBytes());
@@ -385,9 +525,105 @@ public abstract class CRUDTest {
         assert new String(value).equals("value2");
     }
 
-    // deletion
     @Test
-    public void testDelete_removesKey_returnsNull() throws Exception {
+    public void testOverwritesKeyReturnsLatestValueAfterCompactionAndNewFileIsAddedToNewLevels() throws Exception {
+        db.put("key1".getBytes(), "value1".getBytes());
+        fillDBUntilSSTFileAppears(db, "SST_0_1.sst");
+
+        //this loop end, means that compaction has happened and the old SST files are removed.
+        while (Files.exists(dbPath.resolve("ATOM_DB/SST_0_1.sst"))) {
+            writeRandomKeyValuePairs(db, 1000);
+        }
+
+        int currentFileNumber;
+        try (var stream = Files.list(dbPath.resolve("ATOM_DB"))) {
+             currentFileNumber = stream
+                .filter(path -> path.getFileName().toString().contains(".sst"))
+                    .filter(path -> !path.getFileName().toString().split("_")[1].equals("0"))
+                    .mapToInt(path -> Integer.parseInt(path.getFileName().toString().split("_")[2].replace(".sst", "")))
+                    .max().orElseThrow();
+        }
+
+        db.put("key1".getBytes(), "newValue1".getBytes());
+        fillDBUntilSSTFileAppears(db, "SST_0_"+(currentFileNumber + 1)+".sst");
+
+        byte[] value = db.get("key1".getBytes());
+        Assertions.assertEquals("newValue1", new String(value), "Expected value for key1 after compaction and new file addition");
+    }
+
+    @Test
+    public void testOverwritesKeyReturnsLatestValueAfterCompactionAndNewFileIsAddedToNewLevelsAfterClosing() throws Exception {
+        db.put("key1".getBytes(), "value1".getBytes());
+        fillDBUntilSSTFileAppears(db, "SST_0_1.sst");
+
+        //this loop end, means that compaction has happened and the old SST files are removed.
+        while (Files.exists(dbPath.resolve("ATOM_DB/SST_0_1.sst"))) {
+            writeRandomKeyValuePairs(db, 1000);
+        }
+
+        int currentFileNumber;
+        try (var stream = Files.list(dbPath.resolve("ATOM_DB"))) {
+            currentFileNumber = stream
+                    .filter(path -> path.getFileName().toString().contains(".sst"))
+                    .filter(path -> !path.getFileName().toString().split("_")[1].equals("0"))
+                    .mapToInt(path -> Integer.parseInt(path.getFileName().toString().split("_")[2].replace(".sst", "")))
+                    .max().orElseThrow();
+        }
+
+        db.put("key1".getBytes(), "newValue1".getBytes());
+        fillDBUntilSSTFileAppears(db, "SST_0_"+(currentFileNumber + 1)+".sst");
+        db.close();
+        db = new AtomDB(dbPath, opt); // Reopen the DB
+
+        byte[] value = db.get("key1".getBytes());
+        Assertions.assertEquals("newValue1", new String(value), "Expected value for key1 after compaction and new file addition");
+    }
+
+    @Test
+    public void testOverwritesKeyReturnsLatestValueAfterCompactionAndAfterClosingNewFileIsAddedAtNewLevels() throws Exception {
+        db.put("key1".getBytes(), "value1".getBytes());
+        fillDBUntilSSTFileAppears(db, "SST_0_1.sst");
+
+        //this loop end, means that compaction has happened and the old SST files are removed.
+        while (Files.exists(dbPath.resolve("ATOM_DB/SST_0_1.sst"))) {
+            writeRandomKeyValuePairs(db, 1000);
+        }
+        int currentFileNumber;
+        try (var stream = Files.list(dbPath.resolve("ATOM_DB"))) {
+            currentFileNumber = stream
+                .filter(path -> path.getFileName().toString().contains(".sst"))
+                    .filter(path -> !path.getFileName().toString().split("_")[1].equals("0"))
+                    .mapToInt(path -> Integer.parseInt(path.getFileName().toString().split("_")[2].replace(".sst", "")))
+                    .max().orElseThrow();
+        }
+
+        db.close();
+        db = new AtomDB(dbPath, opt); // Reopen the DB
+
+        db.put("key1".getBytes(), "newValue1".getBytes());
+        fillDBUntilSSTFileAppears(db, "SST_0_"+(currentFileNumber + 1)+".sst");
+
+        byte[] value = db.get("key1".getBytes());
+        Assertions.assertEquals("newValue1", new String(value), "Expected value for key1 after compaction and new file addition");
+    }
+
+    @Test
+    public void testEnsureDbOpensReliably() throws Exception {
+        db.put("key1".getBytes(), "value1".getBytes());
+        fillDBUntilSSTFileAppears(db, "SST_0_1.sst");
+        db.put("key2".getBytes(), "value2".getBytes());
+
+        db.close();
+        db = new AtomDB(dbPath, opt); // Reopen the DB
+
+        byte[] value1 = db.get("key1".getBytes());
+        Assertions.assertEquals("value1", new String(value1), "Expected value for key1 after compaction and new file addition");
+        byte[] value2 = db.get("key2".getBytes());
+        Assertions.assertEquals("value2", new String(value2), "Expected value for key1 after compaction and new file addition");
+    }
+
+    @Test
+    public void testRemovesKeyReturnsNull() throws Exception {
         db.put("key1".getBytes(), "value1".getBytes());
         db.delete("key1".getBytes());
         byte[] value = db.get("key1".getBytes());
@@ -395,21 +631,21 @@ public abstract class CRUDTest {
     }
 
     @Test
-    public void testDelete_keyRemainsDeletedAfterReopen() throws Exception {
+    public void testKeyRemainsDeletedAfterReopen() throws Exception {
         db.put("key1".getBytes(), "value1".getBytes());
         db.delete("key1".getBytes());
         db.close();
-        Thread.sleep(100); // In JIMFS, it's too fast.
+        Thread.sleep(100); // In JIMFS, it's too fast. log file created with same timestamp
         db = new AtomDB(dbPath, opt);
         byte[] value = db.get("key1".getBytes());
         assert value == null;
     }
 
     @Test
-    public void testDelete_keyDeletedAfterReopen_returnsNull() throws Exception {
+    public void testKeyDeletedAfterReopenReturnsNull() throws Exception {
         db.put("key1".getBytes(), "value1".getBytes());
         db.close();
-        Thread.sleep(100); // In JIMFS, it's too fast.
+        Thread.sleep(100); // In JIMFS, it's too fast. log file created with same timestamp
         db = new AtomDB(dbPath, opt);
         db.delete("key1".getBytes());
         byte[] value = db.get("key1".getBytes());
@@ -417,7 +653,7 @@ public abstract class CRUDTest {
     }
 
     @Test
-    public void testDelete_keyDeletedBeforeFlush_remainsDeletedInSST() throws Exception {
+    public void testKeyDeletedBeforeFlushRemainsDeletedInSST() throws Exception {
         db.put("key1".getBytes(), "value1".getBytes());
         db.delete("key1".getBytes());
 
@@ -442,7 +678,7 @@ public abstract class CRUDTest {
 
 
     @Test
-    public void testDelete_keyDeletedInNewerSST_returnsNull() throws Exception {
+    public void testKeyDeletedInNewerSSTReturnsNull() throws Exception {
         db.put("key1".getBytes(), "value1".getBytes());
         fillDBUntilSSTFileAppears(db, "SST_0_1.sst");
         db.delete("key1".getBytes());
@@ -454,7 +690,7 @@ public abstract class CRUDTest {
     }
 
     @Test
-    public void testDelete_keyDeletedBeforeCompaction_returnsNull() throws Exception {
+    public void testKeyDeletedBeforeCompactionReturnsNull() throws Exception {
         db.put("key1".getBytes(), "value1".getBytes());
         fillDBUntilSSTFileAppears(db, "SST_0_1.sst");
         db.delete("key1".getBytes());
@@ -471,7 +707,7 @@ public abstract class CRUDTest {
     }
 
     @Test
-    public void testDelete_keyDeletedBeforeCompaction_returnsNullAfterReopen() throws Exception {
+    public void testKeyDeletedBeforeCompactionReturnsNullAfterReopen() throws Exception {
         db.put("key1".getBytes(), "value1".getBytes());
         fillDBUntilSSTFileAppears(db, "SST_0_1.sst");
         db.delete("key1".getBytes());

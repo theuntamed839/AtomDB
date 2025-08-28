@@ -42,7 +42,7 @@ public class WalTest {
     }
 
     @Test
-    public void writeQuitReadTest() throws Exception {
+    public void testWriteAndReadAfterRestart() throws Exception {
         var map = new TreeMap<byte[], byte[]>(Arrays::compare);
         for (int i = 0; i < 40; i++) {
             map.put(bytes(i + ""), bytes(i + "_" + VALUE));
@@ -59,7 +59,7 @@ public class WalTest {
     }
 
     @Test
-    public void writeReplaceQuitReadTest() throws Exception {
+    public void testOverwriteKeysAndReadAfterRestart() throws Exception {
         var map = new TreeMap<byte[], byte[]>(Arrays::compare);
         for (int i = 0; i < 40; i++) {
             map.put(bytes(i + ""), bytes(i + "_" + VALUE));
@@ -83,7 +83,7 @@ public class WalTest {
     }
 
     @Test
-    public void writeDeleteQuitReadTest() throws Exception {
+    public void testDeleteKeysAndReadAfterRestart() throws Exception {
         var map = new TreeMap<byte[], byte[]>(Arrays::compare);
         var keyList = new ArrayList<byte[]>();
         for (int i = 0; i < 100; i++) {
@@ -117,7 +117,7 @@ public class WalTest {
     }
 
     @Test
-    public void writeQuitWriteQuitReadTest() throws Exception {
+    public void testMultipleWriteRestartCyclesPersistence() throws Exception {
         var map = new TreeMap<byte[], byte[]>(Arrays::compare);
         for (int i = 0; i < 40; i++) {
             map.put(bytes(i + ""), bytes(i + "_" + VALUE));
@@ -143,13 +143,15 @@ public class WalTest {
     }
 
     @Test
-    public void writeEnoughToGenerateSSTThenRead() throws Exception {
+    public void testWriteEnoughToGenerateSSTThenRead() throws Exception {
         var map = new TreeMap<byte[], byte[]>(Arrays::compare);
 
         boolean isSSTGenerated = false;
         // purposely one extra iteration
         for (int i = 0; !isSSTGenerated; i++) {
-            isSSTGenerated = Files.walk(dbDirectoryPath).anyMatch(path -> path.getFileName().toString().contains(".sst"));
+            try(var stream = Files.walk(dbDirectoryPath)) {
+                isSSTGenerated = stream.anyMatch(path -> path.getFileName().toString().contains(".sst"));
+            }
             db.put(bytes(i + ""), bytes(i + "_" + VALUE));
             map.put(bytes(i + ""), bytes(i + "_" + VALUE));
         }
@@ -163,12 +165,14 @@ public class WalTest {
     }
 
     @Test
-    public void writeEnoughToGenerateSSTThenReplaceAndDeleteEntryAndRead() throws Exception {
+    public void testWriteEnoughToGenerateSSTThenReplaceAndDeleteEntryAndRead() throws Exception {
         var map = new TreeMap<byte[], byte[]>(Arrays::compare);
 
         boolean isSSTGenerated = false;
         for (int i = 0; !isSSTGenerated; i++) {
-            isSSTGenerated = Files.walk(dbDirectoryPath).anyMatch(path -> path.getFileName().toString().contains(".sst"));
+            try(var stream = Files.walk(dbDirectoryPath)) {
+                isSSTGenerated = stream.anyMatch(path -> path.getFileName().toString().contains(".sst"));
+            }
             db.put(bytes(i + ""), bytes(i + "_" + VALUE));
             map.put(bytes(i + ""), bytes(i + "_" + VALUE));
         }
@@ -190,7 +194,19 @@ public class WalTest {
     }
 
     @Test
-    public void crashRecoveryTest() throws Exception {
+    public void testOverwriteKeyPersistsAfterRestart() throws Exception {
+        for (int i = 0; i < 1000; i++) {
+            db.put(bytes("ABC"), bytes(i + "_" + VALUE));
+        }
+        Assertions.assertArrayEquals(db.get(bytes("ABC")), bytes("999_" + VALUE));
+
+        db.close();
+        db = new AtomDB(dbDirectoryPath, opt);
+        Assertions.assertArrayEquals(db.get(bytes("ABC")), bytes("999_" + VALUE));
+    }
+
+    @Test
+    public void testCrashRecovery() {
         // FIXME: placeholder for crash recovery test
     }
 }
