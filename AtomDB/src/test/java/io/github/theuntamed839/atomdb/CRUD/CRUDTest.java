@@ -47,7 +47,6 @@ public abstract class CRUDTest {
 
     @AfterEach
     public void tearDown() throws Exception {
-        System.out.println("Closing DB and cleaning up resources");
         if (db != null) {
             db.close();
             db.destroy();
