@@ -5,8 +5,8 @@ import io.github.theuntamed839.atomdb.db.AtomDB;
 import io.github.theuntamed839.atomdb.db.DbOptions;
 import org.junit.jupiter.api.*;
 
-import java.io.File;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
@@ -25,8 +25,13 @@ public abstract class CRUDTest {
     protected void close() throws IOException {
         try (Stream<Path> stream = Files.walk(dbPath)) {
             stream.sorted(Comparator.reverseOrder())
-                    .map(Path::toFile)
-                    .forEach(File::delete);
+                .forEach(path -> {
+                    try {
+                        Files.delete(path);
+                    } catch (IOException e) {
+                        throw new UncheckedIOException("Failed to delete: " + path, e);
+                    }
+                });
         }
     }
 
@@ -292,26 +297,6 @@ public abstract class CRUDTest {
     }
 
     @Test
-    public void testCanWriteAndRetrieveSingleKV() throws Exception {
-        db.put("key1".getBytes(), "value1".getBytes());
-        byte[] value = db.get("key1".getBytes());
-
-        Assertions.assertEquals("value1", new String(value));
-    }
-
-    @Test
-    public void testCanWriteAndRetrieveMultipleKV() throws Exception {
-        db.put("key1".getBytes(), "value1".getBytes());
-        db.put("key2".getBytes(), "value2".getBytes());
-
-        byte[] value = db.get("key1".getBytes());
-        assert new String(value).equals("value1");
-        value = db.get("key2".getBytes());
-
-        Assertions.assertEquals("value2", new String(value));
-    }
-
-    @Test
     public void testCanRetrieveExistingKV() throws Exception {
         db.put("key1".getBytes(), "value1".getBytes());
 
@@ -379,8 +364,10 @@ public abstract class CRUDTest {
         byte[] value = db.get("key11".getBytes());
         Assertions.assertNull(value, "Expected null for non-existing key");
 
-        value = db.get("key1".getBytes());
-        Assertions.assertEquals("value1", new String(value), "Expected value for key1");
+        for (int i = 0; i < 10; i++) {
+            value = db.get(("key" + i).getBytes());
+            Assertions.assertEquals("value" + i, new String(value));
+        }
     }
 
     @Test

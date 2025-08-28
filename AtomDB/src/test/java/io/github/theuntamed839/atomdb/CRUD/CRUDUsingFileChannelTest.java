@@ -1,5 +1,10 @@
 package io.github.theuntamed839.atomdb.CRUD;
 
+import io.github.theuntamed839.atomdb.db.AtomDB;
+import io.github.theuntamed839.atomdb.db.DbOptions;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -14,5 +19,16 @@ public class CRUDUsingFileChannelTest extends CRUDTest {
     @Override
     protected boolean shouldDisableMMap() {
         return true;
+    }
+
+    @Test
+    public void testOpeningDbOnSameDirectoryRaisesError() throws Exception {
+        var dbPath = getDBPath();
+        try (var _ = new AtomDB(dbPath, new DbOptions())) {
+            Assertions.assertThrows(IllegalStateException.class, () -> {
+                try (var _ = new AtomDB(dbPath, new DbOptions())) {
+                }
+            });
+        }
     }
 }
