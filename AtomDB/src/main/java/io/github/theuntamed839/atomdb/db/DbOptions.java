@@ -27,32 +27,37 @@ public final class DbOptions {
         SSTFileSize = sstSize;
     }
 
-    public void disallowUseOfMMap() {
+    public DbOptions disallowUseOfMMap() {
         this.isMMapAllowed = false;
+        return this;
     }
 
-    public void setKeyValueCacheSize(long keyValueCacheSize) {
+    public DbOptions setKeyValueCacheSize(long keyValueCacheSize) {
         this.keyValueCacheSize = keyValueCacheSize;
+        return this;
     }
 
-    public void setClusterSize(byte clusterSize) {
+    public DbOptions setClusterSize(byte clusterSize) {
         if (clusterSize < 2 || clusterSize > 20) {
             throw new IllegalArgumentException("Cluster size must be between 2 and 20");
         }
         // where 2 means 50% of keys in memory, and 20 means 5% of keys in memory.
         this.clusterSize = clusterSize;
+        return this;
     }
 
 //    public void setChecksumType(DBConstant.CHECKSUM_TYPE checksumType) {
 //        this.checksumType = checksumType;
 //    }
 
-    public void setCompressionType(DBConstant.COMPRESSION_TYPE compressionType) {
+    public DbOptions setCompressionType(DBConstant.COMPRESSION_TYPE compressionType) {
         this.compressionType = compressionType;
+        return this;
     }
 
-    public void setComparator(Comparator<byte[]> comparator) {
+    public DbOptions setComparator(Comparator<byte[]> comparator) {
         this.comparator = comparator;
+        return this;
     }
 
     public DBConstant.CHECKSUM_TYPE getChecksumType() {
