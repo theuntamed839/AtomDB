@@ -4,6 +4,7 @@ import io.github.theuntamed839.atomdb.db.ExpandingByteBuffer;
 import io.github.theuntamed839.atomdb.sstIO.IOReader;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Comparator;
 
 public record Pointer(byte[] key, long position, Comparator<byte[]> byteArrayComparator) implements Comparable<Pointer> {
@@ -35,7 +36,7 @@ public record Pointer(byte[] key, long position, Comparator<byte[]> byteArrayCom
     @Override
     public String toString() {
         return "Pointer{" +
-                "key=" + new String(key) +
+                "key=" + new String(key, StandardCharsets.UTF_8) +
                 ", position=" + position +
                 '}';
     }
