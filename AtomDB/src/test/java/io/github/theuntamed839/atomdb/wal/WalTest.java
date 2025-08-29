@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -112,7 +113,7 @@ public class WalTest {
         keyList.forEach(map.keySet()::remove);
         // Verify that all keys in the keyList are not present in the database
         for (byte[] bytes : map.keySet()) {
-            Assertions.assertNull(db.get(bytes), "Key should not exist in the database: " + new String(bytes));
+            Assertions.assertNull(db.get(bytes), "Key should not exist in the database: " + new String(bytes, StandardCharsets.UTF_8));
         }
     }
 

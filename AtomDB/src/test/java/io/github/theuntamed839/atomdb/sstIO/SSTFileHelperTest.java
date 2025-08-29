@@ -19,6 +19,7 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
 
+import static io.github.theuntamed839.atomdb.util.BytesConverter.bytes;
 import static org.junit.jupiter.api.Assertions.*;
 
 class SSTFileHelperTest {
@@ -42,8 +43,8 @@ class SSTFileHelperTest {
     @Test
     void testGetSSTInfo() throws Exception {
         sstPersist.writeSingleFile(Level.LEVEL_ZERO, 2,
-                List.of(new KVUnit(new byte[]{-2}, "value1".getBytes()),
-                        new KVUnit(new byte[]{-1}, "value2".getBytes())).iterator());
+                List.of(new KVUnit(new byte[]{-2}, bytes("value1")),
+                        new KVUnit(new byte[]{-1}, bytes("value2"))).iterator());
 
         SSTInfo sst = table.getSSTInfoSet(Level.LEVEL_ZERO).getFirst();
 

@@ -74,7 +74,7 @@ class IndexedClusterTest{
         cluster.add(new KVUnit(new byte[]{0x02}, new byte[]{0x02}));
         cluster.add(new KVUnit(new byte[]{0x03}, new byte[]{0x03}));
 
-        IllegalStateException ex = assertThrows(
+        assertThrows(
                 IllegalStateException.class,
                 () -> cluster.add(new KVUnit(new byte[]{0x04}, new byte[]{0x04}))
         );
@@ -84,7 +84,7 @@ class IndexedClusterTest{
     void testAdd_ThrowsException_WhenKeyNotIncreasing() {
         cluster.add(new KVUnit(new byte[]{0x02}, new byte[]{0x01}));
 
-        IllegalArgumentException ex = assertThrows(
+        assertThrows(
                 IllegalArgumentException.class,
                 () -> cluster.add(new KVUnit(new byte[]{0x01}, new byte[]{0x01}))
         );

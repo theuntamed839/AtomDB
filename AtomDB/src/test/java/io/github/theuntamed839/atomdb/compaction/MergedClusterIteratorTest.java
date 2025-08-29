@@ -20,6 +20,7 @@ import java.nio.file.Files;
 import java.time.Instant;
 import java.util.*;
 
+import static io.github.theuntamed839.atomdb.util.BytesConverter.bytes;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -150,9 +151,9 @@ class MergedClusterIteratorTest {
 
     @Test
     public void TestNext_returnsLatestValueForDuplicateKeyAcrossSSTs() throws Exception {
-        var kvs1 = generateSortedRandomKVs(100, List.of(new KVUnit("key".getBytes(), "value1".getBytes())));
-        var kvs2 = generateSortedRandomKVs(100, List.of(new KVUnit("key".getBytes(), "value2".getBytes())));
-        var kvs3 = generateSortedRandomKVs(100, List.of(new KVUnit("key".getBytes(), "value3".getBytes())));
+        var kvs1 = generateSortedRandomKVs(100, List.of(new KVUnit(bytes("key"), bytes("value1"))));
+        var kvs2 = generateSortedRandomKVs(100, List.of(new KVUnit(bytes("key"), bytes("value2"))));
+        var kvs3 = generateSortedRandomKVs(100, List.of(new KVUnit(bytes("key"), bytes("value3"))));
 
         sstPersist.writeSingleFile(Level.LEVEL_ZERO, kvs1.size(), kvs1.iterator());
         sstPersist.writeSingleFile(Level.LEVEL_ONE, kvs2.size(), kvs2.iterator());
@@ -171,8 +172,8 @@ class MergedClusterIteratorTest {
         var isAbsent = true;
         while (mergedClusterIterator.hasNext()) {
             KVUnit next = mergedClusterIterator.next();
-            if (Arrays.equals("key".getBytes(), next.getKey())) {
-                assertArrayEquals("value3".getBytes(), next.getValue(), "Expected latest value for key");
+            if (Arrays.equals(bytes("key"), next.getKey())) {
+                assertArrayEquals(bytes("value3"), next.getValue(), "Expected latest value for key");
                 isAbsent = false;
             }
         }
@@ -183,7 +184,7 @@ class MergedClusterIteratorTest {
     // deletion
     @Test
     public void TestNext_skipsDeletedKeyIfNotPresentInLowerLevels() throws Exception {
-        var kvs1 = generateSortedRandomKVs(100, List.of(new KVUnit("key".getBytes())));
+        var kvs1 = generateSortedRandomKVs(100, List.of(new KVUnit(bytes("key"))));
         var kvs2 = generateSortedRandomKVs(100, List.of());
         var kvs3 = generateSortedRandomKVs(100, List.of());
 
@@ -208,7 +209,7 @@ class MergedClusterIteratorTest {
         var isPresent = false;
         while (mergedClusterIterator.hasNext()) {
             KVUnit next = mergedClusterIterator.next();
-            if (Arrays.equals("key".getBytes(), next.getKey())) {
+            if (Arrays.equals(bytes("key"), next.getKey())) {
                 // raise assertion error if we find the key
                 isPresent = true;
                 break;
@@ -219,7 +220,7 @@ class MergedClusterIteratorTest {
 
     @Test
     public void TextNext_retainsTombstoneIfKeyExistsInHigherLevels() throws Exception {
-        var kvs1 = generateSortedRandomKVs(100, List.of(new KVUnit("key".getBytes())));
+        var kvs1 = generateSortedRandomKVs(100, List.of(new KVUnit(bytes("key"))));
         var kvs2 = generateSortedRandomKVs(100, List.of());
         var kvs3 = generateSortedRandomKVs(100, List.of());
 
@@ -246,7 +247,7 @@ class MergedClusterIteratorTest {
         var count = 0;
         while (mergedClusterIterator.hasNext()) {
             KVUnit next = mergedClusterIterator.next();
-            if (Arrays.equals("key".getBytes(), next.getKey())) {
+            if (Arrays.equals(bytes("key"), next.getKey())) {
                 assertTrue(next.isTombStone(), "Expected key 'key' to be a tombstone in the merged iterator");
                 count++;
                 break;
@@ -257,9 +258,9 @@ class MergedClusterIteratorTest {
 
     @Test
     public void TextNext_removesMultipleDeletedKeysIfNotInHigherLevels() throws Exception {
-        var kvs1 = generateSortedRandomKVs(100, List.of(new KVUnit("key1".getBytes())));
-        var kvs2 = generateSortedRandomKVs(100, List.of(new KVUnit("key2".getBytes())));
-        var kvs3 = generateSortedRandomKVs(100, List.of(new KVUnit("key3".getBytes())));
+        var kvs1 = generateSortedRandomKVs(100, List.of(new KVUnit(bytes("key1"))));
+        var kvs2 = generateSortedRandomKVs(100, List.of(new KVUnit(bytes("key2"))));
+        var kvs3 = generateSortedRandomKVs(100, List.of(new KVUnit(bytes("key3"))));
 
         sstPersist.writeSingleFile(Level.LEVEL_ZERO, kvs1.size(), kvs1.iterator());
         sstPersist.writeSingleFile(Level.LEVEL_ONE, kvs2.size(), kvs2.iterator());
@@ -282,9 +283,9 @@ class MergedClusterIteratorTest {
         var presenceCount = 0;
         while (mergedClusterIterator.hasNext()) {
             KVUnit next = mergedClusterIterator.next();
-            if (Arrays.equals("key1".getBytes(), next.getKey()) ||
-                Arrays.equals("key2".getBytes(), next.getKey()) ||
-                Arrays.equals("key3".getBytes(), next.getKey())) {
+            if (Arrays.equals(bytes("key1"), next.getKey()) ||
+                Arrays.equals(bytes("key2"), next.getKey()) ||
+                Arrays.equals(bytes("key3"), next.getKey())) {
                 presenceCount++;
                 break;
             }
@@ -294,9 +295,9 @@ class MergedClusterIteratorTest {
 
     @Test
     public void TestNext_returnsLatestValueForDeletedKeyIfNoLowerLevel() throws Exception {
-        var kvs1 = generateSortedRandomKVs(100, List.of(new KVUnit("key".getBytes())));
-        var kvs2 = generateSortedRandomKVs(100, List.of(new KVUnit("key".getBytes(), "value2".getBytes())));
-        var kvs3 = generateSortedRandomKVs(100, List.of(new KVUnit("key".getBytes(), "value3".getBytes())));
+        var kvs1 = generateSortedRandomKVs(100, List.of(new KVUnit(bytes("key"))));
+        var kvs2 = generateSortedRandomKVs(100, List.of(new KVUnit(bytes("key"), bytes("value2"))));
+        var kvs3 = generateSortedRandomKVs(100, List.of(new KVUnit(bytes("key"), bytes("value3"))));
 
         sstPersist.writeSingleFile(Level.LEVEL_ZERO, kvs1.size(), kvs1.iterator());
         sstPersist.writeSingleFile(Level.LEVEL_ONE, kvs2.size(), kvs2.iterator());
@@ -319,8 +320,8 @@ class MergedClusterIteratorTest {
         int count = 0;
         while (mergedClusterIterator.hasNext()) {
             KVUnit next = mergedClusterIterator.next();
-            if (Arrays.equals("key".getBytes(), next.getKey())) {
-                assertArrayEquals("value3".getBytes(), next.getValue(), "Expected latest value for key");
+            if (Arrays.equals(bytes("key"), next.getKey())) {
+                assertArrayEquals(bytes("value3"), next.getValue(), "Expected latest value for key");
                 count++;
             }
         }
@@ -329,9 +330,9 @@ class MergedClusterIteratorTest {
 
     @Test
     public void TestNext_returnsLatestValueForDeletedKeyWithHigherLevelPresence() throws Exception {
-        var kvs1 = generateSortedRandomKVs(100, List.of(new KVUnit("key".getBytes())));
-        var kvs2 = generateSortedRandomKVs(100, List.of(new KVUnit("key".getBytes(), "value2".getBytes())));
-        var kvs3 = generateSortedRandomKVs(100, List.of(new KVUnit("key".getBytes(), "value3".getBytes())));
+        var kvs1 = generateSortedRandomKVs(100, List.of(new KVUnit(bytes("key"))));
+        var kvs2 = generateSortedRandomKVs(100, List.of(new KVUnit(bytes("key"), bytes("value2"))));
+        var kvs3 = generateSortedRandomKVs(100, List.of(new KVUnit(bytes("key"), bytes("value3"))));
 
         sstPersist.writeSingleFile(Level.LEVEL_ZERO, kvs1.size(), kvs1.iterator());
         sstPersist.writeSingleFile(Level.LEVEL_ONE, kvs2.size(), kvs2.iterator());
@@ -356,8 +357,8 @@ class MergedClusterIteratorTest {
         int count = 0;
         while (mergedClusterIterator.hasNext()) {
             KVUnit next = mergedClusterIterator.next();
-            if (Arrays.equals("key".getBytes(), next.getKey())) {
-                assertArrayEquals("value3".getBytes(), next.getValue(), "Expected latest value for key");
+            if (Arrays.equals(bytes("key"), next.getKey())) {
+                assertArrayEquals(bytes("value3"), next.getValue(), "Expected latest value for key");
                 count++;
             }
         }
@@ -366,9 +367,9 @@ class MergedClusterIteratorTest {
 
     @Test
     public void TestNext_deletesKeyBasedOnLatestSSTTombstone() throws Exception {
-        var kvs1 = generateSortedRandomKVs(100, List.of(new KVUnit("key".getBytes(), "value1".getBytes())));
-        var kvs2 = generateSortedRandomKVs(100, List.of(new KVUnit("key".getBytes(), "value2".getBytes())));
-        var kvs3 = generateSortedRandomKVs(100, List.of(new KVUnit("key".getBytes())));
+        var kvs1 = generateSortedRandomKVs(100, List.of(new KVUnit(bytes("key"), bytes("value1"))));
+        var kvs2 = generateSortedRandomKVs(100, List.of(new KVUnit(bytes("key"), bytes("value2"))));
+        var kvs3 = generateSortedRandomKVs(100, List.of(new KVUnit(bytes("key"))));
 
         sstPersist.writeSingleFile(Level.LEVEL_ZERO, kvs1.size(), kvs1.iterator());
         sstPersist.writeSingleFile(Level.LEVEL_ONE, kvs2.size(), kvs2.iterator());
@@ -391,7 +392,7 @@ class MergedClusterIteratorTest {
         int count = 0;
         while (mergedClusterIterator.hasNext()) {
             KVUnit next = mergedClusterIterator.next();
-            if (Arrays.equals("key".getBytes(), next.getKey())) {
+            if (Arrays.equals(bytes("key"), next.getKey())) {
                 count++;
             }
         }

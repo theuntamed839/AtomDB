@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.zip.CRC32C;
 import java.util.zip.Checksum;
 
+import static io.github.theuntamed839.atomdb.util.BytesConverter.bytes;
 import static org.junit.jupiter.api.Assertions.*;
 
 class FinderTest {
@@ -47,8 +48,8 @@ class FinderTest {
     @Test
     void testFind_shouldReturnTheStoredKV() throws Exception {
         sstPersist.writeSingleFile(Level.LEVEL_ZERO, 2,
-                List.of(new KVUnit(new byte[]{-2}, "value1".getBytes()),
-                        new KVUnit(new byte[]{-1}, "value2".getBytes())).iterator());
+                List.of(new KVUnit(new byte[]{-2}, bytes("value1")),
+                        new KVUnit(new byte[]{-1}, bytes("value2"))).iterator());
 
         SSTInfo first = table.getSSTInfoSet(Level.LEVEL_ZERO).getFirst();
         Finder finder = new Finder(first.getPointers(), dbComponentProvider.getIOReader(first.getSstPath()),
@@ -58,18 +59,18 @@ class FinderTest {
         KVUnit kvUnit = finder.find(new byte[]{-2}, getKeyChecksum(new byte[]{-2}));
         assertNotNull(kvUnit);
         assertArrayEquals(new byte[]{-2}, kvUnit.getKey());
-        assertArrayEquals("value1".getBytes(), kvUnit.getValue());
+        assertArrayEquals(bytes("value1"), kvUnit.getValue());
         kvUnit = finder.find(new byte[]{-1}, getKeyChecksum(new byte[]{-1}));
         assertNotNull(kvUnit);
         assertArrayEquals(new byte[]{-1}, kvUnit.getKey());
-        assertArrayEquals("value2".getBytes(), kvUnit.getValue());
+        assertArrayEquals(bytes("value2"), kvUnit.getValue());
     }
 
     @Test
     void testFind_shouldReturnNullForNotFoundKey() throws Exception {
         sstPersist.writeSingleFile(Level.LEVEL_ZERO, 2,
-                List.of(new KVUnit(new byte[]{-2}, "value1".getBytes()),
-                        new KVUnit(new byte[]{-1}, "value2".getBytes())).iterator());
+                List.of(new KVUnit(new byte[]{-2}, bytes("value1")),
+                        new KVUnit(new byte[]{-1}, bytes("value2"))).iterator());
 
         SSTInfo first = table.getSSTInfoSet(Level.LEVEL_ZERO).getFirst();
         Finder finder = new Finder(first.getPointers(), dbComponentProvider.getIOReader(first.getSstPath()),
@@ -84,9 +85,9 @@ class FinderTest {
     @Test
     void testFind_shouldHandleMultipleEntriesWithSameChecksum() throws Exception {
         sstPersist.writeSingleFile(Level.LEVEL_ZERO, 3,
-                List.of(new KVUnit(new byte[]{-3}, "value3".getBytes()),
-                        new KVUnit(new byte[]{-2}, "value2".getBytes()),
-                        new KVUnit(new byte[]{-1}, "value1".getBytes())).iterator());
+                List.of(new KVUnit(new byte[]{-3}, bytes("value3")),
+                        new KVUnit(new byte[]{-2}, bytes("value2")),
+                        new KVUnit(new byte[]{-1}, bytes("value1"))).iterator());
 
         SSTInfo first = table.getSSTInfoSet(Level.LEVEL_ZERO).getFirst();
 
@@ -105,24 +106,24 @@ class FinderTest {
         KVUnit kvUnit = finder.find(new byte[]{-2}, checksum);
         assertNotNull(kvUnit);
         assertArrayEquals(new byte[]{-2}, kvUnit.getKey());
-        assertArrayEquals("value2".getBytes(), kvUnit.getValue());
+        assertArrayEquals(bytes("value2"), kvUnit.getValue());
 
         kvUnit = finder.find(new byte[]{-3}, checksum);
         assertNotNull(kvUnit);
         assertArrayEquals(new byte[]{-3}, kvUnit.getKey());
-        assertArrayEquals("value3".getBytes(), kvUnit.getValue());
+        assertArrayEquals(bytes("value3"), kvUnit.getValue());
 
         kvUnit = finder.find(new byte[]{-1}, getKeyChecksum(new byte[]{-1}));
         assertNotNull(kvUnit);
         assertArrayEquals(new byte[]{-1}, kvUnit.getKey());
-        assertArrayEquals("value1".getBytes(), kvUnit.getValue());
+        assertArrayEquals(bytes("value1"), kvUnit.getValue());
     }
 
     @Test
     void testFind_shouldReturnNullForNonExistentKeyWithSameChecksum() throws Exception {
         sstPersist.writeSingleFile(Level.LEVEL_ZERO, 2,
-                List.of(new KVUnit(new byte[]{-2}, "value1".getBytes()),
-                        new KVUnit(new byte[]{-1}, "value2".getBytes())).iterator());
+                List.of(new KVUnit(new byte[]{-2}, bytes("value1")),
+                        new KVUnit(new byte[]{-1}, bytes("value2"))).iterator());
 
         SSTInfo first = table.getSSTInfoSet(Level.LEVEL_ZERO).getFirst();
         Finder finder = new Finder(first.getPointers(), dbComponentProvider.getIOReader(first.getSstPath()),

@@ -17,6 +17,7 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.IOException;
+import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.time.Instant;
 import java.util.*;
@@ -26,10 +27,11 @@ class IndexedClusterIteratorTest {
     private SSTInfo sstInfo;
     private IndexedClusterIterator indexedClusterIterator;
     private List<KVUnit> sortedKVs;
+    private FileSystem jimfs;
 
     @BeforeEach
     public void setUp() throws Exception {
-        var jimfs = Jimfs.newFileSystem(Configuration.unix());
+        this.jimfs = Jimfs.newFileSystem(Configuration.unix());
         var dbPath = Files.createTempDirectory(jimfs.getPath("/"), "IndexedClusterIteratorTest_" + Instant.now().toEpochMilli());
         var dbOptions = new DbOptions();
         dbOptions.disallowUseOfMMap();
@@ -50,6 +52,9 @@ class IndexedClusterIteratorTest {
     public void tearDown() throws IOException {
         if (indexedClusterIterator != null) {
             indexedClusterIterator.close();
+        }
+        if (jimfs != null) {
+            jimfs.close();
         }
     }
 

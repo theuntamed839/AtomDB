@@ -7,13 +7,14 @@ import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
+import static io.github.theuntamed839.atomdb.util.BytesConverter.bytes;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class SkipListMemtableTest {
 
     @Test
     public void givenSingleKVUnit_whenPutInMemTable_thenSizeShouldMatchUnitSize() {
-        KVUnit unit = new KVUnit("key".getBytes(), "value".getBytes());
+        KVUnit unit = new KVUnit(bytes("key"), bytes("value"));
 
         var mem = new SkipListMemtable(1000, Arrays::compare);
         mem.put(unit);
@@ -23,9 +24,9 @@ public class SkipListMemtableTest {
 
     @Test
     public void givenMultipleKVUnit_whenPutInMemTable_thenSizeShouldMatchUnitSize() {
-        KVUnit unit1 = new KVUnit("key1".getBytes(), "value1".getBytes());
-        KVUnit unit2 = new KVUnit("key2".getBytes(), "value2".getBytes());
-        KVUnit unit3 = new KVUnit("key3".getBytes(), "value3".getBytes());
+        KVUnit unit1 = new KVUnit(bytes("key1"), bytes("value1"));
+        KVUnit unit2 = new KVUnit(bytes("key2"), bytes("value2"));
+        KVUnit unit3 = new KVUnit(bytes("key3"), bytes("value3"));
         var mem = new SkipListMemtable(1000, Arrays::compare);
 
         mem.put(unit1);
@@ -37,11 +38,11 @@ public class SkipListMemtableTest {
 
     @Test
     public void givenMultipleKVUnit_whenPutInMemTableWithSameKey_thenSizeShouldCalculatedCorrectly() {
-        KVUnit unit1 = new KVUnit("key1".getBytes(), "value1".getBytes());
-        KVUnit unit2 = new KVUnit("key2".getBytes(), "value2".getBytes());
-        KVUnit unit3 = new KVUnit("key3".getBytes(), "value3".getBytes());
+        KVUnit unit1 = new KVUnit(bytes("key1"), bytes("value1"));
+        KVUnit unit2 = new KVUnit(bytes("key2"), bytes("value2"));
+        KVUnit unit3 = new KVUnit(bytes("key3"), bytes("value3"));
 
-        var updatedUnit2 = new KVUnit("key2".getBytes(), "UpdatedValue2".getBytes());
+        var updatedUnit2 = new KVUnit(bytes("key2"), bytes("UpdatedValue2"));
         var mem = new SkipListMemtable(1000, Arrays::compare);
 
         mem.put(unit1);
@@ -54,10 +55,10 @@ public class SkipListMemtableTest {
 
     @Test
     public void givenMemWithMultipleElement_whenDeletedElement_thenSizeShouldMatchTheSizeAlongWithDeletedKey() {
-        KVUnit unit1 = new KVUnit("key1".getBytes(), "value1".getBytes());
-        KVUnit unit2 = new KVUnit("key2".getBytes(), "value2".getBytes());
-        KVUnit unit3 = new KVUnit("key3".getBytes(), "value3".getBytes());
-        var unit2Deleted = new KVUnit("key2".getBytes());
+        KVUnit unit1 = new KVUnit(bytes("key1"), bytes("value1"));
+        KVUnit unit2 = new KVUnit(bytes("key2"), bytes("value2"));
+        KVUnit unit3 = new KVUnit(bytes("key3"), bytes("value3"));
+        var unit2Deleted = new KVUnit(bytes("key2"));
         var mem = new SkipListMemtable(1000, Arrays::compare);
 
         mem.put(unit1);
@@ -71,7 +72,7 @@ public class SkipListMemtableTest {
 
     @Test
     public void givenEmptyMem_whenDeletedElement_thenSizeShouldMatchTheSizeOfDeletedKey() {
-        var unit2Deleted = new KVUnit("key2".getBytes());
+        var unit2Deleted = new KVUnit(bytes("key2"));
         var mem = new SkipListMemtable(1000, Arrays::compare);
 
         mem.put(unit2Deleted);
@@ -81,11 +82,11 @@ public class SkipListMemtableTest {
 
     @Test
     public void givenMemWithMultipleElement_whenDifferentElementDeleted_thenSizeShouldMatchTheSizeAlongWithDeletedKey() {
-        KVUnit unit1 = new KVUnit("key1".getBytes(), "value1".getBytes());
-        KVUnit unit2 = new KVUnit("key2".getBytes(), "value2".getBytes());
-        KVUnit unit3 = new KVUnit("key3".getBytes(), "value3".getBytes());
-        var deleted1 = new KVUnit("delete1".getBytes());
-        var deleted2 = new KVUnit("delete2".getBytes());
+        KVUnit unit1 = new KVUnit(bytes("key1"), bytes("value1"));
+        KVUnit unit2 = new KVUnit(bytes("key2"), bytes("value2"));
+        KVUnit unit3 = new KVUnit(bytes("key3"), bytes("value3"));
+        var deleted1 = new KVUnit(bytes("delete1"));
+        var deleted2 = new KVUnit(bytes("delete2"));
         var mem = new SkipListMemtable(1000, Arrays::compare);
         mem.put(unit1);
         mem.put(unit2);
@@ -99,9 +100,9 @@ public class SkipListMemtableTest {
 
     @Test
     public void givenMemWithMultipleElement_whenGetOnMem_thenItShouldReturnTheKVUnitForThatKey() {
-        KVUnit unit1 = new KVUnit("key1".getBytes(), "value1".getBytes());
-        KVUnit unit2 = new KVUnit("key2".getBytes(), "value2".getBytes());
-        KVUnit unit3 = new KVUnit("key3".getBytes(), "value3".getBytes());
+        KVUnit unit1 = new KVUnit(bytes("key1"), bytes("value1"));
+        KVUnit unit2 = new KVUnit(bytes("key2"), bytes("value2"));
+        KVUnit unit3 = new KVUnit(bytes("key3"), bytes("value3"));
 
         var mem = new SkipListMemtable(1000, Arrays::compare);
         mem.put(unit1);
@@ -112,10 +113,10 @@ public class SkipListMemtableTest {
 
     @Test
     public void givenFullMem_whenPutMore_thenItShouldOverFlow() {
-        KVUnit unit1 = new KVUnit("key1".getBytes(), "value1".getBytes());
+        KVUnit unit1 = new KVUnit(bytes("key1"), bytes("value1"));
         var mem = new SkipListMemtable(unit1.getUnitSize(), Arrays::compare);
 
-        mem.put(new KVUnit("key2".getBytes(), "value2".getBytes()));
+        mem.put(new KVUnit(bytes("key2"), bytes("value2")));
         Assertions.assertTrue(mem.isFull());
     }
 
@@ -123,7 +124,7 @@ public class SkipListMemtableTest {
     public void givenMem_whenGetReadOnlyMap_thenItShouldAReadOnlyMap() {
         var mem = new SkipListMemtable(1000, Arrays::compare);
         var map = mem.getReadOnlyMap();
-        Assertions.assertThrows(UnsupportedOperationException.class, () -> map.put("key".getBytes(), new KVUnit("value".getBytes())));
+        Assertions.assertThrows(UnsupportedOperationException.class, () -> map.put(bytes("key"), new KVUnit(bytes("value"))));
     }
 
     @Test
@@ -135,7 +136,7 @@ public class SkipListMemtableTest {
 
         var executor = Executors.newFixedThreadPool(threadCount);
         for (int t = 0; t < threadCount; t++) {
-            executor.submit(() -> {
+            executor.execute(() -> {
                 for (int i = 0; i < opsPerThread; i++) {
                     var key = new byte[rand.nextInt(50)];
                     var value = new byte[rand.nextInt(50)];
