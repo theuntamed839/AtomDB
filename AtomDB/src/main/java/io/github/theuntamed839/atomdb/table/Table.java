@@ -7,8 +7,6 @@ import io.github.theuntamed839.atomdb.sstIO.Intermediate;
 import io.github.theuntamed839.atomdb.sstIO.SSTFileHelper;
 import io.github.theuntamed839.atomdb.sstIO.SSTHeader;
 import io.github.theuntamed839.atomdb.db.DbComponentProvider;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -17,13 +15,13 @@ import java.nio.file.StandardCopyOption;
 import java.util.*;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.stream.Collectors;
-
+import java.lang.System.Logger;
 /*
 TODO: we should find a strategy which avoids creating too many SST files in the same folder, surely there would be some limit how many files can a directory hold.
  */
 
 public class Table {
-    private static final Logger logger = LoggerFactory.getLogger(Table.class);
+    private static final Logger logger = System.getLogger(Table.class.getName());
     private final Map<Level, SortedSet<SSTInfo>> levelToFilesMap = new HashMap<>();
     private final SSTFileNamer sstFileNamer;
     private final Search search;
@@ -103,7 +101,7 @@ public class Table {
             try {
                 Files.deleteIfExists(info.getSstPath());
             } catch (Exception e) {
-                logger.error("Failed to delete SST file: {}", info.getSstPath().toAbsolutePath(), e);
+                logger.log(Logger.Level.ERROR, String.format("Failed to delete SST file: %s message: %s", info.getSstPath().toAbsolutePath(), e.getMessage()));
             }
         }
     }

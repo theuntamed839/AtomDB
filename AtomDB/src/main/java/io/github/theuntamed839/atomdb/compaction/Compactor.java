@@ -9,13 +9,12 @@ import io.github.theuntamed839.atomdb.db.DbComponentProvider;
 import io.github.theuntamed839.atomdb.db.KVUnit;
 import io.github.theuntamed839.atomdb.sstIO.SSTPersist;
 import io.github.theuntamed839.atomdb.search.Search;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.locks.ReentrantLock;
+import java.lang.System.Logger;
 
 /**
  * TODO:
@@ -43,7 +42,7 @@ public class Compactor implements AutoCloseable {
     private final DbComponentProvider dbComponentProvider;
     private final SSTPersist sstPersist;
     private final ExecutorService executors = Executors.newCachedThreadPool();
-    private static final Logger logger = LoggerFactory.getLogger(Compactor.class.getName());
+    private static final Logger logger = System.getLogger(Compactor.class.getName());
     private final Map<Level, ReentrantLock> locks = new ConcurrentHashMap<>();
 
     public Compactor(Table table, Search search, Path dbPath, DbComponentProvider dbComponentProvider) {
@@ -78,7 +77,7 @@ public class Compactor implements AutoCloseable {
                     overlapping = getCurrentAndNextLevelOverlappingFiles(level, false);
                 }
                 if (overlapping.size() <= 1) {
-                    logger.debug("No overlapping files found for compaction at level {}. Skipping compaction.", level);
+                    logger.log(Logger.Level.INFO, String.format("No overlapping files found for compaction at level %s. Skipping compaction.", level));
                     return;
                 }
                 performCompaction(level, overlapping);
@@ -237,7 +236,7 @@ public class Compactor implements AutoCloseable {
             sstPersist.writeManyFiles(level.nextLevel(), iterator, getAverageNumOfEntriesInSST(overlappingFiles), overlappingFiles);
         } catch (Exception e) {
             e.printStackTrace();
-            logger.error("Error during compaction for level {}: {}", level, e.getMessage());
+            logger.log(Logger.Level.ERROR,String.format("Error during compaction for level %s: %s", level, e.getMessage()));
         }
     }
 

@@ -8,8 +8,6 @@ import io.github.theuntamed839.atomdb.wal.WALManager;
 import io.github.theuntamed839.atomdb.mem.ImmutableMem;
 import io.github.theuntamed839.atomdb.mem.SkipListMemtable;
 import io.github.theuntamed839.atomdb.table.Table;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import io.github.theuntamed839.atomdb.search.Search;
 
 import java.io.IOException;
@@ -22,9 +20,10 @@ import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.concurrent.locks.StampedLock;
+import java.lang.System.Logger;
 
 public class AtomDB implements DB, AutoCloseable{
-    private final Logger logger = LoggerFactory.getLogger(getClass());
+    private final Logger logger = System.getLogger(AtomDB.class.getName());
     private final Path dbPath;
     private final WALManager walManager;
     private final Compactor compactor;
@@ -131,7 +130,7 @@ public class AtomDB implements DB, AutoCloseable{
             if (!isClosed.get()) {
                 throw new IllegalStateException("Database must be closed before destroying.");
             }
-            logger.info("Destroying database at: {}", dbPath);
+            logger.log(Logger.Level.INFO, String.format("Destroying database at: %s", dbPath));
             try (var stream = Files.walk(this.dbPath)) {
                 stream.sorted(java.util.Comparator.reverseOrder())
                         .forEach(path -> {
@@ -157,12 +156,12 @@ public class AtomDB implements DB, AutoCloseable{
             FileLock lock = dbLockFileChannel.tryLock();
             if (lock != null) {
                 dbProcessLocking = lock;
-                logger.info("Acquired lock on database at: {}", dbPath);
+                logger.log(Logger.Level.INFO, String.format("Acquired lock on database at: %s", dbPath));
             } else {
                 throw new IOException("Database is already opened by another process: " + dbPath);
             }
         } catch (Exception e) {
-            logger.error("Failed to acquire database lock at {}: {}", dbPath, e.getMessage(), e);
+            logger.log(Logger.Level.ERROR, String.format("Failed to acquire database lock at %s: %s", dbPath, e.getMessage()));
             throw e;
         }
     }
@@ -178,7 +177,7 @@ public class AtomDB implements DB, AutoCloseable{
         long stamp = stampedLock.writeLock();
         try {
             if (isClosed.get()) {
-                logger.warn("Database at {} is already closed.", dbPath);
+                logger.log(Logger.Level.WARNING, String.format("Database at %s is already closed.", dbPath));
                 return;
             }
             isClosed.set(true);

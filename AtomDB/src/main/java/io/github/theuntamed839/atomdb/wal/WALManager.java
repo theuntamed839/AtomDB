@@ -6,17 +6,16 @@ import io.github.theuntamed839.atomdb.db.DB;
 import io.github.theuntamed839.atomdb.db.DbComponentProvider;
 import io.github.theuntamed839.atomdb.db.ExpandingByteBuffer;
 import io.github.theuntamed839.atomdb.db.KVUnit;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.concurrent.locks.StampedLock;
+import java.lang.System.Logger;
 
 public class WALManager implements AutoCloseable {
-    private static final Logger logger = LoggerFactory.getLogger(WALManager.class);
+    private static final Logger logger = System.getLogger(WALManager.class.getName());
     private static final String LOG_PREFIX = "LOG_PREFIX";
     private final WalEncoderDecoder walEncoderDecoder;
     private LogWriter writer;
@@ -35,7 +34,7 @@ public class WALManager implements AutoCloseable {
     }
 
     public void restore(DB db) throws Exception {
-        logger.info("Restoring database from log files in: {}", logDirPath);
+        logger.log(Logger.Level.INFO, String.format("Restoring database from log files in: %s", logDirPath));
         var oldLog = findLastModifiedLog();
         if (oldLog != null) {
             try (var reader = componentProvider.getIOReader(oldLog)) {
@@ -47,12 +46,12 @@ public class WALManager implements AutoCloseable {
                     }
                 }
             } catch (Exception e) {
-                logger.error("Failed to restore from log fileToWrite: {}", oldLog, e);
+                logger.log(Logger.Level.ERROR, String.format("Failed to restore from log fileToWrite: %s", oldLog));
                 throw e;
             }
             Files.delete(oldLog);
         } else {
-            logger.info("No previous logs found. Starting fresh database.");
+            logger.log(Logger.Level.INFO, "No previous logs found. Starting fresh database.");
         }
     }
 
