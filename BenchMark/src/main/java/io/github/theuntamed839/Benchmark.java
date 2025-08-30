@@ -6,16 +6,55 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
+import static io.github.theuntamed839.Util.fillDB;
+
 /**
  * --add-exports=java.base/jdk.internal.ref=ALL-UNNAMED --add-exports=java.base/sun.nio.ch=ALL-UNNAMED --add-exports=jdk.unsupported/sun.misc=ALL-UNNAMED --add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED --add-opens=jdk.compiler/com.sun.tools.javac=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED --add-opens=java.base/java.io=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens java.base/java.nio=ALL-UNNAMED
  */
 public class Benchmark {
-    public static final long SEED = 1234;
+    public static final long SEED = 1234567890L; // 1234
 
     public static void main(String[] args) throws Exception {
 //        benchmarkWithRandomKVBytes(DBProvider.get(DB.LEVELDB),60_000_00, 500, 50);
-        benchmarkWithRandomKVBytesWithNoInMemoryHold(
-                DBProvider.get(DB.LEVELDB), 20_000_00, 500, 50);
+//        benchmarkWithRandomKVBytesWithNoInMemoryHold(
+//                DB.LEVELDB_JAVA.getAdapter(), 20_000_00, 500, 50);
+
+        idk(DB.ATOMDB, 2000000, 500, 50);
+    }
+
+    private static void idk(DB adaptor, int entryCount, int keySize, int valueSize) throws Exception {
+        BenchmarkDBAdapter db = adaptor.getAdapter();
+        List<byte[]> keys = fillDB(db, entryCount, keySize, valueSize, SEED);
+        long start = System.nanoTime();
+        for (byte[] key : keys) {
+            db.get(key);
+        }
+        long end = System.nanoTime();
+        System.out.println("Total time for reading "+entryCount+" entries: "+(end-start)/1_000_000_000.0+" seconds");
+
+        db.closeAndDestroy();
+        db = adaptor.getAdapter();
+        keys = fillDB(db, entryCount, keySize, valueSize, SEED);
+
+        start = System.nanoTime();
+        for (byte[] key : keys) {
+            db.get(key);
+        }
+        end = System.nanoTime();
+        System.out.println("Total time for reading "+entryCount+" entries: "+(end-start)/1_000_000_000.0+" seconds");
+
+        db.closeAndDestroy();
+        db = adaptor.getAdapter();
+        keys = fillDB(db, entryCount, keySize, valueSize, SEED);
+
+        start = System.nanoTime();
+        for (byte[] key : keys) {
+            db.get(key);
+        }
+        end = System.nanoTime();
+        System.out.println("Total time for reading "+entryCount+" entries: "+(end-start)/1_000_000_000.0+" seconds");
+
+        db.closeAndDestroy();
     }
 
 
@@ -151,7 +190,7 @@ public class Benchmark {
 }
 
 /**
- * AtomDB
+ * AtomDBAdaptor
 *         benchmarkWithRandomKVBytes(DBProvider.get(DB.ATOMDB),20_000_00, 500, 50);
  * writing time=19.9684539 , reading time=19.3050245
  * writing time=22.0252559 , reading time=15.4229418

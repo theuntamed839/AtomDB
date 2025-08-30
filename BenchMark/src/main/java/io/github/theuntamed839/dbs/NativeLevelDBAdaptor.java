@@ -18,7 +18,7 @@ public class NativeLevelDBAdaptor implements BenchmarkDBAdapter {
     private final DB db;
 
     public NativeLevelDBAdaptor() throws IOException {
-        dbPath = Files.createDirectory(Path.of("LEVELDB_" + UUID.randomUUID()));
+        dbPath = Files.createDirectory(Path.of(this.getClass().getSimpleName() + "_" + UUID.randomUUID()));
         Options options = new Options();
         options.createIfMissing(true);
         db = factory.open(dbPath.toFile(), options);
@@ -41,8 +41,13 @@ public class NativeLevelDBAdaptor implements BenchmarkDBAdapter {
 //        JniDBFactory.popMemoryPool();
         try (Stream<Path> stream = Files.walk(dbPath)) {
             stream.sorted(Comparator.reverseOrder())
-                    .map(Path::toFile)
-                    .forEach(File::delete);
+                    .forEach(path -> {
+                        try {
+                            Files.delete(path);
+                        } catch (Exception e) {
+                            throw new RuntimeException(e);
+                        }
+                    });
         }
     }
 }

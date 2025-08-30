@@ -4,7 +4,6 @@ import org.rocksdb.Options;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -20,7 +19,7 @@ public class RocksDBAdaptor implements BenchmarkDBAdapter {
     private final Path dbPath;
 
     public RocksDBAdaptor() throws IOException, RocksDBException {
-        dbPath = Files.createDirectory(Path.of("LEVELDB_NATIVE_" + UUID.randomUUID()));
+        dbPath = Files.createDirectory(Path.of(this.getClass().getSimpleName() + "_" + UUID.randomUUID()));
         Options options = new Options();
         options.createIfMissing();
         db = RocksDB.open(options, dbPath.toString());
@@ -32,7 +31,7 @@ public class RocksDBAdaptor implements BenchmarkDBAdapter {
     }
 
     @Override
-    public byte[] get(byte[] key) throws IOException, RocksDBException {
+    public byte[] get(byte[] key) throws RocksDBException {
         return db.get(key);
     }
 
@@ -41,8 +40,13 @@ public class RocksDBAdaptor implements BenchmarkDBAdapter {
         db.close();
         try (Stream<Path> stream = Files.walk(dbPath)) {
             stream.sorted(Comparator.reverseOrder())
-                    .map(Path::toFile)
-                    .forEach(File::delete);
+                    .forEach(path -> {
+                        try {
+                            Files.delete(path);
+                        } catch (Exception e) {
+                            throw new RuntimeException(e);
+                        }
+                    });
         }
     }
 }
