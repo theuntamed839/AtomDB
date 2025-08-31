@@ -34,7 +34,7 @@ public class WALManager implements AutoCloseable {
     }
 
     public void restore(DB db) throws Exception {
-        logger.log(Logger.Level.INFO, String.format("Restoring database from log files in: %s", logDirPath));
+        logger.log(Logger.Level.INFO, String.format("Trying to restore database from log files: %s", logDirPath));
         var oldLog = findLastModifiedLog();
         if (oldLog != null) {
             try (var reader = componentProvider.getIOReader(oldLog)) {
@@ -46,7 +46,7 @@ public class WALManager implements AutoCloseable {
                     }
                 }
             } catch (Exception e) {
-                logger.log(Logger.Level.ERROR, String.format("Failed to restore from log fileToWrite: %s", oldLog));
+                logger.log(Logger.Level.ERROR, String.format("Failed to restore from log file: %s", oldLog));
                 throw e;
             }
             Files.delete(oldLog);

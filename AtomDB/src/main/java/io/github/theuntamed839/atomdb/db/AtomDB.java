@@ -130,7 +130,7 @@ public class AtomDB implements DB, AutoCloseable{
             if (!isClosed.get()) {
                 throw new IllegalStateException("Database must be closed before destroying.");
             }
-            logger.log(Logger.Level.INFO, String.format("Destroying database at: %s", dbPath));
+            logger.log(Logger.Level.INFO, String.format("Destroying database: %s", dbPath));
             try (var stream = Files.walk(this.dbPath)) {
                 stream.sorted(java.util.Comparator.reverseOrder())
                         .forEach(path -> {
@@ -156,12 +156,12 @@ public class AtomDB implements DB, AutoCloseable{
             FileLock lock = dbLockFileChannel.tryLock();
             if (lock != null) {
                 dbProcessLocking = lock;
-                logger.log(Logger.Level.INFO, String.format("Acquired lock on database at: %s", dbPath));
+                logger.log(Logger.Level.INFO, String.format("Lock acquired on database file: %s", lockFilePath));
             } else {
                 throw new IOException("Database is already opened by another process: " + dbPath);
             }
         } catch (Exception e) {
-            logger.log(Logger.Level.ERROR, String.format("Failed to acquire database lock at %s: %s", dbPath, e.getMessage()));
+            logger.log(Logger.Level.ERROR, String.format("Failed to acquire database lock %s: %s", lockFilePath, e.getMessage()));
             throw e;
         }
     }
