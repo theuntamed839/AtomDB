@@ -1,10 +1,10 @@
-# AtomDB
+# DataStore4J
 
-**AtomDB** is a high-performance, LSM-tree-based key-value storage library inspired by [LevelDB](https://github.com/google/leveldb).
+**DataStore4J** A thread-safe, high-performance key-value database built on an LSM-tree architecture, inspired by [LevelDB](https://github.com/google/leveldb).
 
 ## ⚙️ Architecture Overview
 
-- AtomDB uses a **Log-Structured Merge Tree (LSM)** architecture.
+- DataStore4J uses a **Log-Structured Merge Tree (LSM)** architecture.
 - Incoming key-value pairs are first stored in an **in-memory structure (memtable)**.
 - Once full, the memtable is flushed to disk as a new **SSTable** (Sorted String Table) file.
 - **SSTables are immutable**, meaning that keys are never updated in place.
