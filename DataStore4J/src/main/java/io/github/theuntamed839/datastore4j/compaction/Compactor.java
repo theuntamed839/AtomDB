@@ -22,17 +22,6 @@ import java.lang.System.Logger;
  *     For that we can have the number of deleted entries in sst in the header
  *  2. We should maintain a hit count for each sst file to evaluate how optimized it is.
  *     Files with a higher hit success rate (i.e., more successful lookups) are likely well-optimized and can be skipped during compaction.
- *
- *  Note:
- *   1. We must ensure that we always compact the older files first, and that we avoid compacting files that overlap with other files in the same level.
- *      consider that level 1 has 2 files named A and B. where B is the latest and A is the oldest.
- *      B has 23 and 29 number in it.
- *      A has 23 number in it.
- *      consider that we choose the files having 29 to compact, and we search for files having 29 and compact to next Level 2.
- *      Now the issue starts, when we try to find number 23 we first look into the Level 1 and since we have file A containing 23 in it we return that.
- *      But turns out the newest value for 23 was in B which is now compacted to Level 2
- *      So we have to make sure that all the olds files are compacted first and if we can't compact the old files, then we should choose the files which are not overlapping
- *      with the old files.
  */
 
 
@@ -145,21 +134,23 @@ public class Compactor implements AutoCloseable {
     private SortedSet<SSTInfo> getAllOverlappingFilesToCompactWithGivenRange(Range range, SortedSet<SSTInfo> currentLevelSSTSet,
                                                                              SortedSet<SSTInfo> nextLevelSSTSet, boolean performMajorCompaction) {
         /*
-            IMPORTANT:
+         IMPORTANT:
             Ideally, we want to select:
             All overlapping files from the current level, along with any files they further overlap with.
-            All overlapping files from the next level with the current level files, including their further overlapping files.
+            All overlapping files from the next level that overlap with the current level files, including any files they further overlap with.
 
-            These would lead to highly optimized SSTs but could be very expensive process too as we might take all the SSTs from both the levels.
+            This approach would lead to highly optimized SSTs, but it could also be a very expensive process,
+            as it might require compacting almost all the SSTs from both levels.
 
-            To mitigate this,
-            1.We can avoid the newer overlapping files from the current level.
-             (since reading is done with the newest first, we are not messing the structure, if we take newer files and keep the older files, then compaction
-              is going to push these new files to next level, thus reading is going to happen with the older files first)
+            To mitigate this:
+                1. Avoid newer overlapping files from the current level.
+            (Since reading is done with the newest files first, we won’t disrupt the structure. If we include newer files while leaving older ones,
+             then compaction will push these newer files to the next level, causing reads to prioritize older files first—breaking the intended order.)
 
-            2.We can avoid taking older overlapping files from the next level.
-             (Why avoid older files ? consider opposite, we take older files and avoid newer files, since it's the compaction from the previous level, newly
-             compacted files will be pushed as newer files in this level, leading to messed up reading structure, as we're going to read the older values first)
+                2. Avoid older overlapping files from the next level.
+            (Why avoid older files? Consider if we take older files and skip newer ones,
+             the compaction from the previous level will introduce newly compacted files as newer files in this level.
+              This would disrupt the read order, since reads would then encounter older values first.)
          */
 
         SortedSet<SSTInfo> initiallyOverlapping = new TreeSet<>();
@@ -200,11 +191,10 @@ public class Compactor implements AutoCloseable {
     private Collection<? extends SSTInfo> findNextLevelNonOverlappingSSTs(SortedSet<SSTInfo> ssts, Range range, boolean performMajorCompaction) {
         /*
         range.overlapsWith(candidate.getSstKeyRange());
-        this can go in the below if condition, it generates highly optimized ssts, but is very expensive, as it gets a lot of ssts to compact
-
+        It generates highly optimized ssts, but is very expensive, as it gets a lot of ssts to compact
 
         candidate.getSstKeyRange().contains(range)
-        because further level ssts are highly compact, and decides whether to get compacted based on the range
+        Further level ssts are highly compact, and can decide whether to get compacted based on the range
 
         candidate.getSstKeyRange().inRange(range.getSmallest()) || candidate.getSstKeyRange().inRange(range.getGreatest());
          */
