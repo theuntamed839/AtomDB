@@ -477,7 +477,7 @@ public abstract class CRUDTest {
             rand.nextBytes(value);
 
             db.put(key, value);
-            try (Stream<Path> stream = Files.list(dbPath.resolve("ATOM_DB"))) {
+            try (Stream<Path> stream = Files.list(dbPath.resolve("DATASTORE4J"))) {
                 if (stream.anyMatch(path -> path.getFileName().toString().contains("sst"))) {
                     break;
                 }
@@ -508,8 +508,8 @@ public abstract class CRUDTest {
         fillDBUntilSSTFileAppears(db, "SST_0_2.sst");
 
         //this loop end, means that compaction has happened and the old SST files are removed.
-        while (Files.exists(dbPath.resolve("ATOM_DB/SST_0_1.sst")) ||
-                Files.exists(dbPath.resolve("ATOM_DB/SST_0_2.sst"))) {
+        while (Files.exists(dbPath.resolve("DATASTORE4J/SST_0_1.sst")) ||
+                Files.exists(dbPath.resolve("DATASTORE4J/SST_0_2.sst"))) {
             writeRandomKeyValuePairs(db, 1000);
         }
 
@@ -525,8 +525,8 @@ public abstract class CRUDTest {
         fillDBUntilSSTFileAppears(db, "SST_0_2.sst");
 
         //this loop end, means that compaction has happened and the old SST files are removed.
-        while (Files.exists(dbPath.resolve("ATOM_DB/SST_0_1.sst")) ||
-                Files.exists(dbPath.resolve("ATOM_DB/SST_0_2.sst"))) {
+        while (Files.exists(dbPath.resolve("DATASTORE4J/SST_0_1.sst")) ||
+                Files.exists(dbPath.resolve("DATASTORE4J/SST_0_2.sst"))) {
             writeRandomKeyValuePairs(db, 1000);
         }
         db.close();
@@ -542,12 +542,12 @@ public abstract class CRUDTest {
         fillDBUntilSSTFileAppears(db, "SST_0_1.sst");
 
         //this loop end, means that compaction has happened and the old SST files are removed.
-        while (Files.exists(dbPath.resolve("ATOM_DB/SST_0_1.sst"))) {
+        while (Files.exists(dbPath.resolve("DATASTORE4J/SST_0_1.sst"))) {
             writeRandomKeyValuePairs(db, 1000);
         }
 
         int currentFileNumber;
-        try (var stream = Files.list(dbPath.resolve("ATOM_DB"))) {
+        try (var stream = Files.list(dbPath.resolve("DATASTORE4J"))) {
              currentFileNumber = stream
                 .filter(path -> path.getFileName().toString().contains(".sst"))
                     .filter(path -> !path.getFileName().toString().split("_")[1].equals("0"))
@@ -568,12 +568,12 @@ public abstract class CRUDTest {
         fillDBUntilSSTFileAppears(db, "SST_0_1.sst");
 
         //this loop end, means that compaction has happened and the old SST files are removed.
-        while (Files.exists(dbPath.resolve("ATOM_DB/SST_0_1.sst"))) {
+        while (Files.exists(dbPath.resolve("DATASTORE4J/SST_0_1.sst"))) {
             writeRandomKeyValuePairs(db, 1000);
         }
 
         int currentFileNumber;
-        try (var stream = Files.list(dbPath.resolve("ATOM_DB"))) {
+        try (var stream = Files.list(dbPath.resolve("DATASTORE4J"))) {
             currentFileNumber = stream
                     .filter(path -> path.getFileName().toString().contains(".sst"))
                     .filter(path -> !path.getFileName().toString().split("_")[1].equals("0"))
@@ -597,11 +597,11 @@ public abstract class CRUDTest {
         fillDBUntilSSTFileAppears(db, "SST_0_1.sst");
 
         //this loop end, means that compaction has happened and the old SST files are removed.
-        while (Files.exists(dbPath.resolve("ATOM_DB/SST_0_1.sst"))) {
+        while (Files.exists(dbPath.resolve("DATASTORE4J/SST_0_1.sst"))) {
             writeRandomKeyValuePairs(db, 1000);
         }
         int currentFileNumber;
-        try (var stream = Files.list(dbPath.resolve("ATOM_DB"))) {
+        try (var stream = Files.list(dbPath.resolve("DATASTORE4J"))) {
             currentFileNumber = stream
                 .filter(path -> path.getFileName().toString().contains(".sst"))
                     .filter(path -> !path.getFileName().toString().split("_")[1].equals("0"))
@@ -678,7 +678,7 @@ public abstract class CRUDTest {
             rand.nextBytes(value);
 
             db.put(key, value);
-            try (Stream<Path> stream = Files.list(dbPath.resolve("ATOM_DB"))) {
+            try (Stream<Path> stream = Files.list(dbPath.resolve("DATASTORE4J"))) {
                 if (stream.anyMatch(path -> path.getFileName().toString().contains("sst"))) {
                     break;
                 }
@@ -710,8 +710,8 @@ public abstract class CRUDTest {
         fillDBUntilSSTFileAppears(db, "SST_0_2.sst");
 
         //this loop end, means that compaction has happened and the old SST files are removed.
-        while (Files.exists(dbPath.resolve("ATOM_DB/SST_0_1.sst")) ||
-                Files.exists(dbPath.resolve("ATOM_DB/SST_0_2.sst"))) {
+        while (Files.exists(dbPath.resolve("DATASTORE4J/SST_0_1.sst")) ||
+                Files.exists(dbPath.resolve("DATASTORE4J/SST_0_2.sst"))) {
             writeRandomKeyValuePairs(db, 1000);
         }
 
@@ -727,8 +727,8 @@ public abstract class CRUDTest {
         fillDBUntilSSTFileAppears(db, "SST_0_2.sst");
 
         //this loop end, means that compaction has happened and the old SST files are removed.
-        while (Files.exists(dbPath.resolve("ATOM_DB/SST_0_1.sst")) ||
-                Files.exists(dbPath.resolve("ATOM_DB/SST_0_2.sst"))) {
+        while (Files.exists(dbPath.resolve("DATASTORE4J/SST_0_1.sst")) ||
+                Files.exists(dbPath.resolve("DATASTORE4J/SST_0_2.sst"))) {
             writeRandomKeyValuePairs(db, 1000);
         }
         db.close();
@@ -748,7 +748,7 @@ public abstract class CRUDTest {
             rand.nextBytes(value);
 
             db.put(key, value);
-            try (Stream<Path> stream = Files.list(dbPath.resolve("ATOM_DB"))) {
+            try (Stream<Path> stream = Files.list(dbPath.resolve("DATASTORE4J"))) {
                 if (stream.anyMatch(path -> path.getFileName().toString().contains(substring))) {
                     break;
                 }

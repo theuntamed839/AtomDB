@@ -41,7 +41,7 @@ public class DataStore4J implements DB, AutoCloseable{
     public DataStore4J(Path pathForDB, DbOptions dbOptions) throws Exception {
         this.dbComponentProvider = new DbComponentProvider(dbOptions);
 
-        this.dbPath = pathForDB.resolve("ATOM_DB");
+        this.dbPath = pathForDB.resolve("DATASTORE4J");
         Files.createDirectories(dbPath);
         acquireDBLock();
         this.walManager = new WALManager(dbPath, dbComponentProvider);
