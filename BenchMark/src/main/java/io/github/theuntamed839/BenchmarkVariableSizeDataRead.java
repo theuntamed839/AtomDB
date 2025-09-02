@@ -1,33 +1,26 @@
 package io.github.theuntamed839;
 
 import org.openjdk.jmh.annotations.*;
-import org.openjdk.jmh.annotations.Benchmark;
-import org.openjdk.jmh.infra.Blackhole;
 import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
 import java.lang.invoke.MethodHandles;
-import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
 
-@BenchmarkMode({Mode.Throughput})
-@State(Scope.Benchmark)
-public class BenchmarkConcurrentRead extends AbstractBenchmark{
+@BenchmarkMode({Mode.SingleShotTime})
+@OutputTimeUnit(TimeUnit.SECONDS)
+@State(Scope.Thread)
+public class BenchmarkVariableSizeDataRead extends AbstractBenchmarkRead {
 
     @Setup(Level.Trial)
     public void setup() throws Exception {
-        super.initAndPopulateDB();
+        super.initAndPopulateDBWithVariableSizeData();
+        super.makeShuffledKeys();
     }
 
     @TearDown(Level.Trial)
     public void tearDown() throws Exception {
         super.tearDown();
-    }
-
-    @Benchmark
-    @Threads(Threads.MAX)
-    public void concurrentSearch(Blackhole bh) throws Exception {
-        byte[] key = keys.get(ThreadLocalRandom.current().nextInt(keys.size()));
-        bh.consume(db.get(key));
     }
 
     public static void main(String[] args) throws Exception {

@@ -11,7 +11,7 @@ import java.util.concurrent.ThreadLocalRandom;
 
 @BenchmarkMode({Mode.Throughput})
 @State(Scope.Benchmark)
-public class BenchmarkConcurrentRead extends AbstractBenchmark{
+public class BenchmarkConcurrentWrite extends AbstractBenchmark{
 
     @Setup(Level.Trial)
     public void setup() throws Exception {
@@ -25,9 +25,14 @@ public class BenchmarkConcurrentRead extends AbstractBenchmark{
 
     @Benchmark
     @Threads(Threads.MAX)
-    public void concurrentSearch(Blackhole bh) throws Exception {
-        byte[] key = keys.get(ThreadLocalRandom.current().nextInt(keys.size()));
-        bh.consume(db.get(key));
+    public void prepopulatedConcurrentWrite(Blackhole bh) throws Exception {
+        ThreadLocalRandom rand = ThreadLocalRandom.current();
+        byte[] key = new byte[keySize];
+        byte[] value = new byte[valueSize];
+        rand.nextBytes(key);
+        rand.nextBytes(value);
+        db.put(key, value);
+        bh.consume(key);
     }
 
     public static void main(String[] args) throws Exception {

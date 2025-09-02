@@ -22,4 +22,20 @@ public class Util {
 
         return keys;
     }
+
+    public static List<byte[]> fillDB(BenchmarkDBAdapter db, int entryCount, int maxKeySize, int minKeySize, int maxValueSize, int minValueSize, long seed) throws Exception {
+        var keys = new ArrayList<byte[]>(entryCount);
+        var random = new Random(seed);
+        for (int i = 0; i < entryCount; i++) {
+            var key = new byte[random.nextInt(minKeySize, maxKeySize)];
+            var value = new byte[random.nextInt(minValueSize, maxValueSize)];
+            random.nextBytes(key);
+            random.nextBytes(value);
+
+            keys.add(key);
+            db.put(key, value);
+        }
+
+        return keys;
+    }
 }

@@ -6,9 +6,7 @@ import org.iq80.leveldb.Options;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Comparator;
 import java.util.UUID;
-import java.util.stream.Stream;
 
 import static org.iq80.leveldb.impl.Iq80DBFactory.factory;
 
@@ -36,15 +34,7 @@ public class PureJavaLevelDBAdaptor implements BenchmarkDBAdapter {
     @Override
     public void closeAndDestroy() throws IOException {
         db.close();
-        try (Stream<Path> stream = Files.walk(dbPath)) {
-            stream.sorted(Comparator.reverseOrder())
-                    .forEach(path -> {
-                        try {
-                            Files.delete(path);
-                        } catch (Exception e) {
-                            throw new RuntimeException(e);
-                        }
-                    });
-        }
+        System.out.println(dbPath + " Folder size: " + getDirectorySize(dbPath));
+        deleteDirectory(dbPath);
     }
 }

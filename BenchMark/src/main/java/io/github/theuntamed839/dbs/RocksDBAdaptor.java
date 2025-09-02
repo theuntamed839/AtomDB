@@ -7,9 +7,7 @@ import org.rocksdb.RocksDBException;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Comparator;
 import java.util.UUID;
-import java.util.stream.Stream;
 
 public class RocksDBAdaptor implements BenchmarkDBAdapter {
     static {
@@ -21,7 +19,7 @@ public class RocksDBAdaptor implements BenchmarkDBAdapter {
     public RocksDBAdaptor() throws IOException, RocksDBException {
         dbPath = Files.createDirectory(Path.of(this.getClass().getSimpleName() + "_" + UUID.randomUUID()));
         Options options = new Options();
-        options.createIfMissing();
+        options.setCreateIfMissing(true);
         db = RocksDB.open(options, dbPath.toString());
     }
 
@@ -38,15 +36,7 @@ public class RocksDBAdaptor implements BenchmarkDBAdapter {
     @Override
     public void closeAndDestroy() throws IOException {
         db.close();
-        try (Stream<Path> stream = Files.walk(dbPath)) {
-            stream.sorted(Comparator.reverseOrder())
-                    .forEach(path -> {
-                        try {
-                            Files.delete(path);
-                        } catch (Exception e) {
-                            throw new RuntimeException(e);
-                        }
-                    });
-        }
+        System.out.println(dbPath + " Folder size: " + getDirectorySize(dbPath));
+        deleteDirectory(dbPath);
     }
 }
