@@ -35,8 +35,11 @@ public class RocksDBAdaptor implements BenchmarkDBAdapter {
 
     @Override
     public void closeAndDestroy() throws IOException {
-        db.close();
-        System.out.println(dbPath + " Folder size: " + getDirectorySize(dbPath));
-        deleteDirectory(dbPath);
+        try {
+            db.close();
+            System.out.println(dbPath + " Folder size: " + getDirectorySize(dbPath));
+        } finally {
+            deleteDirectory(dbPath);
+        }
     }
 }

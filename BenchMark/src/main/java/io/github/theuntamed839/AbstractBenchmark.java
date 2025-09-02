@@ -12,10 +12,10 @@ public abstract class AbstractBenchmark {
 
     protected static final long SEED = 1234567890L; // consistent seed
 
-    @Param({"1000000", "10000000"})
+    @Param({"1000000", "5000000", "10000000"})
     public int entryCount;
 
-    @Param({"DATASTORE4J", "LEVELDB_NATIVE", "LEVELDB_JAVA", "ROCKSDB"})
+    @Param({"DATASTORE4J", "ROCKSDB", "LEVELDB_JAVA", "LEVELDB_NATIVE"})
     public DB dbProvider;
 
     @Param({"500"})

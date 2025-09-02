@@ -30,9 +30,12 @@ public class DataStore4JAdaptor implements BenchmarkDBAdapter {
 
     @Override
     public void closeAndDestroy() throws Exception {
-        db.close();
-        System.out.println(dbPath + " Folder size: " + getDirectorySize(dbPath));
-        db.destroy();
-        deleteDirectory(dbPath);
+        try {
+            db.close();
+            System.out.println(dbPath + " Folder size: " + getDirectorySize(dbPath));
+            db.destroy();
+        } finally {
+            deleteDirectory(dbPath);
+        }
     }
 }

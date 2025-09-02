@@ -15,11 +15,11 @@ public class NativeLevelDBAdaptor implements BenchmarkDBAdapter {
     private final DB db;
 
     public NativeLevelDBAdaptor() throws IOException {
-        JniDBFactory.pushMemoryPool(1024 * 1024);
         dbPath = Files.createDirectory(Path.of(this.getClass().getSimpleName() + "_" + UUID.randomUUID()));
         Options options = new Options();
         options.createIfMissing(true);
         db = factory.open(dbPath.toFile(), options);
+        JniDBFactory.pushMemoryPool(1024 * 512);
     }
 
     @Override
@@ -34,9 +34,12 @@ public class NativeLevelDBAdaptor implements BenchmarkDBAdapter {
 
     @Override
     public void closeAndDestroy() throws IOException {
-        db.close();
-        JniDBFactory.popMemoryPool();
-        System.out.println(dbPath + " Folder size: " + getDirectorySize(dbPath));
-        deleteDirectory(dbPath);
+        try {
+            db.close();
+            JniDBFactory.popMemoryPool();
+            System.out.println(dbPath + " Folder size: " + getDirectorySize(dbPath));
+        } finally {
+            deleteDirectory(dbPath);
+        }
     }
 }
