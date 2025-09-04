@@ -16,9 +16,12 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 @State(Scope.Thread)
 public class BenchmarkWrite extends AbstractBenchmark{
 
+    private Random random;
+
     @Setup(Level.Invocation)
     public void setup() throws Exception {
         super.initDB();
+        this.random = new Random(SEED);
     }
 
     @TearDown(Level.Invocation)
@@ -28,7 +31,6 @@ public class BenchmarkWrite extends AbstractBenchmark{
 
     @Benchmark
     public void writeFixedSizeData(Blackhole bh) throws Exception {
-        var random = new Random(SEED);
         for (int i = 0; i < entryCount; i++) {
             var key = new byte[keySize];
             var value = new byte[valueSize];
@@ -36,12 +38,12 @@ public class BenchmarkWrite extends AbstractBenchmark{
             random.nextBytes(value);
             db.put(key, value);
             bh.consume(key);
+            bh.consume(value);
         }
     }
 
     @Benchmark
     public void writeVariableSizeData(Blackhole bh) throws Exception {
-        var random = new Random(SEED);
         for (int i = 0; i < entryCount; i++) {
             var key = new byte[random.nextInt(10, keySize)];
             var value = new byte[random.nextInt(10, valueSize)];
@@ -49,6 +51,7 @@ public class BenchmarkWrite extends AbstractBenchmark{
             random.nextBytes(value);
             db.put(key, value);
             bh.consume(key);
+            bh.consume(value);
         }
     }
 
