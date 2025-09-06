@@ -7,6 +7,8 @@ import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
 import java.lang.invoke.MethodHandles;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
@@ -21,6 +23,7 @@ public class BenchmarkPlainReadWrite extends AbstractBenchmark {
     public void setup() throws Exception {
         super.initDB();
         this.random = new Random(SEED);
+        this.shuffledKeys = new ArrayList<>(entryCount);
     }
 
     @TearDown(Level.Trial)
@@ -36,13 +39,13 @@ public class BenchmarkPlainReadWrite extends AbstractBenchmark {
             random.nextBytes(key);
             random.nextBytes(value);
             db.put(key, value);
-            bh.consume(key);
-            bh.consume(value);
+            shuffledKeys.add(key);
         }
     }
 
     @Benchmark
     public void randomSearch(Blackhole bh) throws Exception {
+        Collections.shuffle(shuffledKeys, random);
         for (byte[] key : shuffledKeys) {
             bh.consume(db.get(key));
         }
