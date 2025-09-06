@@ -49,5 +49,8 @@ public abstract class AbstractBenchmark {
 
     protected void tearDown() throws Exception {
         db.closeAndDestroy();
+        keys = null;
+        shuffledKeys = null;
+        db = null;
     }
 }
